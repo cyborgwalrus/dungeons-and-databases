@@ -1,7 +1,7 @@
 import random
 from flask import Blueprint, jsonify
 from database import db
-from models import Player, EnemyType, CurrentEncounter
+from models import Player, EnemyType, CurrentEncounter, Item, InventoryItem
 
 dungeon_bp = Blueprint('dungeon', __name__)
 
@@ -9,10 +9,6 @@ dungeon_bp = Blueprint('dungeon', __name__)
 def create_new_encounter():
     """Create a new enemy encounter"""
     player = Player.query.first()
-    if not player:
-        player = Player(health=100, damage=10, level=1)
-        db.session.add(player)
-        db.session.commit()
 
     # Clear any existing encounter
     CurrentEncounter.query.delete()
@@ -50,6 +46,44 @@ def check_player_death(player):
     return False
 
 
+def drop_loot(player, enemy_type):
+    """Drop random items when enemy is defeated"""
+    items_dropped = []
+    
+    # Get all available items
+    all_items = Item.query.all()
+    if not all_items:
+        return items_dropped
+    
+    # Drop 1-3 items based on enemy difficulty
+    num_items = random.randint(1, min(3, len(all_items)))
+    
+    for _ in range(num_items):
+        dropped_item = random.choice(all_items)
+        
+        # Check if player already has this item
+        inventory_item = InventoryItem.query.filter_by(
+            player_id=player.id,
+            item_id=dropped_item.id
+        ).first()
+        
+        if inventory_item:
+            # Increase quantity
+            inventory_item.quantity += 1
+        else:
+            # Add new item
+            inventory_item = InventoryItem(
+                player_id=player.id,
+                item_id=dropped_item.id,
+                quantity=1
+            )
+            db.session.add(inventory_item)
+        
+        items_dropped.append(dropped_item.to_dict())
+    
+    return items_dropped
+
+
 @dungeon_bp.route('/api/dungeon/encounter', methods=['GET'])
 def get_encounter():
     """Get or create current enemy encounter"""
@@ -65,16 +99,16 @@ def get_encounter():
 def attack_monster():
     """Attack a monster in the dungeon"""
     player = Player.query.first()
-    if not player:
-        player = Player()
-        db.session.add(player)
 
     encounter = CurrentEncounter.query.first()
     if not encounter:
         encounter = create_new_encounter()
 
+    # Calculate effective damage including bonuses from equipped items
+    effective_damage = player.damage + player.get_total_bonus_attack()
+    
     # Combat simulation
-    player_hits = random.randint(player.damage // 2, player.damage)
+    player_hits = random.randint(effective_damage // 2, effective_damage)
     monster_hits = random.randint(encounter.damage // 2, encounter.damage)
 
     # Apply damage to enemy
@@ -95,6 +129,7 @@ def attack_monster():
                 'enemy': None,
                 'message': message,
                 'victory': False,
+                'items_dropped': [],
                 'player_died': True
             })
 
@@ -104,10 +139,17 @@ def attack_monster():
             f"{encounter.enemy_type.name} dealt {monster_hits} damage to you!"
         )
         victory = False
+        items_dropped = []
     else:
         # Enemy defeated
         message = f"Victory! You dealt {player_hits} damage and defeated the {encounter.enemy_type.name}!"
         victory = True
+        
+        # Drop loot
+        items_dropped = drop_loot(player, encounter.enemy_type)
+        if items_dropped:
+            item_names = ", ".join([item['name'] for item in items_dropped])
+            message += f" You obtained: {item_names}!"
 
         # Reward: chance to level up and gain stats
         if random.random() < 0.4:  # 40% chance
@@ -127,6 +169,7 @@ def attack_monster():
         'enemy': encounter.to_dict(),
         'message': message,
         'victory': victory,
+        'items_dropped': items_dropped,
         'player_died': False
     })
 
@@ -135,9 +178,6 @@ def attack_monster():
 def run_away():
     """Attempt to run away from the dungeon"""
     player = Player.query.first()
-    if not player:
-        player = Player()
-        db.session.add(player)
 
     encounter = CurrentEncounter.query.first()
     if not encounter:

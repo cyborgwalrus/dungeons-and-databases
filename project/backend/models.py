@@ -6,14 +6,35 @@ class Player(db.Model):
     health = db.Column(db.Integer, default=100)
     damage = db.Column(db.Integer, default=10)
     level = db.Column(db.Integer, default=1)
+    
+    inventory_items = db.relationship('InventoryItem', back_populates='player', cascade='all, delete-orphan')
+    equipped_items = db.relationship('EquippedItem', back_populates='player', cascade='all, delete-orphan')
 
-    def to_dict(self):
-        return {
+    def to_dict(self, include_inventory=False):
+        data = {
             'id': self.id,
             'health': self.health,
             'damage': self.damage,
-            'level': self.level
+            'level': self.level,
+            'bonus_health': self.get_total_bonus_health(),
+            'bonus_damage': self.get_total_bonus_attack(),
         }
+        if include_inventory:
+            data['inventory'] = [item.to_dict() for item in self.inventory_items]
+            data['equipped'] = [eq.to_dict() for eq in self.equipped_items]
+        return data
+    
+    def get_inventory(self):
+        return [item.to_dict() for item in self.inventory_items]
+    
+    def get_equipped(self):
+        return [eq.to_dict() for eq in self.equipped_items]
+    
+    def get_total_bonus_health(self):
+        return sum(eq.item.bonus_health for eq in self.equipped_items)
+    
+    def get_total_bonus_attack(self):
+        return sum(eq.item.bonus_attack for eq in self.equipped_items)
 
 
 class EnemyType(db.Model):
@@ -22,6 +43,8 @@ class EnemyType(db.Model):
     base_health = db.Column(db.Integer, nullable=False)
     base_damage = db.Column(db.Integer, nullable=False)
     description = db.Column(db.String(200))
+    
+    encounters = db.relationship('CurrentEncounter', back_populates='enemy_type')
 
     def to_dict(self):
         return {
@@ -40,7 +63,7 @@ class CurrentEncounter(db.Model):
     max_health = db.Column(db.Integer, nullable=False)
     damage = db.Column(db.Integer, nullable=False)
 
-    enemy_type = db.relationship('EnemyType', backref='encounters')
+    enemy_type = db.relationship('EnemyType', back_populates='encounters')
 
     def to_dict(self):
         return {
@@ -50,4 +73,63 @@ class CurrentEncounter(db.Model):
             'max_health': self.max_health,
             'damage': self.damage,
             'description': self.enemy_type.description
+        }
+
+class Item(db.Model):
+    """Defines item types that can be found in the dungeon"""
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), nullable=False, unique=True)
+    description = db.Column(db.String(200))
+    
+    bonus_health = db.Column(db.Integer, nullable=False)
+    bonus_attack = db.Column(db.Integer, nullable=False)
+    
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'description': self.description,
+            'bonus_health': self.bonus_health,
+            'bonus_attack': self.bonus_attack
+        }
+
+
+class InventoryItem(db.Model):
+    """Tracks items in player inventory with quantities"""
+    __tablename__ = "inventory_item"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
+    quantity = db.Column(db.Integer, default=1, nullable=False)
+    
+    player = db.relationship('Player', back_populates='inventory_items')
+    item = db.relationship('Item')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'item': self.item.to_dict(),
+            'quantity': self.quantity
+        }
+
+
+class EquippedItem(db.Model):
+    """Tracks equipped items (max 5 slots)"""
+    __tablename__ = "equipped_item"
+    
+    id = db.Column(db.Integer, primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
+    slot = db.Column(db.Integer, default=0, nullable=False)  # 0-4 for 5 slots
+    
+    player = db.relationship('Player', back_populates='equipped_items')
+    item = db.relationship('Item')
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'item': self.item.to_dict(),
+            'slot': self.slot
         }

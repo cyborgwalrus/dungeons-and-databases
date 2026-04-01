@@ -19,7 +19,7 @@ services:
 
   frontend:
     build:
-      context: ./Dnd
+      context: ./frontend
       dockerfile: Dockerfile
     container_name: dnd_frontend
     ports:
