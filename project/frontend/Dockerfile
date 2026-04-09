@@ -1,23 +1,10 @@
-FROM node:18-alpine AS build
+FROM nginx:stable-alpine
 
-WORKDIR /app
+WORKDIR /usr/share/nginx/html
 
-COPY package.json package-lock.json ./
+# Copy all frontend files into nginx html directory
+COPY . /usr/share/nginx/html
 
-RUN npm ci
+EXPOSE 80
 
-COPY . .
-
-RUN npm run build
-
-FROM node:18-alpine
-
-WORKDIR /app
-
-RUN npm install -g serve
-
-COPY --from=build /app/dist ./dist
-
-EXPOSE 3000
-
-CMD ["serve", "-s", "dist", "-l", "3000"]
+CMD ["nginx", "-g", "daemon off;"]

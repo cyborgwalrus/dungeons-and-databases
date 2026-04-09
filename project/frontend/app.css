@@ -158,3 +158,51 @@
   min-width: 40px;
   text-align: right;
 }
+
+/* Inventory grid and equip slot styles for drag-and-drop */
+.inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.inventory-card {
+  background: rgba(0,0,0,0.45);
+  border: 1px solid rgba(255,255,255,0.06);
+  padding: 12px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: grab;
+}
+
+.inventory-card:active { cursor: grabbing; }
+
+.inventory-card .item-icon { font-size: 1.6em; }
+.inventory-card .card-details { text-align: left; flex: 1; }
+.inventory-card .qty { color: #ffd700; font-weight: bold; }
+
+.equip-slot {
+  background: rgba(0,0,0,0.45);
+  border: 2px dashed rgba(78,205,196,0.25);
+  border-radius: 6px;
+  padding: 10px;
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.equip-slot.empty { opacity: 0.6; }
+.equip-slot .unequip-button {
+  background: #ff6b6b; color: white; border: none; padding: 6px 8px; border-radius: 4px; cursor: pointer;
+}
+
+.drag-over { box-shadow: 0 0 0 3px rgba(78,205,196,0.18) inset; transform: scale(1.01); }
+
+.available-item { background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px; cursor: grab; }
+
+.inventory-grid.drag-over { outline: 3px dashed rgba(255,215,0,0.15); }
