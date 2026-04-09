@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from database import db
 from models import Item, InventoryItem, EquippedItem
-from game_utils import adjust_inventory_quantity, clear_player_inventory, get_player
+from game_utils import adjust_inventory_quantity, clear_player_inventory, get_player, get_upgraded_item
 
 inventory_bp = Blueprint('inventory', __name__)
 
@@ -176,55 +176,21 @@ def reforge_all_items():
     player = get_player()
 
     made_changes = False
-    # loop until no candidate
     while True:
-        inv_item = InventoryItem.query.filter(InventoryItem.player_id == player.id, InventoryItem.quantity >= 3).first()
+        inv_item = InventoryItem.query.filter_by(player_id=player.id).filter(InventoryItem.quantity >= 3).first()
         if not inv_item:
             break
+
         made_changes = True
         item = Item.query.get(inv_item.item_id)
         if not item:
-            # should not happen, skip
-            # remove this inventory record to avoid infinite loop
             db.session.delete(inv_item)
             db.session.commit()
             continue
 
-        # consume three
         adjust_inventory_quantity(player, inv_item.item_id, -3)
-
-        # determine level and base name
-        import re
-        m = re.search(r"\s\+(\d+)$", item.name)
-        if m:
-            try:
-                curr_level = int(m.group(1))
-            except Exception:
-                curr_level = 0
-            base_name = item.name[:m.start()].strip()
-        else:
-            curr_level = 0
-            base_name = item.name
-
-        new_level = curr_level + 1
-        upgraded_name = f"{base_name} +{new_level}"
-
-        existing_upgraded = Item.query.filter_by(name=upgraded_name).first()
-        if existing_upgraded:
-            upgraded = existing_upgraded
-        else:
-            upgraded = Item(
-                name=upgraded_name,
-                description=(item.description or '') + f' (Reforged +{new_level})',
-                bonus_attack=(item.bonus_attack or 0) * 2,
-                bonus_health=(item.bonus_health or 0) * 2
-            )
-            db.session.add(upgraded)
-            db.session.commit()
-
-        # give upgraded item to player
-        new_inv = adjust_inventory_quantity(player, upgraded.id, 1)
-
+        upgraded = get_upgraded_item(item)
+        adjust_inventory_quantity(player, upgraded.id, 1)
         db.session.commit()
 
     if not made_changes:

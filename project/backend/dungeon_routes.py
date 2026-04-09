@@ -69,6 +69,24 @@ def drop_loot(player, enemy_type):
     return items_dropped
 
 
+def build_combat_response(player, encounter, message, *, victory, items_dropped, player_died, success=False, damage=0, dice_roll=None):
+    payload = {
+        'player': player.to_dict(),
+        'enemy': None if player_died or success else encounter.to_dict(),
+        'message': message,
+        'victory': victory,
+        'items_dropped': items_dropped,
+        'player_died': player_died,
+    }
+
+    if dice_roll is not None:
+        payload['dice_roll'] = dice_roll
+    if success:
+        payload['damage'] = damage
+
+    return jsonify(payload)
+
+
 @dungeon_bp.route('/api/dungeon/encounter', methods=['GET'])
 def get_encounter():
     """Get or create current enemy encounter"""
@@ -93,6 +111,7 @@ def attack_monster():
     encounter = CurrentEncounter.query.first()
     if not encounter:
         encounter = create_new_encounter()
+    enemy_name = encounter.enemy_type.name
 
     # Calculate effective damage including bonuses from equipped items
     effective_damage = player.damage + player.get_total_bonus_attack()
@@ -112,23 +131,22 @@ def attack_monster():
         player_died = check_player_death(player)
 
         if player_died:
-            message = (
-                "Defeat!\n"
-                f"You have been defeated by {encounter.enemy_type.name} and kicked out of the dungeon..."
-            )
             db.session.commit()
-            return jsonify({
-                'player': player.to_dict(),
-                'enemy': None,
-                'message': message,
-                'victory': False,
-                'items_dropped': [],
-                'player_died': True
-            })
+            return build_combat_response(
+                player,
+                encounter,
+                (
+                    "Defeat!\n"
+                    f"You have been defeated by {enemy_name} and kicked out of the dungeon..."
+                ),
+                victory=False,
+                items_dropped=[],
+                player_died=True
+            )
 
         message = (
-            f"You : dealt {player_hits} damage to {encounter.enemy_type.name}!\n"
-            f"{encounter.enemy_type.name}: dealt {monster_hits} damage to you!"
+            f"You : dealt {player_hits} damage to {enemy_name}!\n"
+            f"{enemy_name}: dealt {monster_hits} damage to you!"
         )
         victory = False
         items_dropped = []
@@ -136,7 +154,7 @@ def attack_monster():
         # Enemy defeated
         message_lines = [
             "Victory!",
-            f"You dealt {player_hits} damage and defeated the {encounter.enemy_type.name}!",
+            f"You dealt {player_hits} damage and defeated the {enemy_name}!",
         ]
         victory = True
         
@@ -161,14 +179,14 @@ def attack_monster():
 
     db.session.commit()
 
-    return jsonify({
-        'player': player.to_dict(),
-        'enemy': encounter.to_dict(),
-        'message': message,
-        'victory': victory,
-        'items_dropped': items_dropped,
-        'player_died': False
-    })
+    return build_combat_response(
+        player,
+        encounter,
+        message,
+        victory=victory,
+        items_dropped=items_dropped,
+        player_died=False
+    )
 
 
 @dungeon_bp.route('/api/dungeon/run', methods=['POST'])
@@ -179,6 +197,7 @@ def run_away():
     encounter = CurrentEncounter.query.first()
     if not encounter:
         encounter = create_new_encounter()
+    enemy_name = encounter.enemy_type.name
 
     # Roll a dice (1-6)
     dice_roll = random.randint(1, 6)
@@ -192,52 +211,57 @@ def run_away():
         db.session.delete(encounter)
         db.session.commit()
     
-        return jsonify({
-            'player': player.to_dict(),
-            'enemy': None,
-            'message': message,
-            'damage': damage_taken,
-            'dice_roll': dice_roll,
-            'success': True,
-            'player_died': False
-        })
+        return build_combat_response(
+            player,
+            encounter,
+            message,
+            victory=False,
+            items_dropped=[],
+            player_died=False,
+            success=True,
+            damage=damage_taken,
+            dice_roll=dice_roll
+        )
     else:
         # Failed to escape - enemy attacks you
         damage_taken = random.randint(encounter.damage // 2, encounter.damage)
         player.health = max(0, player.health - damage_taken)
         message = (
             f"You rolled a {dice_roll}! Failed to escape! "
-            f"{encounter.enemy_type.name} caught you and dealt {damage_taken} damage!"
+            f"{enemy_name} caught you and dealt {damage_taken} damage!"
         )
 
         # Check if player died while trying to run
         player_died = check_player_death(player)
 
         if player_died:
-            message = (
-                f"You rolled a {dice_roll} and failed to escape. "
-                f"{encounter.enemy_type.name} dealt {damage_taken} damage! "
-                f"You have been defeated and returned to the start..."
-            )
             db.session.commit()
-            return jsonify({
-                'player': player.to_dict(),
-                'enemy': None,
-                'message': message,
-                'damage': damage_taken,
-                'dice_roll': dice_roll,
-                'success': False,
-                'player_died': True
-            })
+            return build_combat_response(
+                player,
+                encounter,
+                (
+                    f"You rolled a {dice_roll} and failed to escape. "
+                    f"{enemy_name} dealt {damage_taken} damage! "
+                    f"You have been defeated and returned to the start..."
+                ),
+                victory=False,
+                items_dropped=[],
+                player_died=True,
+                success=False,
+                damage=damage_taken,
+                dice_roll=dice_roll
+            )
 
     db.session.commit()
 
-    return jsonify({
-        'player': player.to_dict(),
-        'enemy': encounter.to_dict(),
-        'message': message,
-        'damage': damage_taken,
-        'dice_roll': dice_roll,
-        'success': False,
-        'player_died': False
-    })
+    return build_combat_response(
+        player,
+        encounter,
+        message,
+        victory=False,
+        items_dropped=[],
+        player_died=False,
+        success=False,
+        damage=damage_taken,
+        dice_roll=dice_roll
+    )

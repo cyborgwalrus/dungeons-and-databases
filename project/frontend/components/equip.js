@@ -1,4 +1,5 @@
 import { isSlotCompatible } from '../helpers.js';
+import { bindDragSource, bindDropZone } from '../drag-drop.js';
 
 export async function renderEquipPanel(opts) {
   const { equipped, inventory, allItems, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, getItemType, makeIcon, formatStats } = opts;
@@ -42,37 +43,44 @@ export async function renderEquipPanel(opts) {
     </div>`;
 
   document.querySelectorAll('.equip-slot').forEach(slotEl => {
-    slotEl.addEventListener('dragstart', ev => {
+    bindDragSource(slotEl, {
+      createPayload: () => {
       const itemId = slotEl.getAttribute('data-item-id');
       const slotIndex = slotEl.getAttribute('data-slot-index');
       const item = (allItems || []).find(a => a.item && a.item.id == itemId) || (inventory || []).find(i => i.item && i.item.id == itemId) || {};
       const itemObj = item.item || null;
       const itemType = itemObj ? getItemType(itemObj) : null;
-      setCurrentDrag({ itemId: itemId ? Number(itemId) : null, itemType, from: 'equipped', slot: slotIndex });
-      updateSlotHighlights();
-      ev.dataTransfer.setData('text/plain', JSON.stringify({ itemId, from: 'equipped', slot: slotIndex }));
+        return { itemId: itemId ? Number(itemId) : null, itemType, from: 'equipped', slot: slotIndex };
+      },
+      onDragStart: (ev, payload) => {
+        setCurrentDrag(payload);
+        updateSlotHighlights();
+      },
+      onDragEnd: () => {
+        setCurrentDrag(null);
+        updateSlotHighlights();
+      }
     });
-    slotEl.addEventListener('dragend', () => { setCurrentDrag(null); updateSlotHighlights(); });
 
-    slotEl.addEventListener('dragover', ev => { ev.preventDefault(); slotEl.classList.add('drag-over'); });
-    slotEl.addEventListener('dragleave', () => { slotEl.classList.remove('drag-over'); });
-    slotEl.addEventListener('drop', async ev => {
-      ev.preventDefault(); slotEl.classList.remove('drag-over'); slotEl.classList.remove('slot-allowed'); slotEl.classList.remove('slot-denied');
-      const raw = ev.dataTransfer.getData('text/plain');
-      const payload = raw ? JSON.parse(raw) : getCurrentDrag();
-      if (!payload) return;
-      const slot = Number(slotEl.getAttribute('data-slot'));
-      const slotType = slotEl.getAttribute('data-slot-type') || 'misc';
-      const itemId = Number(payload.itemId);
+    bindDropZone(slotEl, {
+      onDrop: async ev => {
+        slotEl.classList.remove('slot-allowed'); slotEl.classList.remove('slot-denied');
+        const raw = ev.dataTransfer.getData('text/plain');
+        const payload = raw ? JSON.parse(raw) : getCurrentDrag();
+        if (!payload) return;
+        const slot = Number(slotEl.getAttribute('data-slot'));
+        const slotType = slotEl.getAttribute('data-slot-type') || 'misc';
+        const itemId = Number(payload.itemId);
 
-      const itemObj = ((allItems || []).find(a => a.item && a.item.id === itemId) || {}).item || ((inventory || []).find(i => i.item && i.item.id === itemId) || {}).item;
-      const itemType = itemObj ? getItemType(itemObj) : 'misc';
-      if (!isSlotCompatible(slotType, itemType)) return;
+        const itemObj = ((allItems || []).find(a => a.item && a.item.id === itemId) || {}).item || ((inventory || []).find(i => i.item && i.item.id === itemId) || {}).item;
+        const itemType = itemObj ? getItemType(itemObj) : 'misc';
+        if (!isSlotCompatible(slotType, itemType)) return;
 
-      await fetchJson('/inventory/equip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: itemId, slot }) });
-      await loadStateAndRenderPartial();
-      setCurrentDrag(null);
-      updateSlotHighlights();
+        await fetchJson('/inventory/equip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: itemId, slot }) });
+        await loadStateAndRenderPartial();
+        setCurrentDrag(null);
+        updateSlotHighlights();
+      }
     });
   });
 }

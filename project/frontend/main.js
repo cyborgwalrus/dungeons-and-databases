@@ -83,6 +83,62 @@ function renderInventoryGrid() {
     formatStats
   });
 }
+
+async function handleDungeonAttack() {
+  const res = await fetchJson('/dungeon/attack', { method: 'POST' });
+  if (!res.ok || !res.data) return;
+
+  const d = res.data;
+  const lootEl = document.getElementById('loot');
+  applyDungeonCombatUpdate(d, {
+    lootCounts,
+    lootEl,
+    setLastDungeonMessage: v => { lastDungeonMessage = v; }
+  });
+
+  if (d.player_died) {
+    await showDungeonDefeatScreen({
+      message: d.message || 'You were defeated',
+      lootCounts,
+      onExit: () => {
+        lootCounts = {};
+        navigateTo('/');
+      }
+    });
+    return;
+  }
+
+  await loadStateAndRenderPartial();
+  if (d.player) updatePlayerPanel(d.player);
+  if (d.enemy) updateEnemyPanel(d.enemy);
+}
+
+async function handleDungeonRun() {
+  const res = await fetchJson('/dungeon/run', { method: 'POST' });
+  if (!res.ok || !res.data) return;
+
+  const d = res.data;
+  const dungeonMessage = document.getElementById('dungeon-message');
+  if (dungeonMessage) dungeonMessage.innerHTML = formatDungeonMessage(d.message || 'Action result');
+
+  if (d.player_died) {
+    await showDungeonDefeatScreen({
+      message: d.message || 'You were defeated',
+      lootCounts,
+      onExit: () => {
+        lootCounts = {};
+        navigateTo('/');
+      }
+    });
+    return;
+  }
+
+  if (d.success) {
+    setTimeout(() => navigateTo('/'), 1500);
+  } else {
+    setTimeout(() => renderDungeon(), 500);
+  }
+}
 // expose renderers for screen modules
 window.app = window.app || {};
 window.app.renderHome = renderHome;
@@ -188,61 +244,9 @@ async function renderDungeon() {
   // clear preserved message after rendering so future new-encounter renders use preface
   lastDungeonMessage = null;
 
-  document.getElementById('attack').addEventListener('click', async (ev) => {
-    ev.preventDefault();
-    const res = await fetchJson('/dungeon/attack', { method: 'POST' });
-    if (res.ok && res.data) {
-      const d = res.data;
-      const lootEl = document.getElementById('loot');
-      applyDungeonCombatUpdate(d, {
-        lootCounts,
-        lootEl,
-        setLastDungeonMessage: v => { lastDungeonMessage = v; }
-      });
-      if (d.player_died) {
-        await showDungeonDefeatScreen({
-          message: d.message || 'You were defeated',
-          lootCounts,
-          onExit: () => {
-            lootCounts = {};
-            navigateTo('/');
-          }
-        });
-        return;
-      } else {
-        await loadStateAndRenderPartial();
-        // Update player panel in-place if server returned updated player
-        if (d.player) updatePlayerPanel(d.player);
-        // Update enemy panel in-place from response (no full re-render)
-        if (d.enemy) updateEnemyPanel(d.enemy);
-      }
-    }
-  });
+  document.getElementById('attack').addEventListener('click', ev => { ev.preventDefault(); handleDungeonAttack(); });
 
-  document.getElementById('run').addEventListener('click', async (ev) => {
-    ev.preventDefault();
-    const res = await fetchJson('/dungeon/run', { method: 'POST' });
-    if (res.ok && res.data) {
-      const d = res.data;
-      const dungeonMessage = document.getElementById('dungeon-message');
-      if (dungeonMessage) dungeonMessage.innerHTML = formatDungeonMessage(d.message || 'Action result');
-      if (d.player_died) {
-        await showDungeonDefeatScreen({
-          message: d.message || 'You were defeated',
-          lootCounts,
-          onExit: () => {
-            lootCounts = {};
-            navigateTo('/');
-          }
-        });
-        return;
-      } else if (d.success) {
-        setTimeout(() => navigateTo('/'), 1500);
-      } else {
-        setTimeout(() => renderDungeon(), 500);
-      }
-    }
-  });
+  document.getElementById('run').addEventListener('click', ev => { ev.preventDefault(); handleDungeonRun(); });
 
   document.getElementById('back').addEventListener('click', (ev) => { ev.preventDefault(); navigateTo('/'); });
 }

@@ -1,3 +1,5 @@
+import { bindDragSource, bindDropZone } from '../drag-drop.js';
+
 export function renderInventoryGrid(opts) {
   const { inventory, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, getItemType, makeIcon, formatStats } = opts;
   const invContainer = document.getElementById('inventory-grid');
@@ -39,24 +41,27 @@ export function renderInventoryGrid(opts) {
   invContainer.innerHTML = cards.join('');
 
   document.querySelectorAll('.inventory-card').forEach(card => {
-    // Track the currently dragged card so the drop targets can decide what to do with it.
-    card.addEventListener('dragstart', ev => {
+    bindDragSource(card, {
+      createPayload: () => {
       const id = card.getAttribute('data-item-id');
       const type = card.getAttribute('data-item-type');
       const instance = card.getAttribute('data-instance-id');
-      setCurrentDrag({ itemId: Number(id), itemType: type, from: 'inventory', instance });
-      updateSlotHighlights();
-      ev.dataTransfer.setData('text/plain', JSON.stringify({ itemId: id, from: 'inventory', instance }));
+        return { itemId: Number(id), itemType: type, from: 'inventory', instance };
+      },
+      onDragStart: (ev, payload) => {
+        setCurrentDrag(payload);
+        updateSlotHighlights();
+      },
+      onDragEnd: () => {
+        setCurrentDrag(null);
+        updateSlotHighlights();
+      }
     });
-    card.addEventListener('dragend', () => { setCurrentDrag(null); updateSlotHighlights(); });
   });
 
   if (!invContainer.dataset.dndBound) {
-    // Inventory only needs one drop handler; rerenders should not stack duplicate listeners.
-    invContainer.addEventListener('dragover', ev => { ev.preventDefault(); invContainer.classList.add('drag-over'); });
-    invContainer.addEventListener('dragleave', () => invContainer.classList.remove('drag-over'));
-    invContainer.addEventListener('drop', async ev => {
-      ev.preventDefault(); invContainer.classList.remove('drag-over');
+    bindDropZone(invContainer, {
+      onDrop: async ev => {
       const raw = ev.dataTransfer.getData('text/plain');
       if (!raw) return;
       const payload = JSON.parse(raw);
@@ -70,6 +75,7 @@ export function renderInventoryGrid(opts) {
       }
       setCurrentDrag(null);
       updateSlotHighlights();
+      }
     });
     invContainer.dataset.dndBound = '1';
   }
