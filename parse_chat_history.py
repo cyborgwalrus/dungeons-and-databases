@@ -40,4 +40,4 @@ def extract_user_messages(input_file, output_file):
         print(f"An error occurred: {e}")
 
 if __name__ == "__main__":
-    extract_user_messages('chat.json', 'user_messages.md')
+    extract_user_messages('chat.json', 'vscode_copilot_prompts.md')
