@@ -23,12 +23,14 @@ export function initReforge(opts) {
         await fetchJson('/inventory/reforge', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: reforgeState.baseId }) });
         reforgeState.baseId = null; reforgeState.count = 0; updateReforgeUI(); await loadStateAndRenderPartial();
       });
-      // note: external "Reforge All" button is bound once outside updateReforgeUI
+
       const clr = document.getElementById('clear-reforge');
       if (clr) clr.addEventListener('click', () => {
         reforgeState.baseId = null; reforgeState.count = 0;
         document.querySelectorAll('.inventory-card.in-reforge').forEach(c => { c.classList.remove('in-reforge'); c.setAttribute('draggable', 'true'); });
         updateReforgeUI();
+        if (typeof setCurrentDrag === 'function') setCurrentDrag(null);
+        if (typeof updateSlotHighlights === 'function') updateSlotHighlights();
       });
     }
   }
@@ -54,6 +56,8 @@ export function initReforge(opts) {
         const usedCard = document.querySelector(`.inventory-card[data-instance-id="${instanceId}"]`);
         if (usedCard) { usedCard.classList.add('in-reforge'); usedCard.setAttribute('draggable', 'false'); }
       }
+      if (typeof setCurrentDrag === 'function') setCurrentDrag(null);
+      if (typeof updateSlotHighlights === 'function') updateSlotHighlights();
     });
     reforgeEl.dataset.dndBound = '1';
   }
