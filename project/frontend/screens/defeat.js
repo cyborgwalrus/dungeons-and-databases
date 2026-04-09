@@ -1,3 +1,5 @@
+import { formatDungeonMessage, formatLootLines } from '../helpers.js';
+
 export async function showDefeat({ message = 'You were defeated', lootCounts = {}, onExit = null } = {}) {
   if (!(window.app && typeof window.app.renderDungeon === 'function')) {
     // fallback: render a minimal defeat screen into root
@@ -7,13 +9,13 @@ export async function showDefeat({ message = 'You were defeated', lootCounts = {
   }
   // render into the existing dungeon content area if present
   const content = document.getElementById('dungeon-content') || document.getElementById('main-content') || document.getElementById('root');
-  const lines = Object.keys(lootCounts).map(name => `${name}${lootCounts[name] > 1 ? ' x' + lootCounts[name] : ''}`);
+  const lines = formatLootLines(lootCounts);
   content.innerHTML = `
-    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:20px">
-      <h1 style="color:#ff6b6b">${message}</h1>
-      <div style="margin-top:10px;padding:10px;background:#2d3436;border-left:4px solid #fdcb6e;border-radius:4px;width:100%;max-width:700px">
-        <strong style="color:#fdcb6e">🎁 Loot obtained:</strong>
-        <p>${lines.length ? lines.join(', ') : 'No loot obtained.'}</p>
+    <div class="dungeon-defeat-screen">
+      <div class="dungeon-defeat-message">${formatDungeonMessage(message)}</div>
+      <div class="dungeon-loot-panel">
+        <strong class="dungeon-loot-title">🎁 Loot obtained:</strong>
+        <p class="dungeon-loot-list">${lines.length ? lines.join(', ') : 'No loot obtained.'}</p>
       </div>
       <div style="margin-top:8px"><button id="exit-dungeon" class="dungeon-button">Exit dungeon</button></div>
     </div>

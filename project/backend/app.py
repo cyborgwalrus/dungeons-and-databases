@@ -1,9 +1,10 @@
-from flask import Flask, jsonify
+from flask import Flask
 from flask_cors import CORS
 import os
 
 from database import db
 from models import EnemyType, Item, Player, InventoryItem, EquippedItem
+from game_utils import adjust_inventory_quantity, clear_player_equipment, clear_player_inventory, get_player
 from player_routes import player_bp
 from dungeon_routes import dungeon_bp
 from inventory_routes import inventory_bp
@@ -24,55 +25,68 @@ app.register_blueprint(player_bp)
 app.register_blueprint(dungeon_bp)
 app.register_blueprint(inventory_bp)
 
-# Ensure player exists before each request
-@app.before_request
-def ensure_player():
-    player = Player.query.first()
-    
+ENEMY_SEEDS = [
+    EnemyType(name='Goblin', base_health=20, base_damage=5, description='A small, green creature with sharp teeth'),
+    EnemyType(name='Skeleton', base_health=30, base_damage=7, description='Bones held together by dark magic'),
+    EnemyType(name='Orc', base_health=40, base_damage=10, description='A brutal warrior with immense strength'),
+    EnemyType(name='Dark Mage', base_health=25, base_damage=12, description='A sorcerer wielding forbidden magic'),
+    EnemyType(name='Troll', base_health=60, base_damage=8, description='A massive creature with regenerating flesh'),
+    EnemyType(name='Dragon Whelp', base_health=50, base_damage=15, description='A young dragon with fiery breath')
+]
+
+ITEM_SEEDS = [
+    Item(name='Steel Sword', description='A strong steel sword', bonus_health=0, bonus_attack=10),
+    Item(name='Leather Armor', description='Basic leather protection', bonus_health=15, bonus_attack=0),
+    Item(name='Steel Armor', description='Strong steel protection', bonus_health=25, bonus_attack=0),
+    Item(name='Iron Helmet', description='A sturdy helmet', bonus_health=8, bonus_attack=0),
+    Item(name='Silver Necklace', description='A mystical necklace', bonus_health=5, bonus_attack=2),
+    Item(name='Enchanted Ring', description='Increases damage by 3', bonus_health=10, bonus_attack=3),
+    Item(name='Iron Shield', description='Defensive shield', bonus_health=20, bonus_attack=0),
+]
+
+
+def ensure_player_exists():
+    player = get_player()
     if not player:
         player = Player(health=100, damage=10, level=1)
         db.session.add(player)
         db.session.commit()
+
+
+def seed_initial_data():
+    if EnemyType.query.count() == 0:
+        db.session.add_all(ENEMY_SEEDS)
+        db.session.commit()
+
+    if Item.query.count() == 0:
+        db.session.add_all(ITEM_SEEDS)
+        db.session.commit()
+
+
+def remove_legacy_items():
+    obsolete = Item.query.filter_by(name='Iron Sword').all()
+    if not obsolete:
+        return
+
+    for old_item in obsolete:
+        InventoryItem.query.filter_by(item_id=old_item.id).delete()
+        EquippedItem.query.filter_by(item_id=old_item.id).delete()
+        db.session.delete(old_item)
+    db.session.commit()
+
+
+# Ensure player exists before each request
+@app.before_request
+def ensure_player():
+    ensure_player_exists()
 
 @app.cli.command('init-db')
 def init_db():
     """Create DB tables and seed initial data (enemies + items)."""
     with app.app_context():
         db.create_all()
-
-        if EnemyType.query.count() == 0:
-            enemies = [
-                EnemyType(name='Goblin', base_health=20, base_damage=5, description='A small, green creature with sharp teeth'),
-                EnemyType(name='Skeleton', base_health=30, base_damage=7, description='Bones held together by dark magic'),
-                EnemyType(name='Orc', base_health=40, base_damage=10, description='A brutal warrior with immense strength'),
-                EnemyType(name='Dark Mage', base_health=25, base_damage=12, description='A sorcerer wielding forbidden magic'),
-                EnemyType(name='Troll', base_health=60, base_damage=8, description='A massive creature with regenerating flesh'),
-                EnemyType(name='Dragon Whelp', base_health=50, base_damage=15, description='A young dragon with fiery breath')
-            ]
-            db.session.add_all(enemies)
-            db.session.commit()
-
-        if Item.query.count() == 0:
-            items = [
-                Item(name='Steel Sword', description='A strong steel sword', bonus_health=0, bonus_attack=10),
-                Item(name='Leather Armor', description='Basic leather protection', bonus_health=15, bonus_attack=0),
-                Item(name='Steel Armor', description='Strong steel protection', bonus_health=25, bonus_attack=0),
-                Item(name='Iron Helmet', description='A sturdy helmet', bonus_health=8, bonus_attack=0),
-                Item(name='Silver Necklace', description='A mystical necklace', bonus_health=5, bonus_attack=2),
-                Item(name='Enchanted Ring', description='Increases damage by 3', bonus_health=10, bonus_attack=3),
-                Item(name='Iron Shield', description='Defensive shield', bonus_health=20, bonus_attack=0),
-            ]
-            db.session.add_all(items)
-            db.session.commit()
-
-        # Cleanup legacy 'Iron Sword' if present (remove inventory/equipped refs first)
-        obsolete = Item.query.filter_by(name='Iron Sword').all()
-        if obsolete:
-            for o in obsolete:
-                InventoryItem.query.filter_by(item_id=o.id).delete()
-                EquippedItem.query.filter_by(item_id=o.id).delete()
-                db.session.delete(o)
-            db.session.commit()
+        seed_initial_data()
+        remove_legacy_items()
     print('Database initialized (tables created and seed data loaded)')
 
 
@@ -92,31 +106,24 @@ def delete_db():
         except Exception as e:
             print('Failed to delete database:', e)
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5000)
-
 
 @app.cli.command('seed-full-loadout')
 def seed_full_loadout():
     """Seed the player's inventory with a full loadout and equip primary items."""
     with app.app_context():
-        player = Player.query.first()
-        if not player:
-            player = Player(health=100, damage=10, level=1)
-            db.session.add(player)
-            db.session.commit()
+        ensure_player_exists()
+        player = get_player()
 
         # Clear existing inventory and equipped items
-        InventoryItem.query.filter_by(player_id=player.id).delete()
-        EquippedItem.query.filter_by(player_id=player.id).delete()
+        clear_player_inventory(player)
+        clear_player_equipment(player)
         db.session.commit()
 
         # Helper to add inventory
         def add_item_by_name(name, qty=1):
             itm = Item.query.filter_by(name=name).first()
             if itm:
-                inv = InventoryItem(player_id=player.id, item_id=itm.id, quantity=qty)
-                db.session.add(inv)
+                adjust_inventory_quantity(player, itm.id, qty)
 
         # Add a sensible loadout (no Iron Sword)
         add_item_by_name('Steel Sword', 1)
@@ -137,12 +144,7 @@ def seed_full_loadout():
             ei = EquippedItem(player_id=player.id, item_id=itm.id, slot=slot)
             db.session.add(ei)
             # decrement inventory for that item
-            inv = InventoryItem.query.filter_by(player_id=player.id, item_id=itm.id).first()
-            if inv:
-                if inv.quantity > 1:
-                    inv.quantity -= 1
-                else:
-                    db.session.delete(inv)
+            adjust_inventory_quantity(player, itm.id, -1)
 
         # Equip to new 2x3 layout slots:
         # 0: Helmet, 1: Armor, 2: Weapon, 3: Shield, 4: Ring, 5: Necklace
@@ -155,3 +157,7 @@ def seed_full_loadout():
         db.session.commit()
 
         print('Seeded full loadout for player')
+
+
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)

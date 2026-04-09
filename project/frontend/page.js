@@ -1,9 +1,11 @@
 import { createActionButton, createActionBar } from './ui.js';
+import { getEquipScore, isSlotCompatible } from './helpers.js';
 
 export function setupActionButtons(actionsContainer, deps) {
   const { fetchJson, loadStateAndRenderPartial, getEquipped, getInventory, getItemType } = deps;
   if (!actionsContainer || actionsContainer.dataset.buttonsBound) return;
 
+  // The button bar is mounted once per page render; reuse it instead of rebinding handlers.
   actionsContainer.style.minHeight = '90px';
   actionsContainer.style.display = 'flex';
   actionsContainer.style.alignItems = 'stretch';
@@ -51,6 +53,7 @@ export function setupActionButtons(actionsContainer, deps) {
       try {
         const inventory = getInventory();
         const equipped = getEquipped();
+        // Slot order matches the backend slot layout.
         const SLOT_DEFS = [ 'helmet', 'armor', 'weapon', 'shield', 'ring', 'necklace' ];
         for (let slot = 0; slot < SLOT_DEFS.length; slot++) {
           const type = SLOT_DEFS[slot];
@@ -60,15 +63,15 @@ export function setupActionButtons(actionsContainer, deps) {
             const item = invItem.item;
             if (!item) continue;
             const itype = getItemType(item);
-            if (itype !== type) continue;
-            const score = (type === 'weapon') ? ((item.bonus_attack || 0) * 10 + (item.bonus_health || 0)) : ((item.bonus_health || 0) * 10 + (item.bonus_attack || 0));
+            if (!isSlotCompatible(type, itype)) continue;
+            const score = getEquipScore(item, type);
             if (score > bestScore) { bestScore = score; best = item; }
           }
           const currentlyEquipped = (equipped || []).find(e => e.slot === slot);
           let currentScore = -Infinity;
           if (currentlyEquipped && currentlyEquipped.item) {
             const ci = currentlyEquipped.item;
-            currentScore = (type === 'weapon') ? ((ci.bonus_attack || 0) * 10 + (ci.bonus_health || 0)) : ((ci.bonus_health || 0) * 10 + (ci.bonus_attack || 0));
+            currentScore = getEquipScore(ci, type);
           }
           if (best && bestScore > currentScore) {
             await fetchJson('/inventory/equip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: best.id, slot }) });
@@ -88,6 +91,7 @@ export function setupActionButtons(actionsContainer, deps) {
 export function setupRubbishBin(bin, deps) {
   const { fetchJson, loadStateAndRenderPartial, getCurrentDrag, setCurrentDrag, updateSlotHighlights } = deps;
   if (!bin || bin.dataset.dndBound) return;
+  // The bin is a shared drag target, so wire it once and let the state helpers keep it current.
   bin.addEventListener('dragover', ev => { ev.preventDefault(); bin.classList.add('drag-over'); });
   bin.addEventListener('dragleave', () => bin.classList.remove('drag-over'));
   bin.addEventListener('drop', async ev => {

@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 from database import db
-from models import Player, Item, InventoryItem
+from models import Item
+from game_utils import adjust_inventory_quantity, get_player as get_current_player
 
 player_bp = Blueprint('player', __name__)
 
@@ -8,7 +9,7 @@ player_bp = Blueprint('player', __name__)
 @player_bp.route('/api/player', methods=['GET'])
 def get_player():
     """Get player stats"""
-    player = Player.query.first()
+    player = get_current_player()
     return jsonify(player.to_dict())
 
 
@@ -16,7 +17,7 @@ def get_player():
 def update_player():
     """Update player stats"""
     data = request.json
-    player = Player.query.first()
+    player = get_current_player()
 
     if 'health' in data:
         player.health = data['health']
@@ -32,7 +33,7 @@ def update_player():
 @player_bp.route('/api/player/level-up', methods=['POST'])
 def level_up():
     """Increase player level and stats"""
-    player = Player.query.first()
+    player = get_current_player()
 
     player.level += 1
     player.damage += 5
@@ -48,7 +49,7 @@ def take_damage():
     data = request.json
     damage_amount = data.get('damage', 0)
 
-    player = Player.query.first()
+    player = get_current_player()
     player.health = max(0, player.health - damage_amount)
     db.session.commit()
 
@@ -58,34 +59,20 @@ def take_damage():
 @player_bp.route('/api/player/full', methods=['GET'])
 def get_player_with_inventory():
     """Get player stats including inventory"""
-    player = Player.query.first()
+    player = get_current_player()
     return jsonify(player.to_dict(include_inventory=True))
 
 
 @player_bp.route('/api/demo/inventory', methods=['POST'])
 def demo_inventory():
     """Demo endpoint to add random items to player inventory"""
-    player = Player.query.first()
+    player = get_current_player()
     
     # Get some random items
     items = Item.query.limit(3).all()
     
     for item in items:
-        # Check if player already has this item
-        inventory_item = InventoryItem.query.filter_by(
-            player_id=player.id,
-            item_id=item.id
-        ).first()
-        
-        if inventory_item:
-            inventory_item.quantity += 1
-        else:
-            inventory_item = InventoryItem(
-                player_id=player.id,
-                item_id=item.id,
-                quantity=1
-            )
-            db.session.add(inventory_item)
+        adjust_inventory_quantity(player, item.id, 1)
     
     db.session.commit()
     return jsonify({

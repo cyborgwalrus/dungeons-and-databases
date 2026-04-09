@@ -1,14 +1,15 @@
 import random
 from flask import Blueprint, jsonify
 from database import db
-from models import Player, EnemyType, CurrentEncounter, Item, InventoryItem
+from models import EnemyType, CurrentEncounter, Item
+from game_utils import adjust_inventory_quantity, get_player
 
 dungeon_bp = Blueprint('dungeon', __name__)
 
 
 def create_new_encounter():
     """Create a new enemy encounter"""
-    player = Player.query.first()
+    player = get_player()
 
     # Clear any existing encounter
     CurrentEncounter.query.delete()
@@ -61,24 +62,7 @@ def drop_loot(player, enemy_type):
     
     for _ in range(num_items):
         dropped_item = random.choice(all_items)
-        
-        # Check if player already has this item
-        inventory_item = InventoryItem.query.filter_by(
-            player_id=player.id,
-            item_id=dropped_item.id
-        ).first()
-        
-        if inventory_item:
-            # Increase quantity
-            inventory_item.quantity += 1
-        else:
-            # Add new item
-            inventory_item = InventoryItem(
-                player_id=player.id,
-                item_id=dropped_item.id,
-                quantity=1
-            )
-            db.session.add(inventory_item)
+        adjust_inventory_quantity(player, dropped_item.id, 1)
         
         items_dropped.append(dropped_item.to_dict())
     
@@ -88,7 +72,7 @@ def drop_loot(player, enemy_type):
 @dungeon_bp.route('/api/dungeon/encounter', methods=['GET'])
 def get_encounter():
     """Get or create current enemy encounter"""
-    player = Player.query.first()
+    player = get_player()
     encounter = CurrentEncounter.query.first()
 
     # If there's no encounter, or the encounter level doesn't match the player level,
@@ -104,7 +88,7 @@ def get_encounter():
 @dungeon_bp.route('/api/dungeon/attack', methods=['POST'])
 def attack_monster():
     """Attack a monster in the dungeon"""
-    player = Player.query.first()
+    player = get_player()
 
     encounter = CurrentEncounter.query.first()
     if not encounter:
@@ -128,7 +112,10 @@ def attack_monster():
         player_died = check_player_death(player)
 
         if player_died:
-            message = f"{encounter.enemy_type.name} dealt {monster_hits} damage to you! You have been defeated and returned to the start..."
+            message = (
+                "Defeat!\n"
+                f"You have been defeated by {encounter.enemy_type.name} and kicked out of the dungeon..."
+            )
             db.session.commit()
             return jsonify({
                 'player': player.to_dict(),
@@ -140,29 +127,33 @@ def attack_monster():
             })
 
         message = (
-            f"You dealt {player_hits} damage to {encounter.enemy_type.name}! "
-            f"It has {encounter.current_health} HP left. "
-            f"{encounter.enemy_type.name} dealt {monster_hits} damage to you!"
+            f"You : dealt {player_hits} damage to {encounter.enemy_type.name}!\n"
+            f"{encounter.enemy_type.name}: dealt {monster_hits} damage to you!"
         )
         victory = False
         items_dropped = []
     else:
         # Enemy defeated
-        message = f"Victory! You dealt {player_hits} damage and defeated the {encounter.enemy_type.name}!"
+        message_lines = [
+            "Victory!",
+            f"You dealt {player_hits} damage and defeated the {encounter.enemy_type.name}!",
+        ]
         victory = True
         
         # Drop loot
         items_dropped = drop_loot(player, encounter.enemy_type)
         if items_dropped:
             item_names = ", ".join([item['name'] for item in items_dropped])
-            message += f" You obtained: {item_names}!"
+            message_lines.append(f"You obtained {item_names}!")
 
         # Reward: chance to level up and gain stats
         if random.random() < 0.4:  # 40% chance
             player.level += 1
             player.damage += 3
             player.health = min(player.health + 20, 100 + (player.level * 10))
-            message += " You leveled up!"
+            message_lines.append("You leveled up!")
+
+        message = "\n".join(message_lines)
 
         # Create new encounter for next battle
         db.session.delete(encounter)
@@ -183,7 +174,7 @@ def attack_monster():
 @dungeon_bp.route('/api/dungeon/run', methods=['POST'])
 def run_away():
     """Attempt to run away from the dungeon"""
-    player = Player.query.first()
+    player = get_player()
 
     encounter = CurrentEncounter.query.first()
     if not encounter:

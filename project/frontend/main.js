@@ -1,16 +1,17 @@
 import { fetchJson } from './api.js';
-import { makeIcon, getItemType, formatStats } from './helpers.js';
+import { makeIcon, getItemType, formatDungeonMessage, formatStats, isSlotCompatible } from './helpers.js';
 import { renderPlayerStatsInto } from './components/player.js';
 import { renderEquipPanel as renderEquipPanelImpl } from './components/equip.js';
 import { renderInventoryGrid as renderInventoryGridImpl } from './components/inventory.js';
 import { showHome } from './screens/home.js';
 import { showDungeon } from './screens/dungeon.js';
-import { showDefeat } from './screens/defeat.js';
+import { buildDungeonMarkup, applyDungeonCombatUpdate, showDungeonDefeatScreen } from './screens/dungeon-runtime.js';
 // action button helpers are used via page.js; no direct imports needed here
 import { setupActionButtons, setupRubbishBin } from './page.js';
 
 const root = document.getElementById('root');
 
+// Shared app state stays in memory so each screen can re-render without rebuilding the data model.
 let player = null;
 let inventory = [];
 let equipped = [];
@@ -18,7 +19,6 @@ let allItems = [];
 let currentDrag = null; // { itemId, itemType, from, slot }
 let lastDungeonMessage = null;
 let lootCounts = {}; // cumulative loot counts while in session
-let reforgeState = { baseId: null, count: 0 };
 
 function updateSlotHighlights() {
   document.querySelectorAll('.equip-slot').forEach(slotEl => {
@@ -26,8 +26,7 @@ function updateSlotHighlights() {
     if (!currentDrag) return;
     const slotType = slotEl.getAttribute('data-slot-type') || 'misc';
     const itype = currentDrag.itemType || 'misc';
-    const allowed = (slotType === 'misc') ? (['weapon','armor','shield'].indexOf(itype) === -1) : (slotType === itype);
-    if (allowed) slotEl.classList.add('slot-allowed'); else slotEl.classList.add('slot-denied');
+    if (isSlotCompatible(slotType, itype)) slotEl.classList.add('slot-allowed'); else slotEl.classList.add('slot-denied');
   });
 }
 
@@ -73,7 +72,7 @@ function renderEquipPanel() {
 
 function renderInventoryGrid() {
   return renderInventoryGridImpl({
-    inventory, reforgeState,
+    inventory,
     getCurrentDrag: () => currentDrag,
     setCurrentDrag: v => { currentDrag = v; },
     updateSlotHighlights,
@@ -89,6 +88,7 @@ window.app = window.app || {};
 window.app.renderHome = renderHome;
 
 async function loadStateAndRenderPartial() {
+  // Pull the latest server state before redrawing the visible panels.
   const [pRes, invRes, eqRes, allRes] = await Promise.all([
     fetchJson('/player'), fetchJson('/inventory'), fetchJson('/inventory/equipped'), fetchJson('/inventory/items')
   ]);
@@ -106,20 +106,22 @@ async function loadStateAndRenderPartial() {
 }
 
 async function renderHome() {
-  root.innerHTML = `<div class="game-container"><h1>Dungeons and Databases</h1><div id="main-content"></div></div>`;
+  // Home is the management hub: stats, equipment, inventory, and the entry point to the dungeon.
+  root.innerHTML = `<div class="game-container"><div id="main-content"></div></div>`;
   const main = document.getElementById('main-content');
   main.innerHTML = `
     <div style="display:flex;gap:20;align-items:stretch;">
-      <div id="player-stats-container" style="flex:1;min-width:260px;display:flex;flex-direction:column;box-sizing:border-box">
+      <div id="player-stats-container" style="flex:1;min-width:260px;display:flex;flex-direction:column;box-sizing:border-box;height:100%;min-height:0">
         <div id="player-stats" style=""></div>
           <div id="player-stats-actions"></div>
       </div>
       <div id="equip-panel" style="flex:1;min-width:260px"></div>
     </div>
-    <h3 style="margin-top:20px;color:#ffd700">Inventory</h3>
-    <div id="inventory-grid" class="inventory-grid" style="margin-top:10px"></div>
+    <div class="inventory-scroll-box">
+      <div id="inventory-grid" class="inventory-grid"></div>
+    </div>
     <div id="rubbish-bin" class="rubbish-bin">🗑️ Drop items here to destroy</div>
-    <div style="margin-bottom:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px">
+    <div style="margin-top:20px;display:flex;justify-content:center;flex-wrap:wrap;gap:10px;">
       <button class="dungeon-button" id="enter-dungeon">Enter the Dungeon</button>
     </div>
   `;
@@ -129,14 +131,15 @@ async function renderHome() {
   // clear any dungeon loot from previous runs when returning home
   lootCounts = {};
   await loadStateAndRenderPartial();
-  // Heal player to full when returning to home: compute base max from level + bonuses
+  // Returning home restores the player to full health based on level and gear bonuses.
   try {
     const lvl = (player && player.level) ? player.level : 1;
     const baseMax = 100 + (Math.max(0, lvl - 1) * 10);
     const bonus = (player && player.bonus_health) ? player.bonus_health : 0;
     const fullHealth = baseMax + bonus;
     await fetchJson('/player', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ health: fullHealth }) });
-    // re-render stats after heal
+    const refreshedPlayer = await fetchJson('/player');
+    if (refreshedPlayer.ok) player = refreshedPlayer.data;
     renderPlayerStatsInto(document.getElementById('player-stats'), player);
   } catch (e) {
     console.warn('Heal on home failed', e);
@@ -164,9 +167,11 @@ async function renderHome() {
 
 /* --- Dungeon view remains mostly unchanged but uses player updates from API --- */
 async function renderDungeon() {
+  // Reset transient combat state every time a new dungeon screen is shown.
   // reset loot counts for a fresh run when entering the dungeon
   lootCounts = {};
-  root.innerHTML = `<div class="game-container"><h1>The Dungeon</h1><div id="dungeon-content">Loading...</div></div>`;
+  lastDungeonMessage = null;
+  root.innerHTML = `<div class="game-container"><div id="dungeon-content">Loading...</div></div>`;
   const content = document.getElementById('dungeon-content');
 
   const [pRes, encRes] = await Promise.all([fetchJson('/player'), fetchJson('/dungeon/encounter')]);
@@ -175,33 +180,7 @@ async function renderDungeon() {
 
   const preface = `A wild ${enemy.name || 'creature'} appears! ${enemy.description || ''}`;
   const messageToShow = lastDungeonMessage || preface;
-  content.innerHTML = `
-    <div id="dungeon-wrap" style="display:flex;flex-direction:column;gap:12px;">
-      <div id="dungeon-top" style="padding:0;margin:0">
-        <div style="margin-top:20px;font-size:1.2em;min-height:60px;padding:8px">
-          <p id="dungeon-message">${messageToShow}</p>
-        </div>
-
-        <div style="display:flex;gap:20;justify-content:center;flex-wrap:wrap;align-items:stretch;margin-top:12px;padding:8px">
-          <div id="player-stats-container" style="flex:1;min-width:250px;max-width:400px"></div>
-          <div class="player-stats" style="flex:1;min-width:250px;max-width:400px;border-color:#ff6b6b">
-            <h2 id="enemy-name" style="color:#ff6b6b">Enemy: ${enemy.name || 'None'}</h2>
-            <div class="stat"><span class="stat-label">Level:</span><span id="enemy-level" class="stat-value">${enemy.level || ''}</span></div>
-            <div class="stat"><span class="stat-label">Health:</span><span id="enemy-health" class="stat-value">${enemy.health} / ${enemy.max_health} HP</span></div>
-            <div class="stat"><span class="stat-label">Damage:</span><span id="enemy-damage" class="stat-value">${enemy.damage}</span></div>
-              </div>
-        </div>
-      </div>
-
-      <div id="dungeon-actions" style="margin-top:8px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-        <button type="button" class="dungeon-button" id="attack">Attack</button>
-        <button type="button" class="dungeon-button" id="run" style="background:linear-gradient(135deg,#ff9f1c 0%,#ffb700 100%)">Run Away</button>
-        <button type="button" class="dungeon-button" id="back">Back to Home</button>
-      </div>
-
-      <div id="loot" style="margin-top:6px;padding:8px"></div>
-    </div>
-  `;
+  content.innerHTML = buildDungeonMarkup(enemy, messageToShow);
 
   // render player stats into dungeon layout
   renderPlayerStatsInto(document.getElementById('player-stats-container'), player);
@@ -214,21 +193,21 @@ async function renderDungeon() {
     const res = await fetchJson('/dungeon/attack', { method: 'POST' });
     if (res.ok && res.data) {
       const d = res.data;
-      lastDungeonMessage = d.message || 'You attacked the monster!';
-      document.getElementById('dungeon-message').textContent = lastDungeonMessage;
       const lootEl = document.getElementById('loot');
-          if (d.items_dropped && d.items_dropped.length) {
-            // accumulate counts
-            d.items_dropped.forEach(it => {
-              const n = it.name || 'Unknown';
-              lootCounts[n] = (lootCounts[n] || 0) + 1;
-            });
-            // render cumulative list
-            const lines = Object.keys(lootCounts).map(name => `${name}${lootCounts[name] > 1 ? ' x' + lootCounts[name] : ''}`);
-            lootEl.innerHTML = `<div style="margin-top:10px;padding:10px;background:#2d3436;border-left:4px solid #fdcb6e;border-radius:4px"><strong style="color:#fdcb6e">🎁 Loot obtained:</strong><p>${lines.join(', ')}</p></div>`;
-          }
+      applyDungeonCombatUpdate(d, {
+        lootCounts,
+        lootEl,
+        setLastDungeonMessage: v => { lastDungeonMessage = v; }
+      });
       if (d.player_died) {
-        await showDefeat({ message: d.message || 'You were defeated', lootCounts, onExit: () => { lootCounts = {}; navigateTo('/'); } });
+        await showDungeonDefeatScreen({
+          message: d.message || 'You were defeated',
+          lootCounts,
+          onExit: () => {
+            lootCounts = {};
+            navigateTo('/');
+          }
+        });
         return;
       } else {
         await loadStateAndRenderPartial();
@@ -245,9 +224,17 @@ async function renderDungeon() {
     const res = await fetchJson('/dungeon/run', { method: 'POST' });
     if (res.ok && res.data) {
       const d = res.data;
-      document.getElementById('dungeon-message').textContent = d.message || 'Action result';
+      const dungeonMessage = document.getElementById('dungeon-message');
+      if (dungeonMessage) dungeonMessage.innerHTML = formatDungeonMessage(d.message || 'Action result');
       if (d.player_died) {
-        await showDefeat({ message: d.message || 'You were defeated', lootCounts, onExit: () => { lootCounts = {}; navigateTo('/'); } });
+        await showDungeonDefeatScreen({
+          message: d.message || 'You were defeated',
+          lootCounts,
+          onExit: () => {
+            lootCounts = {};
+            navigateTo('/');
+          }
+        });
         return;
       } else if (d.success) {
         setTimeout(() => navigateTo('/'), 1500);
@@ -269,5 +256,6 @@ function navigateTo(path) { if (path === '/') location.hash = '#/'; else locatio
 
 function route() { const hash = location.hash.replace('#', '') || '/'; if (hash === '/' || hash === '') return showHome(); else if (hash === '/dungeon') return showDungeon(); else return showHome(); }
 
+// Keep the SPA shell in sync with the URL hash.
 window.addEventListener('hashchange', route);
 window.addEventListener('load', route);

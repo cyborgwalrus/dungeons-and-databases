@@ -1,3 +1,5 @@
+import { isSlotCompatible } from '../helpers.js';
+
 export async function renderEquipPanel(opts) {
   const { equipped, inventory, allItems, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, getItemType, makeIcon, formatStats } = opts;
   const equipPanel = document.getElementById('equip-panel');
@@ -65,8 +67,7 @@ export async function renderEquipPanel(opts) {
 
       const itemObj = ((allItems || []).find(a => a.item && a.item.id === itemId) || {}).item || ((inventory || []).find(i => i.item && i.item.id === itemId) || {}).item;
       const itemType = itemObj ? getItemType(itemObj) : 'misc';
-      const allowed = (slotType === 'misc') ? (['weapon','armor','shield'].indexOf(itemType) === -1) : (slotType === itemType);
-      if (!allowed) return;
+      if (!isSlotCompatible(slotType, itemType)) return;
 
       await fetchJson('/inventory/equip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: itemId, slot }) });
       await loadStateAndRenderPartial();

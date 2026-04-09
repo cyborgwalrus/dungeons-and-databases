@@ -1,5 +1,5 @@
 export function renderInventoryGrid(opts) {
-  const { inventory, reforgeState, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, getItemType, makeIcon, formatStats } = opts;
+  const { inventory, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, getItemType, makeIcon, formatStats } = opts;
   const invContainer = document.getElementById('inventory-grid');
   if (!invContainer) return;
   if (!inventory || inventory.length === 0) {
@@ -7,6 +7,7 @@ export function renderInventoryGrid(opts) {
     return;
   }
 
+  // Keep the strongest upgraded items near the top so bulk reforge/equip scans are easier to follow.
   const sortedInventory = [...inventory].sort((a, b) => {
     function levelOf(inv) {
       const name = (inv.item && inv.item.name) ? inv.item.name : '';
@@ -37,16 +38,8 @@ export function renderInventoryGrid(opts) {
   });
   invContainer.innerHTML = cards.join('');
 
-  if (reforgeState && reforgeState.baseId && reforgeState.count > 0) {
-    const matchEls = invContainer.querySelectorAll(`.inventory-card[data-item-id="${reforgeState.baseId}"]`);
-    for (let i = 0; i < Math.min(matchEls.length, reforgeState.count); i++) {
-      const el = matchEls[i];
-      el.classList.add('in-reforge');
-      el.setAttribute('draggable', 'false');
-    }
-  }
-
   document.querySelectorAll('.inventory-card').forEach(card => {
+    // Track the currently dragged card so the drop targets can decide what to do with it.
     card.addEventListener('dragstart', ev => {
       const id = card.getAttribute('data-item-id');
       const type = card.getAttribute('data-item-type');
@@ -59,6 +52,7 @@ export function renderInventoryGrid(opts) {
   });
 
   if (!invContainer.dataset.dndBound) {
+    // Inventory only needs one drop handler; rerenders should not stack duplicate listeners.
     invContainer.addEventListener('dragover', ev => { ev.preventDefault(); invContainer.classList.add('drag-over'); });
     invContainer.addEventListener('dragleave', () => invContainer.classList.remove('drag-over'));
     invContainer.addEventListener('drop', async ev => {
