@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   backend:
     build:
@@ -13,7 +11,7 @@ services:
       - FLASK_ENV=development
     volumes:
       - ./backend:/app
-    command: flask run --host=0.0.0.0
+    # command removed so container will use the image default (runs start-backend.sh)
     networks:
       - dnd_network
 

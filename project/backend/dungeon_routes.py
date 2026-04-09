@@ -16,7 +16,7 @@ def create_new_encounter():
     # Select random enemy type
     enemy_type = EnemyType.query.order_by(db.func.random()).first()
 
-    # Scale enemy stats based on player level
+    # Scale enemy stats based on player level and set encounter level
     max_health = enemy_type.base_health + (player.level * 10)
     damage = enemy_type.base_damage + (player.level * 2)
 
@@ -24,7 +24,8 @@ def create_new_encounter():
         enemy_type_id=enemy_type.id,
         current_health=max_health,
         max_health=max_health,
-        damage=damage
+        damage=damage,
+        level=player.level
     )
     db.session.add(encounter)
     db.session.commit()
@@ -87,9 +88,14 @@ def drop_loot(player, enemy_type):
 @dungeon_bp.route('/api/dungeon/encounter', methods=['GET'])
 def get_encounter():
     """Get or create current enemy encounter"""
+    player = Player.query.first()
     encounter = CurrentEncounter.query.first()
 
-    if not encounter:
+    # If there's no encounter, or the encounter level doesn't match the player level,
+    # create a new encounter so enemy stats scale with the player.
+    if not encounter or (encounter.level != player.level):
+        # clear existing encounter and create a new one matching player's level
+        CurrentEncounter.query.delete()
         encounter = create_new_encounter()
 
     return jsonify(encounter.to_dict())

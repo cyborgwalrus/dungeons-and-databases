@@ -62,6 +62,7 @@ class CurrentEncounter(db.Model):
     current_health = db.Column(db.Integer, nullable=False)
     max_health = db.Column(db.Integer, nullable=False)
     damage = db.Column(db.Integer, nullable=False)
+    level = db.Column(db.Integer, default=1, nullable=False)
 
     enemy_type = db.relationship('EnemyType', back_populates='encounters')
 
@@ -72,6 +73,7 @@ class CurrentEncounter(db.Model):
             'health': self.current_health,
             'max_health': self.max_health,
             'damage': self.damage,
+            'level': self.level,
             'description': self.enemy_type.description
         }
 
@@ -116,13 +118,13 @@ class InventoryItem(db.Model):
 
 
 class EquippedItem(db.Model):
-    """Tracks equipped items (max 5 slots)"""
+    """Tracks equipped items (max 6 slots)"""
     __tablename__ = "equipped_item"
     
     id = db.Column(db.Integer, primary_key=True)
     player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
-    slot = db.Column(db.Integer, default=0, nullable=False)  # 0-4 for 5 slots
+    slot = db.Column(db.Integer, default=0, nullable=False)  # 0-5 for 6 slots
     
     player = db.relationship('Player', back_populates='equipped_items')
     item = db.relationship('Item')

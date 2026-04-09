@@ -19,26 +19,26 @@
   background: rgba(0, 0, 0, 0.3);
   border: 2px solid #ffd700;
   border-radius: 10px;
-  padding: 30px;
-  margin-bottom: 30px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+  padding: 8px;
+  margin-bottom: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.18);
 }
 
 .player-stats h2 {
-  font-size: 1.8em;
+  font-size: 1.6em;
   margin-top: 0;
-  margin-bottom: 20px;
+  margin-bottom: 8px;
   border-bottom: 2px solid #ffd700;
-  padding-bottom: 10px;
+  padding-bottom: 6px;
 }
 
 .stat {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 0;
-  font-size: 1.2em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 4px 0;
+  font-size: 1.02em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .stat:last-child {
@@ -65,16 +65,15 @@
   font-weight: bold;
   border-radius: 8px;
   cursor: pointer;
-  transition: all 0.3s ease;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .dungeon-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
-  background: linear-gradient(135deg, #ff8787 0%, #e03131 100%);
+  /* no hover animation */
+  transform: none;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
 .dungeon-button:active {
@@ -94,19 +93,20 @@
 .inventory-panel h3 {
   margin-top: 0;
   margin-bottom: 15px;
-  color: #4ecdc4;
-  font-size: 1.4em;
-  border-bottom: 2px solid #4ecdc4;
-  padding-bottom: 10px;
 }
-
-.inventory-list {
+.equip-slot {
+  background: rgba(0,0,0,0.45);
+  border: 2px dashed rgba(78,205,196,0.25);
+  border-radius: 10px;
+  padding: 6px;
+  min-height: 60px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  max-height: 300px;
-  overflow-y: auto;
+  justify-content: center;
+  align-items: center;
+  gap: 0;
 }
+
 
 .inventory-item {
   display: flex;
@@ -178,6 +178,8 @@
   cursor: grab;
 }
 
+.inventory-card.equipped-card { padding:6px; gap:6px; border-radius:10px; }
+
 .inventory-card:active { cursor: grabbing; }
 
 .inventory-card .item-icon { font-size: 1.6em; }
@@ -187,22 +189,98 @@
 .equip-slot {
   background: rgba(0,0,0,0.45);
   border: 2px dashed rgba(78,205,196,0.25);
-  border-radius: 6px;
-  padding: 10px;
-  min-height: 90px;
+  border-radius: 10px;
+  padding: 8px;
+  min-height: 70px;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
+  gap: 6px;
 }
 
 .equip-slot.empty { opacity: 0.6; }
 .equip-slot .unequip-button {
-  background: #ff6b6b; color: white; border: none; padding: 6px 8px; border-radius: 4px; cursor: pointer;
+  display: none;
 }
 
 .drag-over { box-shadow: 0 0 0 3px rgba(78,205,196,0.18) inset; transform: scale(1.01); }
 
+/* Allowed/denied slot highlights */
+.slot-allowed { border: 2px solid #39d353 !important; box-shadow: 0 0 0 4px rgba(57,211,83,0.12) inset; }
+.slot-denied { border: 2px solid rgba(255,0,0,0.35) !important; box-shadow: 0 0 0 4px rgba(255,0,0,0.06) inset; }
+
 .available-item { background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px; cursor: grab; }
 
 .inventory-grid.drag-over { outline: 3px dashed rgba(255,215,0,0.15); }
+
+/* Rubbish bin styles */
+.rubbish-bin {
+  margin-top: 12px;
+  background: rgba(255,255,255,0.03);
+  border: 2px dashed rgba(255,99,71,0.18);
+  border-radius: 8px;
+  padding: 12px;
+  color: #ff6b6b;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.rubbish-bin.drag-over { background: rgba(255,99,71,0.06); box-shadow: 0 0 0 6px rgba(255,99,71,0.06) inset; border-color: rgba(255,99,71,0.9); }
+
+/* Reforge area */
+.reforge-area {
+  margin-top: 12px;
+  background: rgba(0,0,0,0.18);
+  border: 2px dashed rgba(200,200,200,0.08);
+  border-radius: 8px;
+  padding: 10px;
+  color: #fff;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.reforge-area .dungeon-button[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+.reforge-icon { font-size: 1.6em; color: #ffd700; }
+
+/* Dungeon top area */
+#dungeon-top { box-sizing: border-box; }
+
+/* Mark inventory card placed into reforge */
+.inventory-card.in-reforge {
+  border: 2px solid #ff4d4d;
+  box-shadow: 0 4px 8px rgba(255,77,77,0.12) inset;
+  opacity: 0.9;
+  cursor: default;
+}
+
+/* Action bar buttons under player stats */
+.player-stats #player-stats-actions { width: 100%; }
+.action-bar { display:flex; gap:4px; align-items:stretch; }
+.action-button {
+  padding: 10px 8px;
+  font-size: 0.95em;
+  min-height: 86px;
+  box-sizing: border-box;
+  white-space: normal;
+  text-transform: uppercase;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  min-width: 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  line-height: 1.05;
+}
+.action-button.unequip-button { background: linear-gradient(135deg,#6c5ce7 0%,#5a4bd6 100%); }
+.action-button.reforge-button { background: linear-gradient(135deg,#2b8a3e 0%,#1f6f2f 100%); }
+.action-button.equip-best-button { background: linear-gradient(135deg,#3a86ff 0%,#2970e0 100%); }
+.action-button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Ensure action container reserves height beneath stats */
+#player-stats-actions { min-height: 90px; display:flex; align-items:stretch; }
