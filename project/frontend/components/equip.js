@@ -50,7 +50,7 @@ export async function renderEquipPanel(opts) {
       const item = (allItems || []).find(a => a.item && a.item.id == itemId) || (inventory || []).find(i => i.item && i.item.id == itemId) || {};
       const itemObj = item.item || null;
       const itemType = itemObj ? getItemType(itemObj) : null;
-        return { itemId: itemId ? Number(itemId) : null, itemType, from: 'equipped', slot: slotIndex };
+        return { itemId: itemId ? Number(itemId) : null, itemType, from: 'equipped', slot: slotIndex ? Number(slotIndex) : null, source_slot: slotIndex ? Number(slotIndex) : null };
       },
       onDragStart: (ev, payload) => {
         setCurrentDrag(payload);
@@ -76,7 +76,12 @@ export async function renderEquipPanel(opts) {
         const itemType = itemObj ? getItemType(itemObj) : 'misc';
         if (!isSlotCompatible(slotType, itemType)) return;
 
-        await fetchJson('/inventory/equip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: itemId, slot }) });
+        const payloadBody = { item_id: itemId, slot };
+        if (payload.from === 'equipped' && payload.source_slot !== undefined && payload.source_slot !== null) {
+          payloadBody.source_slot = payload.source_slot;
+        }
+
+        await fetchJson('/inventory/equip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadBody) });
         await loadStateAndRenderPartial();
         setCurrentDrag(null);
         updateSlotHighlights();

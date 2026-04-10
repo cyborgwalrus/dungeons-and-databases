@@ -30,8 +30,6 @@ function recordDungeonLoot(itemsDropped) {
   (itemsDropped || []).forEach(item => {
     if (!item) return;
     dungeonLoot.push(item);
-    const itemName = item.name || 'Unknown';
-    lootCounts[itemName] = (lootCounts[itemName] || 0) + 1;
   });
 }
 

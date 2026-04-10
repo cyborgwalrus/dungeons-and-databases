@@ -44,9 +44,11 @@ def equip_item():
     """Equip an item (max 6 slots)"""
     player = get_player()
     
-    data = request.json
+    data = request.json or {}
     item_id = data.get('item_id')
-    slot = data.get('slot', len(player.equipped_items))
+    slot = int(data.get('slot', len(player.equipped_items)))
+    source_slot = data.get('source_slot')
+    source_slot = int(source_slot) if source_slot is not None else None
     
     if slot < 0 or slot > 5:
         return jsonify({'error': 'Slot must be between 0 and 5'}), 400
@@ -55,19 +57,46 @@ def equip_item():
     if not item:
         return jsonify({'error': 'Item not found'}), 404
     
+    source_equipped = None
+    if source_slot is not None:
+        source_equipped = EquippedItem.query.filter_by(
+            player_id=player.id,
+            slot=source_slot,
+            item_id=item_id
+        ).first()
+
+    if source_equipped and source_slot == slot:
+        return jsonify({
+            'message': f'Item {item.name} equipped',
+            'player': player.to_dict(include_inventory=True)
+        })
+
+    # Moving an already-equipped item should not require an inventory copy.
+    if source_equipped and source_slot != slot:
+        existing = EquippedItem.query.filter_by(
+            player_id=player.id,
+            slot=slot
+        ).first()
+
+        if existing and existing.id != source_equipped.id:
+            existing.slot = source_slot
+
+        source_equipped.slot = slot
+        db.session.commit()
+        return jsonify({
+            'message': f'Item {item.name} equipped',
+            'player': player.to_dict(include_inventory=True)
+        })
+
     # Check if player has this item in inventory
     inventory_item = InventoryItem.query.filter_by(
         player_id=player.id,
         item_id=item_id
     ).first()
-    
+
     if not inventory_item:
         return jsonify({'error': 'Item not in inventory'}), 400
-    
-    # Check if already at max equipped items (now supports 6 slots)
-    if len(player.equipped_items) >= 6 and slot >= len(player.equipped_items):
-        return jsonify({'error': 'Maximum 6 items can be equipped'}), 400
-    
+
     # Check if slot is already occupied
     existing = EquippedItem.query.filter_by(
         player_id=player.id,
