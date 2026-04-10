@@ -2,7 +2,7 @@ import random
 from flask import Blueprint, jsonify
 from database import db
 from models import EnemyType, CurrentEncounter, Item
-from game_utils import adjust_inventory_quantity, get_player
+from game_utils import get_player
 
 dungeon_bp = Blueprint('dungeon', __name__)
 
@@ -37,10 +37,6 @@ def create_new_encounter():
 def check_player_death(player):
     """Check if player is dead and reset if necessary. Returns True if player died."""
     if player.health <= 0:
-        player.health = 100
-        player.damage = 10
-        player.level = 1
-
         # Clear any active encounter
         CurrentEncounter.query.delete()
 
@@ -48,7 +44,7 @@ def check_player_death(player):
     return False
 
 
-def drop_loot(player, enemy_type):
+def drop_loot():
     """Drop random items when enemy is defeated"""
     items_dropped = []
     
@@ -62,8 +58,6 @@ def drop_loot(player, enemy_type):
     
     for _ in range(num_items):
         dropped_item = random.choice(all_items)
-        adjust_inventory_quantity(player, dropped_item.id, 1)
-        
         items_dropped.append(dropped_item.to_dict())
     
     return items_dropped
@@ -77,6 +71,7 @@ def build_combat_response(player, encounter, message, *, victory, items_dropped,
         'victory': victory,
         'items_dropped': items_dropped,
         'player_died': player_died,
+        'success': success,
     }
 
     if dice_roll is not None:
@@ -137,7 +132,7 @@ def attack_monster():
                 encounter,
                 (
                     "Defeat!\n"
-                    f"You have been defeated by {enemy_name} and kicked out of the dungeon..."
+                    f"You have been defeated by {enemy_name} and lost the loot from this dungeon run..."
                 ),
                 victory=False,
                 items_dropped=[],
@@ -159,10 +154,10 @@ def attack_monster():
         victory = True
         
         # Drop loot
-        items_dropped = drop_loot(player, encounter.enemy_type)
+        items_dropped = drop_loot()
         if items_dropped:
             item_names = ", ".join([item['name'] for item in items_dropped])
-            message_lines.append(f"You obtained {item_names}!")
+            message_lines.append(f"You found {item_names}!")
 
         # Reward: chance to level up and gain stats
         if random.random() < 0.4:  # 40% chance
@@ -242,7 +237,7 @@ def run_away():
                 (
                     f"You rolled a {dice_roll} and failed to escape. "
                     f"{enemy_name} dealt {damage_taken} damage! "
-                    f"You have been defeated and returned to the start..."
+                    f"You lost the loot from this dungeon run and returned to the start..."
                 ),
                 victory=False,
                 items_dropped=[],

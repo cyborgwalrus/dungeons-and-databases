@@ -38,7 +38,7 @@ export function renderLootPanel(lootEl, lootCounts) {
   lootEl.innerHTML = `<div style="margin-top:10px;padding:10px;background:#2d3436;border-left:4px solid #fdcb6e;border-radius:4px"><strong style="color:#fdcb6e">🎁 Loot obtained:</strong><p>${lines.join(', ')}</p></div>`;
 }
 
-export function applyDungeonCombatUpdate(d, { lootCounts, setLastDungeonMessage, lootEl }) {
+export function applyDungeonCombatUpdate(d, { lootCounts, onLootDropped, setLastDungeonMessage, lootEl }) {
   // The server returns the latest enemy/player state after each attack; mirror it into the live panel.
   const nextMessage = d.message || 'You attacked the monster!';
   if (typeof setLastDungeonMessage === 'function') setLastDungeonMessage(nextMessage);
@@ -50,13 +50,14 @@ export function applyDungeonCombatUpdate(d, { lootCounts, setLastDungeonMessage,
       const n = it.name || 'Unknown';
       lootCounts[n] = (lootCounts[n] || 0) + 1;
     });
+    if (typeof onLootDropped === 'function') onLootDropped(d.items_dropped);
     renderLootPanel(lootEl, lootCounts);
   }
 }
 
 export async function showDungeonDefeatScreen({ message, lootCounts, onExit }) {
   await showDefeat({
-    message: message || 'You were defeated',
+    message: message || 'You were defeated and lost the loot from this dungeon run.',
     lootCounts,
     onExit
   });

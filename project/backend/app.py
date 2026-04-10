@@ -3,8 +3,9 @@ from flask_cors import CORS
 import os
 
 from database import db
-from models import EnemyType, Item, Player, InventoryItem, EquippedItem
-from game_utils import adjust_inventory_quantity, clear_player_equipment, clear_player_inventory, get_player
+from models import EnemyType, Item, Player
+from game_utils import add_inventory_item, clear_player_equipment, clear_player_inventory, get_player
+from sqlalchemy.exc import SQLAlchemyError
 from player_routes import player_bp
 from dungeon_routes import dungeon_bp
 from inventory_routes import inventory_bp
@@ -63,18 +64,6 @@ def seed_initial_data():
         db.session.commit()
 
 
-def remove_legacy_items():
-    obsolete = Item.query.filter_by(name='Iron Sword').all()
-    if not obsolete:
-        return
-
-    for old_item in obsolete:
-        InventoryItem.query.filter_by(item_id=old_item.id).delete()
-        EquippedItem.query.filter_by(item_id=old_item.id).delete()
-        db.session.delete(old_item)
-    db.session.commit()
-
-
 # Ensure player exists before each request
 @app.before_request
 def ensure_player():
@@ -86,7 +75,6 @@ def init_db():
     with app.app_context():
         db.create_all()
         seed_initial_data()
-        remove_legacy_items()
     print('Database initialized (tables created and seed data loaded)')
 
 
@@ -103,7 +91,7 @@ def delete_db():
             if os.path.exists(db_path):
                 os.remove(db_path)
             print('Database dropped and file removed')
-        except Exception as e:
+        except (OSError, SQLAlchemyError) as e:
             print('Failed to delete database:', e)
 
 
@@ -120,40 +108,20 @@ def seed_full_loadout():
         db.session.commit()
 
         # Helper to add inventory
-        def add_item_by_name(name, qty=1):
+        def add_item_by_name(name):
             itm = Item.query.filter_by(name=name).first()
             if itm:
-                adjust_inventory_quantity(player, itm.id, qty)
+                add_inventory_item(player, itm.id)
 
         # Add a sensible loadout (no Iron Sword)
-        add_item_by_name('Steel Sword', 1)
-        add_item_by_name('Steel Sword', 1)
-        add_item_by_name('Leather Armor', 1)
-        add_item_by_name('Steel Armor', 1)
-        add_item_by_name('Iron Shield', 1)
-        add_item_by_name('Iron Helmet', 1)
-        add_item_by_name('Silver Necklace', 1)
-        add_item_by_name('Enchanted Ring', 1)
-        db.session.commit()
-
-        # Equip primary items into slots 0..2 (weapon, armor, shield)
-        def equip_direct(name, slot):
-            itm = Item.query.filter_by(name=name).first()
-            if not itm:
-                return
-            ei = EquippedItem(player_id=player.id, item_id=itm.id, slot=slot)
-            db.session.add(ei)
-            # decrement inventory for that item
-            adjust_inventory_quantity(player, itm.id, -1)
-
-        # Equip to new 2x3 layout slots:
-        # 0: Helmet, 1: Armor, 2: Weapon, 3: Shield, 4: Ring, 5: Necklace
-        equip_direct('Iron Helmet', 0)
-        equip_direct('Leather Armor', 1)
-        equip_direct('Steel Sword', 2)
-        equip_direct('Iron Shield', 3)
-        equip_direct('Enchanted Ring', 4)
-        equip_direct('Silver Necklace', 5)
+        add_item_by_name('Steel Sword')
+        add_item_by_name('Steel Sword')
+        add_item_by_name('Leather Armor')
+        add_item_by_name('Steel Armor')
+        add_item_by_name('Iron Shield')
+        add_item_by_name('Iron Helmet')
+        add_item_by_name('Silver Necklace')
+        add_item_by_name('Enchanted Ring')
         db.session.commit()
 
         print('Seeded full loadout for player')

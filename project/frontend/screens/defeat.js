@@ -1,6 +1,6 @@
 import { formatDungeonMessage, formatLootLines } from '../helpers.js';
 
-export async function showDefeat({ message = 'You were defeated', lootCounts = {}, onExit = null } = {}) {
+export async function showDefeat({ message = 'You were defeated and lost the loot from this dungeon run.', lootCounts = {}, onExit = null } = {}) {
   if (!(window.app && typeof window.app.renderDungeon === 'function')) {
     // fallback: render a minimal defeat screen into root
     const root = document.getElementById('root');

@@ -9,7 +9,7 @@ export function renderInventoryGrid(opts) {
     return;
   }
 
-  // Keep the strongest upgraded items near the top so bulk reforge/equip scans are easier to follow.
+  // Keep the strongest upgraded items near the top so equip scans are easier to follow.
   const sortedInventory = [...inventory].sort((a, b) => {
     function levelOf(inv) {
       const name = (inv.item && inv.item.name) ? inv.item.name : '';
@@ -25,18 +25,15 @@ export function renderInventoryGrid(opts) {
   sortedInventory.forEach(invItem => {
     const i = invItem.item;
     const itype = getItemType(i);
-    const qty = Math.max(1, invItem.quantity || 1);
-    for (let q = 0; q < qty; q++) {
-      const instanceId = `card-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
-      cards.push(`
-        <div class="inventory-card" draggable="true" data-instance-id="${instanceId}" data-item-id="${i.id}" data-item-type="${itype}">
-          <div class="item-icon">${makeIcon(i)}</div>
-          <div class="card-details">
-            <div class="item-name">${i.name}</div>
-            <div class="item-type">${formatStats(i)}</div>
-          </div>
-        </div>`);
-    }
+    const instanceId = `card-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+    cards.push(`
+      <div class="inventory-card" draggable="true" data-instance-id="${instanceId}" data-item-id="${i.id}" data-item-type="${itype}">
+        <div class="item-icon">${makeIcon(i)}</div>
+        <div class="card-details">
+          <div class="item-name">${i.name}</div>
+          <div class="item-type">${formatStats(i)}</div>
+        </div>
+      </div>`);
   });
   invContainer.innerHTML = cards.join('');
 

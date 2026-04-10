@@ -19,6 +19,39 @@ let allItems = [];
 let currentDrag = null; // { itemId, itemType, from, slot }
 let lastDungeonMessage = null;
 let lootCounts = {}; // cumulative loot counts while in session
+let dungeonLoot = []; // temporary dungeon-run loot that is only banked on successful exit
+
+function resetDungeonLoot() {
+  lootCounts = {};
+  dungeonLoot = [];
+}
+
+function recordDungeonLoot(itemsDropped) {
+  (itemsDropped || []).forEach(item => {
+    if (!item) return;
+    dungeonLoot.push(item);
+    const itemName = item.name || 'Unknown';
+    lootCounts[itemName] = (lootCounts[itemName] || 0) + 1;
+  });
+}
+
+async function bankDungeonLoot() {
+  if (!dungeonLoot.length) return;
+
+  const countsById = new Map();
+  dungeonLoot.forEach(item => {
+    if (!item || item.id === undefined || item.id === null) return;
+    const current = countsById.get(item.id) || { item, quantity: 0 };
+    current.quantity += 1;
+    countsById.set(item.id, current);
+  });
+
+  for (const { item, quantity } of countsById.values()) {
+    for (let i = 0; i < quantity; i += 1) {
+      await fetchJson(`/inventory/item/${item.id}`, { method: 'POST' });
+    }
+  }
+}
 
 function updateSlotHighlights() {
   document.querySelectorAll('.equip-slot').forEach(slotEl => {
@@ -92,16 +125,17 @@ async function handleDungeonAttack() {
   const lootEl = document.getElementById('loot');
   applyDungeonCombatUpdate(d, {
     lootCounts,
+    onLootDropped: recordDungeonLoot,
     lootEl,
     setLastDungeonMessage: v => { lastDungeonMessage = v; }
   });
 
   if (d.player_died) {
     await showDungeonDefeatScreen({
-      message: d.message || 'You were defeated',
+      message: d.message || 'You were defeated and lost the loot from this dungeon run.',
       lootCounts,
       onExit: () => {
-        lootCounts = {};
+        resetDungeonLoot();
         navigateTo('/');
       }
     });
@@ -123,10 +157,10 @@ async function handleDungeonRun() {
 
   if (d.player_died) {
     await showDungeonDefeatScreen({
-      message: d.message || 'You were defeated',
+      message: d.message || 'You were defeated and lost the loot from this dungeon run.',
       lootCounts,
       onExit: () => {
-        lootCounts = {};
+        resetDungeonLoot();
         navigateTo('/');
       }
     });
@@ -134,9 +168,18 @@ async function handleDungeonRun() {
   }
 
   if (d.success) {
-    setTimeout(() => navigateTo('/'), 1500);
+    setTimeout(async () => {
+      try {
+        await bankDungeonLoot();
+      } catch (err) {
+        console.error('Banking dungeon loot failed', err);
+      } finally {
+        resetDungeonLoot();
+        navigateTo('/');
+      }
+    }, 1500);
   } else {
-    setTimeout(() => renderDungeon(), 500);
+    setTimeout(() => renderDungeon({ resetRunState: false }), 500);
   }
 }
 // expose renderers for screen modules
@@ -185,7 +228,7 @@ async function renderHome() {
   document.getElementById('enter-dungeon').addEventListener('click', () => navigateTo('/dungeon'));
 
   // clear any dungeon loot from previous runs when returning home
-  lootCounts = {};
+  resetDungeonLoot();
   await loadStateAndRenderPartial();
   // Returning home restores the player to full health based on level and gear bonuses.
   try {
@@ -222,10 +265,9 @@ async function renderHome() {
 }
 
 /* --- Dungeon view remains mostly unchanged but uses player updates from API --- */
-async function renderDungeon() {
-  // Reset transient combat state every time a new dungeon screen is shown.
-  // reset loot counts for a fresh run when entering the dungeon
-  lootCounts = {};
+async function renderDungeon({ resetRunState = true } = {}) {
+  // Reset transient combat state only when starting a fresh dungeon screen.
+  if (resetRunState) resetDungeonLoot();
   lastDungeonMessage = null;
   root.innerHTML = `<div class="game-container"><div id="dungeon-content">Loading...</div></div>`;
   const content = document.getElementById('dungeon-content');
@@ -248,7 +290,11 @@ async function renderDungeon() {
 
   document.getElementById('run').addEventListener('click', ev => { ev.preventDefault(); handleDungeonRun(); });
 
-  document.getElementById('back').addEventListener('click', (ev) => { ev.preventDefault(); navigateTo('/'); });
+  document.getElementById('back').addEventListener('click', (ev) => {
+    ev.preventDefault();
+    resetDungeonLoot();
+    navigateTo('/');
+  });
 }
 
 // expose dungeon renderer as well

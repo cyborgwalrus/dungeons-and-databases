@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from database import db
 from models import Item
-from game_utils import adjust_inventory_quantity, get_player as get_current_player
+from game_utils import add_inventory_item, get_player as get_current_player
 
 player_bp = Blueprint('player', __name__)
 
@@ -72,7 +72,7 @@ def demo_inventory():
     items = Item.query.limit(3).all()
     
     for item in items:
-        adjust_inventory_quantity(player, item.id, 1)
+        add_inventory_item(player, item.id)
     
     db.session.commit()
     return jsonify({

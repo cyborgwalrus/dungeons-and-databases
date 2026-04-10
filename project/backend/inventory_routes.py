@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from database import db
 from models import Item, InventoryItem, EquippedItem
-from game_utils import adjust_inventory_quantity, clear_player_inventory, get_player, get_upgraded_item
+from game_utils import add_inventory_item, clear_player_inventory, get_player, get_upgraded_item, remove_inventory_item
 
 inventory_bp = Blueprint('inventory', __name__)
 
@@ -33,7 +33,6 @@ def get_all_items():
         result.append({
             'inventory_id': inv_item.id,
             'item': inv_item.item.to_dict(),
-            'quantity': inv_item.quantity,
             'equipped': any(eq.item_id == inv_item.item_id for eq in player.equipped_items)
         })
     
@@ -75,20 +74,14 @@ def equip_item():
         slot=slot
     ).first()
     
-    # Decrement one quantity from the inventory for the equipped item
-    # and if replacing an existing equipped item, return it to inventory.
     if existing:
         prev_item_id = existing.item_id
         if prev_item_id != item_id:
-            # return previous item to inventory and consume the new one
-            adjust_inventory_quantity(player, prev_item_id, 1)
-            # set new item in slot
+            add_inventory_item(player, prev_item_id)
             existing.item_id = item_id
-            adjust_inventory_quantity(player, item_id, -1)
+            remove_inventory_item(player, item_id)
     else:
-        # consume one of the new item from inventory
-        adjust_inventory_quantity(player, item_id, -1)
-        # Add new equipped item
+        remove_inventory_item(player, item_id)
         equipped_item = EquippedItem(
             player_id=player.id,
             item_id=item_id,
@@ -119,9 +112,8 @@ def unequip_item(slot):
     if not equipped_item:
         return jsonify({'error': 'No item in slot'}), 404
     
-    # Return the item to the player's inventory (increment or create)
     unequipped_item_id = equipped_item.item_id
-    adjust_inventory_quantity(player, unequipped_item_id, 1)
+    add_inventory_item(player, unequipped_item_id)
 
     db.session.delete(equipped_item)
     db.session.commit()
@@ -134,14 +126,14 @@ def unequip_item(slot):
 
 @inventory_bp.route('/api/inventory/item/<int:item_id>', methods=['POST'])
 def add_item_to_inventory(item_id):
-    """Add item to inventory (or increment quantity if already exists)"""
+    """Add item to inventory."""
     player = get_player()
     
     item = Item.query.get(item_id)
     if not item:
         return jsonify({'error': 'Item not found'}), 404
     
-    inventory_item = adjust_inventory_quantity(player, item_id, 1)
+    inventory_item = add_inventory_item(player, item_id)
     
     db.session.commit()
     return jsonify(inventory_item.to_dict())
@@ -149,9 +141,9 @@ def add_item_to_inventory(item_id):
 
 @inventory_bp.route('/api/inventory/item/<int:item_id>', methods=['DELETE'])
 def remove_item_from_inventory(item_id):
-    """Remove one quantity of item from inventory (or delete if quantity becomes 0)"""
+    """Remove one item from inventory."""
     player = get_player()
-    inventory_item = adjust_inventory_quantity(player, item_id, -1)
+    inventory_item = remove_inventory_item(player, item_id)
     
     if not inventory_item:
         return jsonify({'error': 'Item not in inventory'}), 404
@@ -172,28 +164,48 @@ def clear_inventory():
 
 @inventory_bp.route('/api/inventory/reforge_all', methods=['POST'])
 def reforge_all_items():
-    """Server-side loop: repeatedly reforge any items with quantity >= 3 until none remain."""
+    """Reforge every set of 3 matching items into one upgraded copy."""
     player = get_player()
-
     made_changes = False
+
     while True:
-        inv_item = InventoryItem.query.filter_by(player_id=player.id).filter(InventoryItem.quantity >= 3).first()
-        if not inv_item:
+        inventory_items = InventoryItem.query.filter_by(player_id=player.id).all()
+        equipped_items = EquippedItem.query.filter_by(player_id=player.id).all()
+        if not inventory_items and not equipped_items:
+            break
+
+        groups = {}
+        for inv_item in inventory_items:
+            groups.setdefault(inv_item.item_id, []).append({'kind': 'inventory', 'row': inv_item})
+        for eq_item in equipped_items:
+            groups.setdefault(eq_item.item_id, []).append({'kind': 'equipped', 'row': eq_item})
+
+        upgrade_source = next((group[0] for group in groups.values() if len(group) >= 3), None)
+        if not upgrade_source:
             break
 
         made_changes = True
-        item = Item.query.get(inv_item.item_id)
-        if not item:
-            db.session.delete(inv_item)
-            db.session.commit()
-            continue
+        items_to_consume = groups[upgrade_source['row'].item_id][:3]
+        source_row = next((entry['row'] for entry in items_to_consume if entry['kind'] == 'equipped'), None)
 
-        adjust_inventory_quantity(player, inv_item.item_id, -3)
-        upgraded = get_upgraded_item(item)
-        adjust_inventory_quantity(player, upgraded.id, 1)
+        for entry in items_to_consume:
+            if entry['kind'] == 'equipped':
+                if entry['row'] is not source_row:
+                    db.session.delete(entry['row'])
+            else:
+                db.session.delete(entry['row'])
+
+        upgraded = get_upgraded_item(upgrade_source['row'].item)
+        if source_row:
+            source_row.item_id = upgraded.id
+        else:
+            add_inventory_item(player, upgraded.id)
+
         db.session.commit()
 
     if not made_changes:
         return jsonify({'message': 'No items to reforge'}), 400
 
     return jsonify({'message': 'Reforge all complete', 'player': player.to_dict(include_inventory=True)})
+
+

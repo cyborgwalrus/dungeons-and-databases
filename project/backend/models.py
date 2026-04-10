@@ -2,13 +2,15 @@ from database import db
 
 
 class Player(db.Model):
+    __allow_unmapped__ = True
+
     id = db.Column(db.Integer, primary_key=True)
     health = db.Column(db.Integer, default=100)
     damage = db.Column(db.Integer, default=10)
     level = db.Column(db.Integer, default=1)
     
-    inventory_items = db.relationship('InventoryItem', back_populates='player', cascade='all, delete-orphan')
-    equipped_items = db.relationship('EquippedItem', back_populates='player', cascade='all, delete-orphan')
+    inventory_items: list['InventoryItem'] = db.relationship('InventoryItem', back_populates='player', cascade='all, delete-orphan')  # type: ignore[assignment]
+    equipped_items: list['EquippedItem'] = db.relationship('EquippedItem', back_populates='player', cascade='all, delete-orphan')  # type: ignore[assignment]
 
     def to_dict(self, include_inventory=False):
         data = {
@@ -98,13 +100,12 @@ class Item(db.Model):
 
 
 class InventoryItem(db.Model):
-    """Tracks items in player inventory with quantities"""
+    """Tracks items in player inventory."""
     __tablename__ = "inventory_item"
     
     id = db.Column(db.Integer, primary_key=True)
     player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False)
-    quantity = db.Column(db.Integer, default=1, nullable=False)
     
     player = db.relationship('Player', back_populates='inventory_items')
     item = db.relationship('Item')
@@ -112,8 +113,7 @@ class InventoryItem(db.Model):
     def to_dict(self):
         return {
             'id': self.id,
-            'item': self.item.to_dict(),
-            'quantity': self.quantity
+            'item': self.item.to_dict()
         }
 
 
