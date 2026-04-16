@@ -1,6 +1,5 @@
 from flask import Blueprint, jsonify, request
-from database import db
-from models import Item
+from models import db, ItemType
 from game_utils import add_inventory_item, get_player as get_current_player
 
 player_bp = Blueprint('player', __name__)
@@ -68,8 +67,8 @@ def demo_inventory():
     """Demo endpoint to add random items to player inventory"""
     player = get_current_player()
     
-    # Get some random items
-    items = Item.query.limit(3).all()
+    # Get some random item types
+    items = ItemType.query.limit(3).all()
     
     for item in items:
         add_inventory_item(player, item.id)

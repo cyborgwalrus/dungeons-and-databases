@@ -1,7 +1,7 @@
 import random
 from flask import Blueprint, jsonify
-from database import db
-from models import EnemyType, CurrentEncounter, Item
+from models import db
+from models import EnemyType, CurrentEncounter, ItemType
 from game_utils import get_player
 
 dungeon_bp = Blueprint('dungeon', __name__)
@@ -22,11 +22,10 @@ def create_new_encounter():
     damage = enemy_type.base_damage + (player.level * 2)
 
     encounter = CurrentEncounter(
+        character_id=player.id,
         enemy_type_id=enemy_type.id,
-        current_health=max_health,
-        max_health=max_health,
-        damage=damage,
-        level=player.level
+        enemy_health=max_health,
+        enemy_damage=damage,
     )
     db.session.add(encounter)
     db.session.commit()
@@ -48,8 +47,8 @@ def drop_loot():
     """Drop random items when enemy is defeated"""
     items_dropped = []
     
-    # Get all available items
-    all_items = Item.query.all()
+    # Get all available item types
+    all_items = ItemType.query.all()
     if not all_items:
         return items_dropped
     
@@ -88,10 +87,9 @@ def get_encounter():
     player = get_player()
     encounter = CurrentEncounter.query.first()
 
-    # If there's no encounter, or the encounter level doesn't match the player level,
-    # create a new encounter so enemy stats scale with the player.
-    if not encounter or (encounter.level != player.level):
-        # clear existing encounter and create a new one matching player's level
+    # If there's no encounter, or the encounter belongs to another character,
+    # create a new encounter so enemy stats scale with the current player.
+    if not encounter or (encounter.character_id != player.id):
         CurrentEncounter.query.delete()
         encounter = create_new_encounter()
 
@@ -113,13 +111,13 @@ def attack_monster():
     
     # Combat simulation
     player_hits = random.randint(effective_damage // 2, effective_damage)
-    monster_hits = random.randint(encounter.damage // 2, encounter.damage)
+    monster_hits = random.randint(encounter.enemy_damage // 2, encounter.enemy_damage)
 
     # Apply damage to enemy
-    encounter.current_health = max(0, encounter.current_health - player_hits)
+    encounter.enemy_health = max(0, encounter.enemy_health - player_hits)
 
     # Player takes damage from monster if it's still alive
-    if encounter.current_health > 0:
+    if encounter.enemy_health > 0:
         player.health = max(0, player.health - monster_hits)
 
         # Check if player died
@@ -170,6 +168,7 @@ def attack_monster():
 
         # Create new encounter for next battle
         db.session.delete(encounter)
+        db.session.commit()
         encounter = create_new_encounter()
 
     db.session.commit()
@@ -219,7 +218,7 @@ def run_away():
         )
     else:
         # Failed to escape - enemy attacks you
-        damage_taken = random.randint(encounter.damage // 2, encounter.damage)
+        damage_taken = random.randint(encounter.enemy_damage // 2, encounter.enemy_damage)
         player.health = max(0, player.health - damage_taken)
         message = (
             f"You rolled a {dice_roll}! Failed to escape! "

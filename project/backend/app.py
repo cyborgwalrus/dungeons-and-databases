@@ -2,8 +2,8 @@ from flask import Flask
 from flask_cors import CORS
 import os
 
-from database import db
-from models import EnemyType, Item, Player
+from models import db
+from models import Character, EnemyType, Item, ItemType, User
 from game_utils import add_inventory_item, clear_player_equipment, clear_player_inventory, get_player
 from sqlalchemy.exc import SQLAlchemyError
 from player_routes import player_bp
@@ -27,40 +27,46 @@ app.register_blueprint(dungeon_bp)
 app.register_blueprint(inventory_bp)
 
 ENEMY_SEEDS = [
-    EnemyType(name='Goblin', base_health=20, base_damage=5, description='A small, green creature with sharp teeth'),
-    EnemyType(name='Skeleton', base_health=30, base_damage=7, description='Bones held together by dark magic'),
-    EnemyType(name='Orc', base_health=40, base_damage=10, description='A brutal warrior with immense strength'),
-    EnemyType(name='Dark Mage', base_health=25, base_damage=12, description='A sorcerer wielding forbidden magic'),
-    EnemyType(name='Troll', base_health=60, base_damage=8, description='A massive creature with regenerating flesh'),
-    EnemyType(name='Dragon Whelp', base_health=50, base_damage=15, description='A young dragon with fiery breath')
+    {'name': 'Goblin', 'base_health': 20, 'base_damage': 5, 'description': 'A small, green creature with sharp teeth'},
+    {'name': 'Skeleton', 'base_health': 30, 'base_damage': 7, 'description': 'Bones held together by dark magic'},
+    {'name': 'Orc', 'base_health': 40, 'base_damage': 10, 'description': 'A brutal warrior with immense strength'},
+    {'name': 'Dark Mage', 'base_health': 25, 'base_damage': 12, 'description': 'A sorcerer wielding forbidden magic'},
+    {'name': 'Troll', 'base_health': 60, 'base_damage': 8, 'description': 'A massive creature with regenerating flesh'},
+    {'name': 'Dragon Whelp', 'base_health': 50, 'base_damage': 15, 'description': 'A young dragon with fiery breath'},
 ]
 
-ITEM_SEEDS = [
-    Item(name='Steel Sword', description='A strong steel sword', bonus_health=0, bonus_attack=10),
-    Item(name='Leather Armor', description='Basic leather protection', bonus_health=15, bonus_attack=0),
-    Item(name='Steel Armor', description='Strong steel protection', bonus_health=25, bonus_attack=0),
-    Item(name='Iron Helmet', description='A sturdy helmet', bonus_health=8, bonus_attack=0),
-    Item(name='Silver Necklace', description='A mystical necklace', bonus_health=5, bonus_attack=2),
-    Item(name='Enchanted Ring', description='Increases damage by 3', bonus_health=10, bonus_attack=3),
-    Item(name='Iron Shield', description='Defensive shield', bonus_health=20, bonus_attack=0),
+ITEM_TYPE_SEEDS = [
+    {'name': 'Steel Sword', 'description': 'A strong steel sword', 'bonus_health': 0, 'bonus_attack': 10},
+    {'name': 'Leather Armor', 'description': 'Basic leather protection', 'bonus_health': 15, 'bonus_attack': 0},
+    {'name': 'Steel Armor', 'description': 'Strong steel protection', 'bonus_health': 25, 'bonus_attack': 0},
+    {'name': 'Iron Helmet', 'description': 'A sturdy helmet', 'bonus_health': 8, 'bonus_attack': 0},
+    {'name': 'Silver Necklace', 'description': 'A mystical necklace', 'bonus_health': 5, 'bonus_attack': 2},
+    {'name': 'Enchanted Ring', 'description': 'Increases damage by 3', 'bonus_health': 10, 'bonus_attack': 3},
+    {'name': 'Iron Shield', 'description': 'Defensive shield', 'bonus_health': 20, 'bonus_attack': 0},
 ]
 
 
 def ensure_player_exists():
     player = get_player()
     if not player:
-        player = Player(health=100, damage=10, level=1)
+        user = User.query.first()
+        if not user:
+            user = User(username='player', password='password')
+            db.session.add(user)
+            db.session.flush()
+
+        player = Character(user_id=user.id, name='Hero')
         db.session.add(player)
         db.session.commit()
 
 
 def seed_initial_data():
     if EnemyType.query.count() == 0:
-        db.session.add_all(ENEMY_SEEDS)
+        db.session.add_all([EnemyType(**seed) for seed in ENEMY_SEEDS])
         db.session.commit()
 
-    if Item.query.count() == 0:
-        db.session.add_all(ITEM_SEEDS)
+    if ItemType.query.count() == 0:
+        db.session.add_all([ItemType(**seed) for seed in ITEM_TYPE_SEEDS])
         db.session.commit()
 
 
@@ -109,7 +115,7 @@ def seed_full_loadout():
 
         # Helper to add inventory
         def add_item_by_name(name):
-            itm = Item.query.filter_by(name=name).first()
+            itm = ItemType.query.filter_by(name=name).first()
             if itm:
                 add_inventory_item(player, itm.id)
 

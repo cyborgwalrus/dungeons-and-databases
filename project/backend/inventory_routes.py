@@ -1,6 +1,5 @@
 from flask import Blueprint, jsonify, request
-from database import db
-from models import Item, InventoryItem, EquippedItem
+from models import db, Item, ItemType
 from game_utils import add_inventory_item, clear_player_inventory, get_player, get_upgraded_item, remove_inventory_item
 
 inventory_bp = Blueprint('inventory', __name__)
@@ -24,19 +23,16 @@ def get_equipped():
 def get_all_items():
     """Get all available items for equipping"""
     player = get_player()
-    
-    # Get player's inventory items
-    inventory_items = InventoryItem.query.filter_by(player_id=player.id).all()
-    
-    result = []
-    for inv_item in inventory_items:
-        result.append({
-            'inventory_id': inv_item.id,
-            'item': inv_item.item.to_dict(),
-            'equipped': any(eq.item_id == inv_item.item_id for eq in player.equipped_items)
-        })
-    
-    return jsonify(result)
+    all_items = Item.query.filter_by(owner_id=player.id).all()
+    return jsonify([
+        {
+            'inventory_id': item.id,
+            'item': item.to_dict(),
+            'equipped': item.is_equipped,
+            'slot': item.slot,
+        }
+        for item in all_items
+    ])
 
 
 @inventory_bp.route('/api/inventory/equip', methods=['POST'])
@@ -53,74 +49,42 @@ def equip_item():
     if slot < 0 or slot > 5:
         return jsonify({'error': 'Slot must be between 0 and 5'}), 400
     
-    item = Item.query.get(item_id)
+    item = Item.query.filter_by(owner_id=player.id, id=item_id).first()
     if not item:
         return jsonify({'error': 'Item not found'}), 404
-    
-    source_equipped = None
-    if source_slot is not None:
-        source_equipped = EquippedItem.query.filter_by(
-            player_id=player.id,
-            slot=source_slot,
-            item_id=item_id
-        ).first()
 
-    if source_equipped and source_slot == slot:
-        return jsonify({
-            'message': f'Item {item.name} equipped',
-            'player': player.to_dict(include_inventory=True)
-        })
+    source_equipped = Item.query.filter_by(owner_id=player.id, id=item_id, is_equipped=True).first()
 
-    # Moving an already-equipped item should not require an inventory copy.
-    if source_equipped and source_slot != slot:
-        existing = EquippedItem.query.filter_by(
-            player_id=player.id,
-            slot=slot
-        ).first()
+    if source_equipped:
+        existing = Item.query.filter_by(owner_id=player.id, is_equipped=True, slot=slot).first()
 
         if existing and existing.id != source_equipped.id:
-            existing.slot = source_slot
+            existing.slot = source_equipped.slot
 
         source_equipped.slot = slot
         db.session.commit()
+        db.session.expire(player)
         return jsonify({
-            'message': f'Item {item.name} equipped',
+            'message': f'Item {item.item_type.name if item.item_type else item.id} equipped',
             'player': player.to_dict(include_inventory=True)
         })
 
-    # Check if player has this item in inventory
-    inventory_item = InventoryItem.query.filter_by(
-        player_id=player.id,
-        item_id=item_id
-    ).first()
-
+    inventory_item = Item.query.filter_by(owner_id=player.id, id=item_id, is_equipped=False).first()
     if not inventory_item:
         return jsonify({'error': 'Item not in inventory'}), 400
 
-    # Check if slot is already occupied
-    existing = EquippedItem.query.filter_by(
-        player_id=player.id,
-        slot=slot
-    ).first()
-    
+    existing = Item.query.filter_by(owner_id=player.id, is_equipped=True, slot=slot).first()
     if existing:
-        prev_item_id = existing.item_id
-        if prev_item_id != item_id:
-            add_inventory_item(player, prev_item_id)
-            existing.item_id = item_id
-            remove_inventory_item(player, item_id)
-    else:
-        remove_inventory_item(player, item_id)
-        equipped_item = EquippedItem(
-            player_id=player.id,
-            item_id=item_id,
-            slot=slot
-        )
-        db.session.add(equipped_item)
+        existing.slot = None
+        existing.is_equipped = False
+
+    inventory_item.is_equipped = True
+    inventory_item.slot = slot
 
     db.session.commit()
+    db.session.expire(player)
     return jsonify({
-        'message': f'Item {item.name} equipped',
+        'message': f'Item {inventory_item.item_type.name if inventory_item.item_type else inventory_item.id} equipped',
         'player': player.to_dict(include_inventory=True)
     })
 
@@ -133,19 +97,15 @@ def unequip_item(slot):
     if slot < 0 or slot > 5:
         return jsonify({'error': 'Slot must be between 0 and 5'}), 400
     
-    equipped_item = EquippedItem.query.filter_by(
-        player_id=player.id,
-        slot=slot
-    ).first()
+    equipped_item = Item.query.filter_by(owner_id=player.id, is_equipped=True, slot=slot).first()
     
     if not equipped_item:
         return jsonify({'error': 'No item in slot'}), 404
     
-    unequipped_item_id = equipped_item.item_id
-    add_inventory_item(player, unequipped_item_id)
-
-    db.session.delete(equipped_item)
+    equipped_item.is_equipped = False
+    equipped_item.slot = None
     db.session.commit()
+    db.session.expire(player)
 
     return jsonify({
         'message': 'Item unequipped',
@@ -158,11 +118,11 @@ def add_item_to_inventory(item_id):
     """Add item to inventory."""
     player = get_player()
     
-    item = Item.query.get(item_id)
-    if not item:
+    item_type = ItemType.query.get(item_id)
+    if not item_type:
         return jsonify({'error': 'Item not found'}), 404
     
-    inventory_item = add_inventory_item(player, item_id)
+    inventory_item = add_inventory_item(player, item_type.id)
     
     db.session.commit()
     return jsonify(inventory_item.to_dict())
@@ -198,43 +158,94 @@ def reforge_all_items():
     made_changes = False
 
     while True:
-        inventory_items = InventoryItem.query.filter_by(player_id=player.id).all()
-        equipped_items = EquippedItem.query.filter_by(player_id=player.id).all()
+        inventory_items = Item.query.filter_by(owner_id=player.id, is_equipped=False).all()
+        equipped_items = Item.query.filter_by(owner_id=player.id, is_equipped=True).all()
         if not inventory_items and not equipped_items:
             break
 
         groups = {}
         for inv_item in inventory_items:
-            groups.setdefault(inv_item.item_id, []).append({'kind': 'inventory', 'row': inv_item})
+            groups.setdefault(inv_item.item_type_id, []).append({'kind': 'inventory', 'row': inv_item})
         for eq_item in equipped_items:
-            groups.setdefault(eq_item.item_id, []).append({'kind': 'equipped', 'row': eq_item})
+            groups.setdefault(eq_item.item_type_id, []).append({'kind': 'equipped', 'row': eq_item})
 
         upgrade_source = next((group[0] for group in groups.values() if len(group) >= 3), None)
         if not upgrade_source:
             break
 
         made_changes = True
-        items_to_consume = groups[upgrade_source['row'].item_id][:3]
+        items_to_consume = groups[upgrade_source['row'].item_type_id][:3]
         source_row = next((entry['row'] for entry in items_to_consume if entry['kind'] == 'equipped'), None)
 
         for entry in items_to_consume:
-            if entry['kind'] == 'equipped':
-                if entry['row'] is not source_row:
-                    db.session.delete(entry['row'])
-            else:
+            if entry['row'] is not source_row:
                 db.session.delete(entry['row'])
 
-        upgraded = get_upgraded_item(upgrade_source['row'].item)
+        upgraded = get_upgraded_item(upgrade_source['row'])
         if source_row:
-            source_row.item_id = upgraded.id
+            source_row.item_type_id = upgraded.item_type_id
+            source_row.level = upgraded.level
+            source_row.is_loot = upgraded.is_loot
+            db.session.delete(upgraded)
         else:
-            add_inventory_item(player, upgraded.id)
+            new_item = add_inventory_item(player, upgraded.item_type_id)
+            new_item.level = upgraded.level
+            new_item.is_loot = upgraded.is_loot
+            db.session.delete(upgraded)
 
         db.session.commit()
 
     if not made_changes:
         return jsonify({'message': 'No items to reforge'}), 400
 
+    db.session.expire(player)
     return jsonify({'message': 'Reforge all complete', 'player': player.to_dict(include_inventory=True)})
+
+
+@inventory_bp.route('/api/inventory/equip-best', methods=['POST'])
+def equip_best_items():
+    """Equip the best matching items into each slot."""
+    player = get_player()
+    slot_defs = ['helmet', 'armor', 'weapon', 'shield', 'ring', 'necklace']
+
+    for slot_index, slot_type in enumerate(slot_defs):
+        candidates = [
+            item for item in Item.query.filter_by(owner_id=player.id, is_equipped=False).all()
+            if item.item_type and _item_type_matches_slot(item.item_type, slot_type)
+        ]
+        if not candidates:
+            continue
+
+        best_item = max(candidates, key=lambda item: _item_score(item.item_type, slot_type))
+        best_item.is_equipped = True
+
+    db.session.commit()
+    db.session.expire(player)
+    return jsonify({'message': 'Best items equipped', 'player': player.to_dict(include_inventory=True)})
+
+
+def _item_type_matches_slot(item_type, slot_type):
+    name = (item_type.name or '').lower()
+    if slot_type == 'shield':
+        return 'shield' in name
+    if slot_type == 'helmet':
+        return 'helmet' in name or 'helm' in name or 'cap' in name
+    if slot_type == 'necklace':
+        return 'necklace' in name or 'amulet' in name
+    if slot_type == 'ring':
+        return 'ring' in name
+    if slot_type == 'weapon':
+        return item_type.bonus_attack > 0 and item_type.bonus_health == 0
+    if slot_type == 'armor':
+        return item_type.bonus_health > 0 and item_type.bonus_attack == 0
+    return True
+
+
+def _item_score(item_type, slot_type):
+    attack = item_type.bonus_attack or 0
+    health = item_type.bonus_health or 0
+    if slot_type == 'weapon':
+        return attack * 10 + health
+    return health * 10 + attack
 
 
