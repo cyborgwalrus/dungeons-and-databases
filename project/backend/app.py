@@ -1,17 +1,22 @@
-from flask import Flask
+from flask import Flask, request
 from flask_cors import CORS
 import os
+from flask_login import LoginManager, current_user
 
-from models import db
-from models import Character, EnemyType, Item, ItemType, User
-from game_utils import add_inventory_item, clear_player_equipment, clear_player_inventory, get_player
+from .db.init_db import seed_initial_data
+from .db.models import Character, ItemType, User, db
+from backend.game_utils import add_inventory_item, clear_player_equipment, clear_player_inventory, get_player
 from sqlalchemy.exc import SQLAlchemyError
-from player_routes import player_bp
-from dungeon_routes import dungeon_bp
-from inventory_routes import inventory_bp
+from backend.routes.auth_routes import auth_bp
+from backend.routes.user_routes import user_bp
+from backend.routes.character_routes import character_bp
+from backend.routes.dungeon_routes import dungeon_bp
+from backend.routes.inventory_routes import inventory_bp
 
 app = Flask(__name__)
 CORS(app)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
+login_manager = LoginManager()
 
 # Database configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -20,30 +25,24 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database
 db.init_app(app)
+login_manager.init_app(app)
 
-# Register blueprints
-app.register_blueprint(player_bp)
-app.register_blueprint(dungeon_bp)
-app.register_blueprint(inventory_bp)
 
-ENEMY_SEEDS = [
-    {'name': 'Goblin', 'base_health': 20, 'base_damage': 5, 'description': 'A small, green creature with sharp teeth'},
-    {'name': 'Skeleton', 'base_health': 30, 'base_damage': 7, 'description': 'Bones held together by dark magic'},
-    {'name': 'Orc', 'base_health': 40, 'base_damage': 10, 'description': 'A brutal warrior with immense strength'},
-    {'name': 'Dark Mage', 'base_health': 25, 'base_damage': 12, 'description': 'A sorcerer wielding forbidden magic'},
-    {'name': 'Troll', 'base_health': 60, 'base_damage': 8, 'description': 'A massive creature with regenerating flesh'},
-    {'name': 'Dragon Whelp', 'base_health': 50, 'base_damage': 15, 'description': 'A young dragon with fiery breath'},
-]
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id)) if user_id else None
 
-ITEM_TYPE_SEEDS = [
-    {'name': 'Steel Sword', 'description': 'A strong steel sword', 'bonus_health': 0, 'bonus_attack': 10},
-    {'name': 'Leather Armor', 'description': 'Basic leather protection', 'bonus_health': 15, 'bonus_attack': 0},
-    {'name': 'Steel Armor', 'description': 'Strong steel protection', 'bonus_health': 25, 'bonus_attack': 0},
-    {'name': 'Iron Helmet', 'description': 'A sturdy helmet', 'bonus_health': 8, 'bonus_attack': 0},
-    {'name': 'Silver Necklace', 'description': 'A mystical necklace', 'bonus_health': 5, 'bonus_attack': 2},
-    {'name': 'Enchanted Ring', 'description': 'Increases damage by 3', 'bonus_health': 10, 'bonus_attack': 3},
-    {'name': 'Iron Shield', 'description': 'Defensive shield', 'bonus_health': 20, 'bonus_attack': 0},
-]
+
+@login_manager.unauthorized_handler
+def unauthorized():
+    return {'error': 'Unauthorized'}, 401
+
+# Register blueprints under the /api prefix.
+app.register_blueprint(auth_bp, url_prefix='/api')
+app.register_blueprint(user_bp, url_prefix='/api')
+app.register_blueprint(character_bp, url_prefix='/api')
+app.register_blueprint(dungeon_bp, url_prefix='/api')
+app.register_blueprint(inventory_bp, url_prefix='/api')
 
 
 def ensure_player_exists():
@@ -51,29 +50,30 @@ def ensure_player_exists():
     if not player:
         user = User.query.first()
         if not user:
-            user = User(username='player', password='password')
+            user = User()
+            user.username = 'player'
+            user.password = 'password'
             db.session.add(user)
             db.session.flush()
 
         player = Character(user_id=user.id, name='Hero')
         db.session.add(player)
         db.session.commit()
-
-
-def seed_initial_data():
-    if EnemyType.query.count() == 0:
-        db.session.add_all([EnemyType(**seed) for seed in ENEMY_SEEDS])
-        db.session.commit()
-
-    if ItemType.query.count() == 0:
-        db.session.add_all([ItemType(**seed) for seed in ITEM_TYPE_SEEDS])
-        db.session.commit()
-
-
 # Ensure player exists before each request
 @app.before_request
 def ensure_player():
-    ensure_player_exists()
+    if current_user.is_authenticated:
+        ensure_player_exists()
+
+
+@app.before_request
+def require_login():
+    endpoint = request.endpoint or ''
+    if endpoint in {'auth.signup', 'auth.signin'}:
+        return None
+
+    if not current_user.is_authenticated:
+        return unauthorized()
 
 @app.cli.command('init-db')
 def init_db():
