@@ -13,8 +13,5 @@ fi
 echo "[start-backend] initializing DB"
 flask --app backend.app init-db || true
 
-echo "[start-backend] seeding full loadout"
-flask --app backend.app seed-full-loadout || true
-
 echo "[start-backend] launching Flask"
 exec flask --app backend.app run --host=0.0.0.0

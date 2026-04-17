@@ -1,6 +1,22 @@
 import re
 
+from flask import session
+from flask_login import current_user
+
 from .db.models import Character, Item, ItemType, db
+
+
+PLAYER_SESSION_KEY = 'character_id'
+DEFAULT_LOADOUT_ITEM_NAMES = [
+    'Steel Sword',
+    'Steel Sword',
+    'Leather Armor',
+    'Steel Armor',
+    'Iron Shield',
+    'Iron Helmet',
+    'Silver Necklace',
+    'Enchanted Ring',
+]
 
 
 def apply_item_type_stats(item: Item, item_type: ItemType) -> Item:
@@ -10,8 +26,43 @@ def apply_item_type_stats(item: Item, item_type: ItemType) -> Item:
     return item
 
 
+def set_player(character_id: int | None) -> None:
+    if character_id is None:
+        session.pop(PLAYER_SESSION_KEY, None)
+        return
+    session[PLAYER_SESSION_KEY] = int(character_id)
+
+
 def get_player() -> Character | None:
-    return Character.query.first()
+    character_id = session.get(PLAYER_SESSION_KEY)
+    if character_id is None:
+        return None
+
+    try:
+        resolved_character_id = int(character_id)
+    except (TypeError, ValueError):
+        session.pop(PLAYER_SESSION_KEY, None)
+        return None
+
+    character = Character.query.get(resolved_character_id)
+    if not character:
+        session.pop(PLAYER_SESSION_KEY, None)
+        return None
+
+    if current_user.is_authenticated:
+        user_id = current_user.get_id()
+        if user_id and character.user_id != int(user_id):
+            session.pop(PLAYER_SESSION_KEY, None)
+            return None
+
+    return character
+
+
+def seed_character_loadout(character: Character) -> None:
+    for item_name in DEFAULT_LOADOUT_ITEM_NAMES:
+        item_type = ItemType.query.filter_by(name=item_name).first()
+        if item_type:
+            add_inventory_item(character, item_type.id)
 
 
 def add_inventory_item(player: Character, item_id: int) -> Item | None:

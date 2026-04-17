@@ -18,18 +18,9 @@ def get_current_user() -> User | None:
 
 def get_character(character_id: int | None = None) -> Character:
     if character_id is not None:
-        character = Character.query.get(character_id)
-        if character:
-            return character
-    character = get_player()
-    if character is not None:
-        return character
+        return Character.query.get(character_id)
 
-    character = Character.query.first()
-    if character is not None:
-        return character
-
-    raise LookupError('No character available')
+    return get_player()
 
 
 def get_item(character: Character, item_id: int) -> Item | None:

@@ -1,33 +1,31 @@
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, session
 
-from ..game_utils import add_inventory_item, get_player as get_current_character
+from ..game_utils import add_inventory_item, get_player as get_current_character, seed_character_loadout, set_player
 from ..db.models import Character, ItemType, User, db
 from ..serializers import serialize_character
-from .common import get_character as get_character_by_id, get_current_user
+from .common import get_character as get_character_by_id, get_current_user, json_error
 
 character_bp = Blueprint('character', __name__)
 
 
-def _get_character(character_id: int | None = None) -> Character:
+def _get_character(character_id: int | None = None) -> tuple[Character | None, tuple[dict[str, str], int] | None]:
     if character_id is not None:
         character = get_character_by_id(character_id)
         if character:
-            return character
-    user = get_current_user()
-    if user and user.characters:
-        return user.characters[0]
+            return character, None
+        return None, json_error('Character not found', 404)
 
     character = get_current_character()
     if character is not None:
-        return character
+        return character, None
 
-    raise LookupError('No character available')
+    return None, json_error('No active character selected', 400)
 
 
 @character_bp.route('/characters/', methods=['GET'])
 def list_characters():
     user = get_current_user()
-    characters = user.characters if user else Character.query.all()
+    characters = user.characters if user else []
     return jsonify([serialize_character(character, include_inventory=True) for character in characters])
 
 
@@ -52,6 +50,8 @@ def create_character():
         damage=int(data.get('damage', 10)),
     )
     db.session.add(character)
+    db.session.flush()
+    seed_character_loadout(character)
     db.session.commit()
     return jsonify(serialize_character(character, include_inventory=True)), 201
 
@@ -70,21 +70,44 @@ def delete_character(character_id):
     if not character:
         return jsonify({'error': 'Character not found'}), 404
 
+    if session.get('character_id') == character.id:
+        set_player(None)
+
     db.session.delete(character)
     db.session.commit()
     return jsonify({'message': 'Character deleted'})
 
 
+@character_bp.route('/characters/<int:character_id>/select', methods=['POST'])
+def select_character(character_id):
+    character = Character.query.get(character_id)
+    if not character:
+        return jsonify({'error': 'Character not found'}), 404
+
+    user = get_current_user()
+    if not user or character.user_id != user.id:
+        return jsonify({'error': 'Character not found'}), 404
+
+    set_player(character.id)
+    return jsonify({'message': 'Character selected', 'player': serialize_character(character, include_inventory=True)})
+
+
 @character_bp.route('/player', methods=['GET'])
 def get_player():
-    character = _get_character()
+    character, error_response = _get_character()
+    if error_response:
+        return error_response
+    assert character is not None
     return jsonify(serialize_character(character))
 
 
 @character_bp.route('/player', methods=['PUT'])
 def update_player():
     data = request.get_json(silent=True) or {}
-    character = _get_character()
+    character, error_response = _get_character()
+    if error_response:
+        return error_response
+    assert character is not None
 
     if 'health' in data:
         character.health = int(data['health'])
@@ -99,7 +122,10 @@ def update_player():
 
 @character_bp.route('/player/level-up', methods=['POST'])
 def level_up():
-    character = _get_character()
+    character, error_response = _get_character()
+    if error_response:
+        return error_response
+    assert character is not None
 
     character.level += 1
     character.damage += 5
@@ -114,7 +140,10 @@ def take_damage():
     data = request.get_json(silent=True) or {}
     damage_amount = int(data.get('damage', 0))
 
-    character = _get_character()
+    character, error_response = _get_character()
+    if error_response:
+        return error_response
+    assert character is not None
     character.health = max(0, character.health - damage_amount)
     db.session.commit()
 
@@ -123,18 +152,8 @@ def take_damage():
 
 @character_bp.route('/player/full', methods=['GET'])
 def get_player_with_inventory():
-    character = _get_character()
+    character, error_response = _get_character()
+    if error_response:
+        return error_response
+    assert character is not None
     return jsonify(serialize_character(character, include_inventory=True))
-
-
-@character_bp.route('/demo/inventory', methods=['POST'])
-def demo_inventory():
-    character = _get_character()
-
-    items = ItemType.query.limit(3).all()
-
-    for item in items:
-        add_inventory_item(character, item.id)
-
-    db.session.commit()
-    return jsonify({'message': 'Added demo items to inventory', 'player': serialize_character(character, include_inventory=True)})

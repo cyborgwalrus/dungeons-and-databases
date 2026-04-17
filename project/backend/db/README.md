@@ -93,17 +93,3 @@ base_damage | int | Base damage |
 
 ---
 
-# Use of AI
-
----
-ChatGPT 5.3 was used to help with dbdiagram.io code. Database table was based on the gameplay prototype from the previous section and additional ideas from Google Gemini fast.
-
----
-
-# Resources allocation 
-|**Task** | **Student**|**Estimated time**|
-|:------: |:----------:|:----------------:|
-| Prototype | Hla | 4h |
-| Prototype | Matias | 4h |
-| Database documentation | Hla | 4h | 
-| Database documentation | Matias | 2h |

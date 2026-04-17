@@ -1,11 +1,13 @@
 from flask import Flask, request
+from flask import redirect
+from flask import has_request_context
 from flask_cors import CORS
 import os
 from flask_login import LoginManager, current_user
 
-from .db.init_db import seed_initial_data
-from .db.models import Character, ItemType, User, db
-from backend.game_utils import add_inventory_item, clear_player_equipment, clear_player_inventory, get_player
+from backend.db.init_db import seed_initial_data
+from backend.db.models import Character, User, db
+from backend.game_utils import clear_player_equipment, clear_player_inventory, get_player, seed_character_loadout
 from sqlalchemy.exc import SQLAlchemyError
 from backend.routes.auth_routes import auth_bp
 from backend.routes.user_routes import user_bp
@@ -46,24 +48,19 @@ app.register_blueprint(inventory_bp, url_prefix='/api')
 
 
 def ensure_player_exists():
-    player = get_player()
-    if not player:
-        user = User.query.first()
-        if not user:
-            user = User()
-            user.username = 'player'
-            user.password = 'password'
-            db.session.add(user)
-            db.session.flush()
+    if not current_user.is_authenticated:
+        if has_request_context():
+            return redirect('/')
+        return None
 
-        player = Character(user_id=user.id, name='Hero')
-        db.session.add(player)
-        db.session.commit()
+    return get_player()
+
 # Ensure player exists before each request
 @app.before_request
 def ensure_player():
-    if current_user.is_authenticated:
-        ensure_player_exists()
+    result = ensure_player_exists()
+    if result is not None and not isinstance(result, Character):
+        return result
 
 
 @app.before_request
@@ -99,39 +96,6 @@ def delete_db():
             print('Database dropped and file removed')
         except (OSError, SQLAlchemyError) as e:
             print('Failed to delete database:', e)
-
-
-@app.cli.command('seed-full-loadout')
-def seed_full_loadout():
-    """Seed the player's inventory with a full loadout and equip primary items."""
-    with app.app_context():
-        ensure_player_exists()
-        player = get_player()
-
-        # Clear existing inventory and equipped items
-        clear_player_inventory(player)
-        clear_player_equipment(player)
-        db.session.commit()
-
-        # Helper to add inventory
-        def add_item_by_name(name):
-            itm = ItemType.query.filter_by(name=name).first()
-            if itm:
-                add_inventory_item(player, itm.id)
-
-        # Add a sensible loadout (no Iron Sword)
-        add_item_by_name('Steel Sword')
-        add_item_by_name('Steel Sword')
-        add_item_by_name('Leather Armor')
-        add_item_by_name('Steel Armor')
-        add_item_by_name('Iron Shield')
-        add_item_by_name('Iron Helmet')
-        add_item_by_name('Silver Necklace')
-        add_item_by_name('Enchanted Ring')
-        db.session.commit()
-
-        print('Seeded full loadout for player')
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

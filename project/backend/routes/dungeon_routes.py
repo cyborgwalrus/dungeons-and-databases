@@ -6,7 +6,7 @@ from flask import Blueprint, jsonify
 from ..game_utils import get_player
 from ..db.models import Character, Encounter, EnemyType, ItemType, db
 from ..serializers import serialize_character, serialize_encounter, serialize_item_type
-from .common import get_character
+from .common import get_character, json_error
 
 dungeon_bp = Blueprint('dungeon', __name__)
 
@@ -213,6 +213,8 @@ def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, A
 @dungeon_bp.route('/dungeon/encounters/', methods=['GET'])
 def get_encounter(character_id: int | None = None):
     character = get_character(character_id)
+    if not character:
+        return json_error('No active character selected', 400)
     encounter = _get_or_create_encounter(character)
     if not encounter:
         return jsonify({'error': 'No encounters available'}), 404
@@ -222,6 +224,8 @@ def get_encounter(character_id: int | None = None):
 @dungeon_bp.route('/dungeon/encounters/', methods=['POST'])
 def create_encounter(character_id: int | None = None):
     character = get_character(character_id)
+    if not character:
+        return json_error('No active character selected', 400)
     encounter = create_new_encounter(character)
     if not encounter:
         return jsonify({'error': 'No enemy types available'}), 404
@@ -248,13 +252,18 @@ def delete_encounter(encounter_id: int):
 
 @dungeon_bp.route('/dungeon/encounters/<int:character_id>/current', methods=['GET'])
 def get_current_character_encounter(character_id: int):
-    encounter = _get_or_create_encounter(get_character(character_id))
+    character = get_character(character_id)
+    if not character:
+        return json_error('Character not found', 404)
+    encounter = _get_or_create_encounter(character)
     return jsonify(serialize_encounter(encounter))
 
 
 @dungeon_bp.route('/dungeon/attack', methods=['POST'])
 def attack_monster() -> Any:
     character = get_character()
+    if not character:
+        return json_error('No active character selected', 400)
     encounter = _get_or_create_encounter(character)
     if not encounter:
         return jsonify({'error': 'No enemy available'}), 404
@@ -274,6 +283,8 @@ def attack_monster() -> Any:
 @dungeon_bp.route('/dungeon/run', methods=['POST'])
 def run_away() -> Any:
     character = get_character()
+    if not character:
+        return json_error('No active character selected', 400)
     encounter = _get_or_create_encounter(character)
     if not encounter:
         return jsonify({'error': 'No enemy available'}), 404
