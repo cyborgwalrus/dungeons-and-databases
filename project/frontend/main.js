@@ -98,7 +98,11 @@ async function bankDungeonLoot() {
 
   for (const { item, quantity } of countsById.values()) {
     for (let i = 0; i < quantity; i += 1) {
-      await fetchJson(`${inventoryPath}${item.id}`, { method: 'POST' });
+      await fetchJson(inventoryPath, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item_type_id: item.item_type_id || item.id })
+      });
     }
   }
 }
@@ -485,8 +489,17 @@ async function renderDungeon({ resetRunState = true } = {}) {
   root.innerHTML = `<div class="game-container"><div id="dungeon-content">Loading...</div></div>`;
   const content = document.getElementById('dungeon-content');
 
-  const [pRes, encRes] = await Promise.all([fetchJson('/player'), fetchJson('/dungeon/encounter')]);
-  player = pRes.ok ? pRes.data : player;
+  const pRes = await fetchJson('/player/full');
+  if (pRes.ok && pRes.data) {
+    player = pRes.data;
+    inventory = Array.isArray(player.inventory) ? player.inventory : inventory;
+    equipped = Array.isArray(player.equipped) ? player.equipped : equipped;
+    allItems = [...inventory, ...equipped];
+  }
+
+  const playerId = getCharacterId();
+  const encounterPath = playerId ? `/dungeon/encounters/${playerId}/current` : '/dungeon/encounters/';
+  const encRes = await fetchJson(encounterPath);
   const enemy = encRes.ok ? encRes.data : { name: '', health: 0, max_health: 0, damage: 0, description: '' };
 
   const preface = `A wild ${enemy.name || 'creature'} appears! ${enemy.description || ''}`;

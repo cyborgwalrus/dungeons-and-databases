@@ -11,7 +11,7 @@ export function renderPlayerStatsInto(container, player) {
 
   container.innerHTML = `
     <div class="player-stats">
-      <h2>Player Stats</h2>
+      <h2>${player.name}</h2>
       <div class="stat"><span class="stat-label">Health:</span><span id="player-health" class="stat-value">${player.health} / ${maxHealth} HP</span></div>
       <div class="stat"><span class="stat-label">Damage:</span><span id="player-damage" class="stat-value">${totalDamage}</span></div>
       <div class="stat"><span class="stat-label">Level:</span><span id="player-level" class="stat-value">${player.level}</span></div>

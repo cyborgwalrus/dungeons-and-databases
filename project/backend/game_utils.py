@@ -9,7 +9,7 @@ from .db.models import Character, Item, ItemType, db
 PLAYER_SESSION_KEY = 'character_id'
 DEFAULT_LOADOUT_ITEM_NAMES = [
     'Steel Sword',
-    'Steel Armor',
+    'Leather Armor',
     'Iron Shield',
     'Iron Helmet',
     'Silver Necklace',
@@ -60,14 +60,14 @@ def seed_character_loadout(character: Character) -> None:
     for item_name in DEFAULT_LOADOUT_ITEM_NAMES:
         item_type = ItemType.query.filter_by(name=item_name).first()
         if item_type:
-            add_inventory_item(character, item_type.id)
+            add_inventory_item(character, item_type.id, copy_from_item=False)
 
 
-def add_inventory_item(player: Character, item_id: int) -> Item | None:
+def add_inventory_item(player: Character, item_id: int, *, copy_from_item: bool = False) -> Item | None:
     item_model = Item
     item_type_model = ItemType
 
-    source_item = item_model.query.get(item_id)
+    source_item = item_model.query.get(item_id) if copy_from_item else None
     if source_item:
         item_type = source_item.item_type or item_type_model.query.get(source_item.item_type_id)
         level = source_item.level

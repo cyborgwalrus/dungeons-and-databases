@@ -176,7 +176,7 @@ def add_item_to_inventory(character_id: int, item_id: int | None = None):
     if source_id is None:
         return json_error('item_type_id is required')
 
-    item = add_inventory_item(character, int(source_id))
+    item = add_inventory_item(character, int(source_id), copy_from_item=False)
     if not item:
         return json_error('Item not found', 404)
 
@@ -232,9 +232,9 @@ def duplicate_inventory_item(character_id: int, item_id: int):
         item_type = get_item_type(item_id)
         if not item_type:
             return json_error('Item not found', 404)
-        item = add_inventory_item(character, item_type.id)
+        item = add_inventory_item(character, item_type.id, copy_from_item=False)
     else:
-        item = add_inventory_item(character, item.id)
+        item = add_inventory_item(character, item.id, copy_from_item=True)
 
     db.session.commit()
     return _item_response(item, 201)

@@ -39,6 +39,7 @@ def create_new_encounter(character: Character | None = None) -> Encounter | None
     encounter = Encounter(
         character_id=character.id,
         enemy_type_id=enemy_type.id,
+        enemy_max_health=enemy_health,
         enemy_health=enemy_health,
         enemy_damage=enemy_damage,
     )

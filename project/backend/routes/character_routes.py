@@ -53,6 +53,7 @@ def create_character():
     db.session.flush()
     seed_character_loadout(character)
     db.session.commit()
+    set_player(character.id)
     return jsonify(serialize_character(character, include_inventory=True)), 201
 
 
