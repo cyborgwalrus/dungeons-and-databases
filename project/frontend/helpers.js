@@ -1,23 +1,43 @@
 export function makeIcon(i) {
+  const slot = (i.slot || '').toLowerCase();
+  if (slot === 'helmet') return '🪖';
+  if (slot === 'armor') return '👕';
+  if (slot === 'weapon') return '⚔️';
+  if (slot === 'shield') return '🛡️';
+  if (slot === 'ring') return '💍';
+  if (slot === 'necklace') return '📿';
+
   const name = (i.name || '').toLowerCase();
   if (name.includes('helmet') || name.includes('helm') || name.includes('cap')) return '🪖';
   if (name.includes('ring')) return '💍';
   if (name.includes('necklace') || name.includes('amulet')) return '📿';
   if (name.includes('shield')) return '🛡️';
-  if (i.bonus_attack > 0 && i.bonus_health === 0) return '⚔️';
-  if (i.bonus_health > 0 && i.bonus_attack === 0) return '👕';
-  if (i.bonus_health > 0 && i.bonus_attack > 0) return '💎';
+  const attack = i.damage_bonus ?? i.bonus_attack ?? 0;
+  const health = i.health_bonus ?? i.bonus_health ?? 0;
+  if (attack > 0 && health === 0) return '⚔️';
+  if (health > 0 && attack === 0) return '👕';
+  if (health > 0 && attack > 0) return '💎';
   return '💰';
 }
 
 export function getItemType(i) {
+  const slot = (i.slot || '').toLowerCase();
+  if (slot === 'shield') return 'shield';
+  if (slot === 'helmet') return 'helmet';
+  if (slot === 'necklace') return 'necklace';
+  if (slot === 'ring') return 'ring';
+  if (slot === 'weapon') return 'weapon';
+  if (slot === 'armor') return 'armor';
+
   const name = (i.name || '').toLowerCase();
   if (name.includes('shield')) return 'shield';
   if (name.includes('helmet') || name.includes('helm') || name.includes('cap')) return 'helmet';
   if (name.includes('necklace') || name.includes('amulet')) return 'necklace';
   if (name.includes('ring')) return 'ring';
-  if (i.bonus_attack > 0 && i.bonus_health === 0) return 'weapon';
-  if (i.bonus_health > 0 && i.bonus_attack === 0) return 'armor';
+  const attack = i.damage_bonus ?? i.bonus_attack ?? 0;
+  const health = i.health_bonus ?? i.bonus_health ?? 0;
+  if (attack > 0 && health === 0) return 'weapon';
+  if (health > 0 && attack === 0) return 'armor';
   return 'misc';
 }
 
@@ -31,8 +51,8 @@ export function isSlotCompatible(slotType, itemType) {
 
 export function getEquipScore(item, slotType) {
   if (!item) return -Infinity;
-  const attack = item.bonus_attack || 0;
-  const health = item.bonus_health || 0;
+  const attack = item.damage_bonus ?? item.bonus_attack ?? 0;
+  const health = item.health_bonus ?? item.bonus_health ?? 0;
   return slotType === 'weapon' ? (attack * 10 + health) : (health * 10 + attack);
 }
 
@@ -87,8 +107,8 @@ export function formatDungeonMessage(message) {
 
 export function formatStats(i) {
   if (!i) return '';
-  const ha = i.bonus_health || 0;
-  const aa = i.bonus_attack || 0;
+  const ha = i.health_bonus ?? i.bonus_health ?? 0;
+  const aa = i.damage_bonus ?? i.bonus_attack ?? 0;
   if (ha > 0 && aa === 0) return `${ha} HP`;
   if (aa > 0 && ha === 0) return `${aa} ATK`;
   return `+${ha} HP / +${aa} ATK`;

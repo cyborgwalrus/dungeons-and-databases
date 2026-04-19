@@ -9,8 +9,6 @@ from .db.models import Character, Item, ItemType, db
 PLAYER_SESSION_KEY = 'character_id'
 DEFAULT_LOADOUT_ITEM_NAMES = [
     'Steel Sword',
-    'Steel Sword',
-    'Leather Armor',
     'Steel Armor',
     'Iron Shield',
     'Iron Helmet',

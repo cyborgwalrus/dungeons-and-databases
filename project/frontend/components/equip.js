@@ -2,9 +2,12 @@ import { isSlotCompatible } from '../helpers.js';
 import { bindDragSource, bindDropZone } from '../drag-drop.js';
 
 export async function renderEquipPanel(opts) {
-  const { equipped, inventory, allItems, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, getItemType, makeIcon, formatStats } = opts;
+  const { equipped, inventory, allItems, getCharacterId, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats } = opts;
   const equipPanel = document.getElementById('equip-panel');
   if (!equipPanel) return;
+
+  const characterId = getCharacterId ? getCharacterId() : null;
+  const inventoryPath = characterId ? `/characters/${characterId}/inventory/` : null;
 
   function inventoryCardHtml(i) {
     return `
@@ -24,12 +27,12 @@ export async function renderEquipPanel(opts) {
   ];
 
   const slotsHtml = SLOT_DEFS.map((slotDef, slotNum) => {
-    const eq = (equipped || []).find(e => e.slot === slotNum);
+    const eq = (equipped || []).find(e => e.slot === slotDef.type);
     if (eq) {
       return `
-        <div class="equip-slot" data-slot="${slotNum}" data-slot-type="${slotDef.type}" draggable="true" data-from="equipped" data-item-id="${eq.item.id}" data-slot-index="${slotNum}">
+        <div class="equip-slot" data-slot="${slotNum}" data-slot-type="${slotDef.type}" draggable="true" data-from="equipped" data-item-id="${eq.id}" data-slot-index="${slotNum}">
           <span class="slot-label">${slotDef.label}</span>
-          ${inventoryCardHtml(eq.item)}
+          ${inventoryCardHtml(eq)}
         </div>`;
     }
     return `<div class="equip-slot empty" data-slot="${slotNum}" data-slot-type="${slotDef.type}"><span class="slot-label">${slotDef.label}</span><div class="empty-label">Empty</div></div>`;
@@ -47,8 +50,7 @@ export async function renderEquipPanel(opts) {
       createPayload: () => {
       const itemId = slotEl.getAttribute('data-item-id');
       const slotIndex = slotEl.getAttribute('data-slot-index');
-      const item = (allItems || []).find(a => a.item && a.item.id == itemId) || (inventory || []).find(i => i.item && i.item.id == itemId) || {};
-      const itemObj = item.item || null;
+      const itemObj = (allItems || []).find(a => a.id == itemId) || (inventory || []).find(i => i.id == itemId) || null;
       const itemType = itemObj ? getItemType(itemObj) : null;
         return { itemId: itemId ? Number(itemId) : null, itemType, from: 'equipped', slot: slotIndex ? Number(slotIndex) : null, source_slot: slotIndex ? Number(slotIndex) : null };
       },
@@ -72,17 +74,20 @@ export async function renderEquipPanel(opts) {
         const slotType = slotEl.getAttribute('data-slot-type') || 'misc';
         const itemId = Number(payload.itemId);
 
-        const itemObj = ((allItems || []).find(a => a.item && a.item.id === itemId) || {}).item || ((inventory || []).find(i => i.item && i.item.id === itemId) || {}).item;
+        const itemObj = (allItems || []).find(a => a.id === itemId) || (inventory || []).find(i => i.id === itemId) || null;
         const itemType = itemObj ? getItemType(itemObj) : 'misc';
         if (!isSlotCompatible(slotType, itemType)) return;
 
-        const payloadBody = { item_id: itemId, slot };
-        if (payload.from === 'equipped' && payload.source_slot !== undefined && payload.source_slot !== null) {
-          payloadBody.source_slot = payload.source_slot;
+        if (!inventoryPath) return;
+
+        const payloadBody = { item_id: itemId };
+        if (payload.from === 'equipped') {
+          payloadBody.is_equipped = true;
         }
 
-        await fetchJson('/inventory/equip', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadBody) });
+        await fetchJson(inventoryPath, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadBody) });
         await loadStateAndRenderPartial();
+        if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
         setCurrentDrag(null);
         updateSlotHighlights();
       }

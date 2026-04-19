@@ -6,12 +6,16 @@ import { renderInventoryGrid as renderInventoryGridImpl } from './components/inv
 import { showHome } from './screens/home.js';
 import { showDungeon } from './screens/dungeon.js';
 import { buildDungeonMarkup, applyDungeonCombatUpdate, showDungeonDefeatScreen } from './screens/dungeon-runtime.js';
+import { showLogin } from './screens/login.js';
+import { showCharacterSelect } from './screens/character-select.js';
 // action button helpers are used via page.js; no direct imports needed here
 import { setupActionButtons, setupRubbishBin } from './page.js';
 
 const root = document.getElementById('root');
 
 // Shared app state stays in memory so each screen can re-render without rebuilding the data model.
+let currentUser = null;
+let characters = [];
 let player = null;
 let inventory = [];
 let equipped = [];
@@ -20,6 +24,52 @@ let currentDrag = null; // { itemId, itemType, from, slot }
 let lastDungeonMessage = null;
 let lootCounts = {}; // cumulative loot counts while in session
 let dungeonLoot = []; // temporary dungeon-run loot that is only banked on successful exit
+
+function getCharacterId() {
+  return player && player.id ? player.id : null;
+}
+
+function getCharacterInventoryPath(suffix = '') {
+  const characterId = getCharacterId();
+  if (!characterId) return null;
+  return `/characters/${characterId}/inventory/${suffix}`;
+}
+
+function getReforgeAllPath() {
+  const characterId = getCharacterId();
+  if (!characterId) return null;
+  return `/forge/reforge_all/${characterId}`;
+}
+
+function getFullHealthForPlayer(playerState) {
+  if (!playerState) return null;
+  const level = playerState.level || 1;
+  const baseMax = 100 + (Math.max(0, level - 1) * 10);
+  return baseMax + (playerState.bonus_health || 0);
+}
+
+async function syncPlayerHealthToFull() {
+  const fullHealth = getFullHealthForPlayer(player);
+  if (fullHealth === null) return;
+
+  await fetchJson('/player', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ health: fullHealth })
+  });
+
+  const refreshedPlayer = await fetchJson('/player/full');
+  if (refreshedPlayer.ok && refreshedPlayer.data) {
+    player = refreshedPlayer.data;
+    inventory = Array.isArray(player.inventory) ? player.inventory : inventory;
+    equipped = Array.isArray(player.equipped) ? player.equipped : equipped;
+    allItems = [...inventory, ...equipped];
+    const statsContainer = document.getElementById('player-stats');
+    if (statsContainer) {
+      renderPlayerStatsInto(statsContainer, player);
+    }
+  }
+}
 
 function resetDungeonLoot() {
   lootCounts = {};
@@ -35,6 +85,8 @@ function recordDungeonLoot(itemsDropped) {
 
 async function bankDungeonLoot() {
   if (!dungeonLoot.length) return;
+  const inventoryPath = getCharacterInventoryPath();
+  if (!inventoryPath) return;
 
   const countsById = new Map();
   dungeonLoot.forEach(item => {
@@ -46,7 +98,7 @@ async function bankDungeonLoot() {
 
   for (const { item, quantity } of countsById.values()) {
     for (let i = 0; i < quantity; i += 1) {
-      await fetchJson(`/inventory/item/${item.id}`, { method: 'POST' });
+      await fetchJson(`${inventoryPath}${item.id}`, { method: 'POST' });
     }
   }
 }
@@ -68,8 +120,11 @@ function updatePlayerPanel(p) {
   const pl = document.getElementById('player-level');
   const pbh = document.getElementById('player-bonus-health');
   const pbd = document.getElementById('player-bonus-damage');
-  if (ph) ph.textContent = `${p.health} HP`;
-  if (pd) pd.textContent = `${p.damage}`;
+  const level = p.level || 1;
+  const maxHealth = (100 + (Math.max(0, level - 1) * 10)) + (p.bonus_health || 0);
+  const totalDamage = (p.damage || 0) + (p.bonus_damage || 0);
+  if (ph) ph.textContent = `${p.health} / ${maxHealth} HP`;
+  if (pd) pd.textContent = `${totalDamage}`;
   if (pl) pl.textContent = `${p.level}`;
   if (pbh) pbh.textContent = `+${p.bonus_health}`;
   if (pbd) pbd.textContent = `+${p.bonus_damage}`;
@@ -90,11 +145,13 @@ function updateEnemyPanel(en) {
 function renderEquipPanel() {
   return renderEquipPanelImpl({
     equipped, inventory, allItems,
+    getCharacterId,
     getCurrentDrag: () => currentDrag,
     setCurrentDrag: v => { currentDrag = v; },
     updateSlotHighlights,
     fetchJson,
     loadStateAndRenderPartial,
+    syncPlayerHealthToFull,
     getItemType,
     makeIcon,
     formatStats
@@ -104,6 +161,7 @@ function renderEquipPanel() {
 function renderInventoryGrid() {
   return renderInventoryGridImpl({
     inventory,
+    getCharacterId,
     getCurrentDrag: () => currentDrag,
     setCurrentDrag: v => { currentDrag = v; },
     updateSlotHighlights,
@@ -186,13 +244,13 @@ window.app.renderHome = renderHome;
 
 async function loadStateAndRenderPartial() {
   // Pull the latest server state before redrawing the visible panels.
-  const [pRes, invRes, eqRes, allRes] = await Promise.all([
-    fetchJson('/player'), fetchJson('/inventory'), fetchJson('/inventory/equipped'), fetchJson('/inventory/items')
-  ]);
-  if (pRes.ok) player = pRes.data;
-  inventory = invRes.ok ? invRes.data : [];
-  equipped = eqRes.ok ? eqRes.data : [];
-  allItems = allRes.ok ? allRes.data : [];
+  const pRes = await fetchJson('/player/full');
+  if (pRes.ok && pRes.data) {
+    player = pRes.data;
+    inventory = Array.isArray(pRes.data.inventory) ? pRes.data.inventory : [];
+    equipped = Array.isArray(pRes.data.equipped) ? pRes.data.equipped : [];
+    allItems = [...inventory, ...equipped];
+  }
 
   // update parts
   const mainContent = document.getElementById('main-content');
@@ -201,6 +259,153 @@ async function loadStateAndRenderPartial() {
   renderEquipPanel();
   renderInventoryGrid();
 }
+
+/* --- Login Screen --- */
+async function renderLogin() {
+  root.innerHTML = `
+    <div class="game-container" style="display: flex; justify-content: center; align-items: center; min-height: 100vh;">
+      <div style="width: 100%; max-width: 400px; padding: 20px;">
+        <h1 style="text-align: center; margin-bottom: 30px;">Dungeons & Databases</h1>
+        <div id="login-container">
+          <div style="margin-bottom: 20px;">
+            <label for="username" style="display: block; margin-bottom: 5px;">Username:</label>
+            <input type="text" id="username" placeholder="Enter username" style="width: 100%; padding: 8px; box-sizing: border-box;">
+          </div>
+          <div style="margin-bottom: 20px;">
+            <label for="password" style="display: block; margin-bottom: 5px;">Password:</label>
+            <input type="password" id="password" placeholder="Enter password" style="width: 100%; padding: 8px; box-sizing: border-box;">
+          </div>
+          <div id="login-message" style="margin-bottom: 15px; min-height: 20px; color: red; text-align: center;"></div>
+          <div style="display: flex; gap: 10px;">
+            <button id="signin-btn" style="flex: 1; padding: 10px; cursor: pointer;">Sign In</button>
+            <button id="signup-btn" style="flex: 1; padding: 10px; cursor: pointer;">Sign Up</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const usernameInput = document.getElementById('username');
+  const passwordInput = document.getElementById('password');
+  const messageEl = document.getElementById('login-message');
+
+  document.getElementById('signin-btn').addEventListener('click', async () => {
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+    if (!username || !password) {
+      messageEl.textContent = 'Username and password required';
+      return;
+    }
+
+    const res = await fetchJson('/login/signin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (res.ok && res.data.user) {
+      currentUser = res.data.user;
+      navigateTo('/character-select');
+    } else {
+      messageEl.textContent = res.data?.message || 'Sign in failed';
+    }
+  });
+
+  document.getElementById('signup-btn').addEventListener('click', async () => {
+    const username = usernameInput.value.trim();
+    const password = passwordInput.value;
+    if (!username || !password) {
+      messageEl.textContent = 'Username and password required';
+      return;
+    }
+
+    const res = await fetchJson('/login/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+
+    if (res.ok && res.data.user) {
+      currentUser = res.data.user;
+      navigateTo('/character-select');
+    } else {
+      messageEl.textContent = res.data?.message || 'Sign up failed';
+    }
+  });
+}
+
+window.app = window.app || {};
+window.app.renderLogin = renderLogin;
+
+/* --- Character Select Screen --- */
+async function renderCharacterSelect() {
+  root.innerHTML = `<div class="game-container" style="display: flex; justify-content: center; align-items: center; min-height: 100vh;"><div style="width: 100%; max-width: 600px; padding: 20px;" id="char-select-content">Loading...</div></div>`;
+  const content = document.getElementById('char-select-content');
+
+  const res = await fetchJson('/characters/');
+  characters = res.ok ? res.data : [];
+
+  content.innerHTML = `
+    <h1 style="text-align: center; margin-bottom: 30px;">Select or Create a Character</h1>
+    <div id="character-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;"></div>
+    <button id="create-char-btn" style="width: 100%; padding: 12px; cursor: pointer; font-size: 16px;">Create New Character</button>
+    <button id="logout-btn" style="width: 100%; padding: 10px; cursor: pointer; margin-top: 10px; background-color: #666;">Logout</button>
+  `;
+
+  const charList = document.getElementById('character-list');
+  if (characters.length === 0) {
+    charList.innerHTML = '<p style="text-align: center; color: #999;">No characters yet. Create one to start playing!</p>';
+  } else {
+    characters.forEach(char => {
+      const charEl = document.createElement('button');
+      charEl.style.cssText = 'padding: 15px; text-align: left; cursor: pointer; border: 1px solid #ccc; background-color: #f5f5f5; border-radius: 4px;';
+      charEl.innerHTML = `
+        <div style="font-weight: bold; margin-bottom: 5px;">${char.name}</div>
+        <div style="font-size: 12px; color: #666;">Level ${char.level} | ${char.health} HP</div>
+      `;
+      charEl.addEventListener('click', async () => {
+        const selectRes = await fetchJson(`/characters/${char.id}/select`, {
+          method: 'POST'
+        });
+        if (selectRes.ok && selectRes.data.player) {
+          player = selectRes.data.player;
+          inventory = [];
+          equipped = [];
+          allItems = [];
+          navigateTo('/');
+        }
+      });
+      charList.appendChild(charEl);
+    });
+  }
+
+  document.getElementById('create-char-btn').addEventListener('click', async () => {
+    const charName = prompt('Enter character name:') || 'Hero';
+    const createRes = await fetchJson('/characters/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: charName })
+    });
+    if (createRes.ok && createRes.data) {
+      player = createRes.data;
+      inventory = [];
+      equipped = [];
+      allItems = [];
+      navigateTo('/');
+    }
+  });
+
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetchJson('/login/signout', { method: 'POST' });
+    currentUser = null;
+    player = null;
+    characters = [];
+    navigateTo('/login');
+  });
+}
+
+window.app = window.app || {};
+window.app.renderCharacterSelect = renderCharacterSelect;
 
 async function renderHome() {
   // Home is the management hub: stats, equipment, inventory, and the entry point to the dungeon.
@@ -220,23 +425,29 @@ async function renderHome() {
     <div id="rubbish-bin" class="rubbish-bin">🗑️ Drop items here to destroy</div>
     <div style="margin-top:20px;display:flex;justify-content:center;flex-wrap:wrap;gap:10px;">
       <button class="dungeon-button" id="enter-dungeon">Enter the Dungeon</button>
+      <button class="dungeon-button" id="select-character-btn" style="background-color: #666;">Change Character</button>
+      <button class="dungeon-button" id="logout-btn" style="background-color: #333;">Logout</button>
     </div>
   `;
 
   document.getElementById('enter-dungeon').addEventListener('click', () => navigateTo('/dungeon'));
+  
+  document.getElementById('select-character-btn').addEventListener('click', () => navigateTo('/character-select'));
+  
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await fetchJson('/login/signout', { method: 'POST' });
+    currentUser = null;
+    player = null;
+    characters = [];
+    navigateTo('/login');
+  });
 
   // clear any dungeon loot from previous runs when returning home
   resetDungeonLoot();
   await loadStateAndRenderPartial();
   // Returning home restores the player to full health based on level and gear bonuses.
   try {
-    const lvl = (player && player.level) ? player.level : 1;
-    const baseMax = 100 + (Math.max(0, lvl - 1) * 10);
-    const bonus = (player && player.bonus_health) ? player.bonus_health : 0;
-    const fullHealth = baseMax + bonus;
-    await fetchJson('/player', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ health: fullHealth }) });
-    const refreshedPlayer = await fetchJson('/player');
-    if (refreshedPlayer.ok) player = refreshedPlayer.data;
+    await syncPlayerHealthToFull();
     renderPlayerStatsInto(document.getElementById('player-stats'), player);
   } catch (e) {
     console.warn('Heal on home failed', e);
@@ -249,7 +460,9 @@ async function renderHome() {
     loadStateAndRenderPartial,
     getEquipped: () => equipped,
     getInventory: () => inventory,
-    getItemType
+    getItemType,
+    getCharacterId,
+    syncPlayerHealthToFull
   });
 
   const bin = document.getElementById('rubbish-bin');
@@ -258,7 +471,9 @@ async function renderHome() {
     loadStateAndRenderPartial,
     getCurrentDrag: () => currentDrag,
     setCurrentDrag: v => { currentDrag = v; },
-    updateSlotHighlights
+    updateSlotHighlights,
+    getCharacterId,
+    syncPlayerHealthToFull
   });
 }
 
@@ -302,7 +517,28 @@ window.app.renderDungeon = renderDungeon;
 /* --- Router --- */
 function navigateTo(path) { if (path === '/') location.hash = '#/'; else location.hash = `#${path}`; }
 
-function route() { const hash = location.hash.replace('#', '') || '/'; if (hash === '/' || hash === '') return showHome(); else if (hash === '/dungeon') return showDungeon(); else return showHome(); }
+async function route() { 
+  const hash = location.hash.replace('#', '') || '/'; 
+  
+  // Check authentication status if needed
+  if (!currentUser && hash !== '/login') {
+    // Try to load current user from server
+    const res = await fetchJson('/login/me');
+    if (res.ok && res.data && res.data.user) {
+      currentUser = res.data.user;
+    } else {
+      // Not logged in, redirect to login
+      location.hash = '#/login';
+      return;
+    }
+  }
+  
+  if (hash === '/login') return showLogin();
+  else if (hash === '/character-select') return showCharacterSelect();
+  else if (hash === '/' || hash === '') return (player ? showHome() : showCharacterSelect());
+  else if (hash === '/dungeon') return showDungeon();
+  else return showHome();
+}
 
 // Keep the SPA shell in sync with the URL hash.
 window.addEventListener('hashchange', route);

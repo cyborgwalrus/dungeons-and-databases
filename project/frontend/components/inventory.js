@@ -1,7 +1,7 @@
 import { bindDragSource, bindDropZone } from '../drag-drop.js';
 
 export function renderInventoryGrid(opts) {
-  const { inventory, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, getItemType, makeIcon, formatStats } = opts;
+  const { inventory, getCharacterId, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, getItemType, makeIcon, formatStats } = opts;
   const invContainer = document.getElementById('inventory-grid');
   if (!invContainer) return;
   if (!inventory || inventory.length === 0) {
@@ -10,20 +10,20 @@ export function renderInventoryGrid(opts) {
   }
 
   // Keep the strongest upgraded items near the top so equip scans are easier to follow.
-  const sortedInventory = [...inventory].sort((a, b) => {
+  const sortedInventory = [...inventory].filter(Boolean).sort((a, b) => {
     function levelOf(inv) {
-      const name = (inv.item && inv.item.name) ? inv.item.name : '';
+      const name = inv && inv.name ? inv.name : '';
       const m = name.match(/\s\+(\d+)$/);
       return m ? parseInt(m[1], 10) : 0;
     }
     const la = levelOf(a), lb = levelOf(b);
     if (la !== lb) return lb - la;
-    return (a.item.name || '').localeCompare(b.item.name);
+    return (a.name || '').localeCompare(b.name || '');
   });
 
   const cards = [];
   sortedInventory.forEach(invItem => {
-    const i = invItem.item;
+    const i = invItem;
     const itype = getItemType(i);
     const instanceId = `card-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
     cards.push(`
@@ -63,12 +63,12 @@ export function renderInventoryGrid(opts) {
       if (!raw) return;
       const payload = JSON.parse(raw);
       if (!payload) return;
-      if (payload.from === 'equipped') {
-        const slot = payload.slot !== undefined ? payload.slot : (getCurrentDrag && getCurrentDrag().slot !== undefined ? getCurrentDrag().slot : null);
-        if (slot !== null) {
-          await fetchJson(`/inventory/unequip/${slot}`, { method: 'DELETE' });
-          await loadStateAndRenderPartial();
-        }
+      const characterId = getCharacterId ? getCharacterId() : null;
+      const inventoryPath = characterId ? `/characters/${characterId}/inventory/` : null;
+      if (payload.from === 'equipped' && inventoryPath) {
+        const itemId = Number(payload.itemId);
+        await fetchJson(inventoryPath, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: itemId, is_equipped: false }) });
+        await loadStateAndRenderPartial();
       }
       setCurrentDrag(null);
       updateSlotHighlights();
