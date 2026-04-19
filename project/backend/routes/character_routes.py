@@ -1,8 +1,8 @@
 from flask import Blueprint, jsonify, request, session
 
-from ..game_utils import add_inventory_item, get_player as get_current_character, seed_character_loadout, set_player
-from ..db.models import Character, ItemType, User, db
-from ..serializers import serialize_character
+from ..utils.game_utils import get_player as get_current_character, seed_character_loadout, set_player
+from ..db.models import Character, db
+from ..utils.serializers import serialize_character
 from .common import get_character as get_character_by_id, get_current_user, json_error
 
 character_bp = Blueprint('character', __name__)
@@ -22,29 +22,31 @@ def _get_character(character_id: int | None = None) -> tuple[Character | None, t
     return None, json_error('No active character selected', 400)
 
 
-@character_bp.route('/characters/', methods=['GET'])
-def list_characters():
+@character_bp.route('/users/<int:user_id>/characters/', methods=['GET'])
+def list_characters(user_id):
     user = get_current_user()
-    characters = user.characters if user else []
+    if not user or user.id != user_id:    
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    characters = user.characters
     return jsonify([serialize_character(character, include_inventory=True) for character in characters])
 
 
-@character_bp.route('/characters/', methods=['POST'])
-def create_character():
+@character_bp.route('/users/<int:user_id>/characters/', methods=['POST'])
+def create_character(user_id):
     data = request.get_json(silent=True) or {}
     user = get_current_user()
 
-    user_id = data.get('user_id', user.id if user else None)
-    if user_id is None:
-        return jsonify({'error': 'user_id is required'}), 400
+    if user is None or user.id != user_id:
+        return jsonify({'error': 'Unauthorized'}), 401
 
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({'error': 'User not found'}), 404
-
+    name = data.get('name', '').strip()
+    if not name:
+        return jsonify({'error': 'Character name is required'}), 400
+    
     character = Character(
         user_id=user.id,
-        name=(data.get('name') or 'Hero').strip(),
+        name=name,
         level=int(data.get('level', 1)),
         health=int(data.get('health', 100)),
         damage=int(data.get('damage', 10)),
@@ -57,16 +59,24 @@ def create_character():
     return jsonify(serialize_character(character, include_inventory=True)), 201
 
 
-@character_bp.route('/characters/<int:character_id>', methods=['GET'])
-def get_character(character_id):
+@character_bp.route('/users/<int:user_id>/characters/<int:character_id>', methods=['GET'])
+def get_character(user_id, character_id):
+    user = get_current_user()
+    if user is None or user.id != user_id:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
     character = Character.query.get(character_id)
     if not character:
         return jsonify({'error': 'Character not found'}), 404
     return jsonify(serialize_character(character, include_inventory=True))
 
 
-@character_bp.route('/characters/<int:character_id>', methods=['DELETE'])
-def delete_character(character_id):
+@character_bp.route('/users/<int:user_id>/characters/<int:character_id>', methods=['DELETE'])
+def delete_character(user_id, character_id):
+    user = get_current_user()
+    if user is None or user.id != user_id:
+        return jsonify({'error': 'Unauthorized'}), 401
+
     character = Character.query.get(character_id)
     if not character:
         return jsonify({'error': 'Character not found'}), 404
@@ -79,8 +89,12 @@ def delete_character(character_id):
     return jsonify({'message': 'Character deleted'})
 
 
-@character_bp.route('/characters/<int:character_id>/select', methods=['POST'])
-def select_character(character_id):
+@character_bp.route('/users/<int:user_id>/characters/<int:character_id>/select', methods=['POST'])
+def select_character(user_id, character_id):
+    user = get_current_user()
+    if user is None or user.id != user_id:
+        return jsonify({'error': 'Unauthorized'}), 401
+
     character = Character.query.get(character_id)
     if not character:
         return jsonify({'error': 'Character not found'}), 404
