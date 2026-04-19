@@ -1,8 +1,8 @@
 name,slot,base_health_bonus,base_damage_bonus
-Steel Sword,weapon,0,10
-Leather Armor,armor,15,0
-Steel Armor,armor,25,0
-Iron Helmet,helmet,8,0
-Silver Necklace,necklace,5,2
-Enchanted Ring,ring,10,3
-Iron Shield,shield,20,0
+Steel Sword,WEAPON,0,10
+Leather Armor,ARMOR,15,0
+Steel Armor,ARMOR,25,0
+Iron Helmet,HELMET,8,0
+Silver Necklace,NECKLACE,5,2
+Enchanted Ring,RING,10,3
+Iron Shield,SHIELD,20,0
