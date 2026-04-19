@@ -1,14 +1,16 @@
+import os
+
 from flask import Flask, request
 from flask import redirect
 from flask import has_request_context
 from flask_cors import CORS
-import os
 from flask_login import LoginManager, current_user
+from sqlalchemy.exc import SQLAlchemyError
 
+from .utils import cache, init_cache
 from backend.db.init_db import seed_initial_data
 from backend.db.models import Character, User, db
-from backend.game_utils import clear_player_equipment, clear_player_inventory, get_player, seed_character_loadout
-from sqlalchemy.exc import SQLAlchemyError
+from backend.utils.game_utils import get_player
 from backend.routes.auth_routes import auth_bp
 from backend.routes.user_routes import user_bp
 from backend.routes.character_routes import character_bp
@@ -29,6 +31,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize database
 db.init_app(app)
 login_manager.init_app(app)
+init_cache(app)
 
 
 @login_manager.user_loader
@@ -51,6 +54,7 @@ app.register_blueprint(inventory_bp, url_prefix='/api')
 @app.route('/api/<path:path>', methods=['OPTIONS'])
 def handle_options(path):
     """Handle CORS preflight requests"""
+    _ = path
     return '', 200
 
 
@@ -117,6 +121,7 @@ def init_db():
     with app.app_context():
         db.create_all()
         seed_initial_data()
+        cache.clear()
     print('Database initialized (tables created and seed data loaded)')
 
 
@@ -128,6 +133,7 @@ def delete_db():
             # remove active session and drop tables
             db.session.remove()
             db.drop_all()
+            cache.clear()
             # remove DB file if exists
             db_path = os.path.join(basedir, 'game.db')
             if os.path.exists(db_path):

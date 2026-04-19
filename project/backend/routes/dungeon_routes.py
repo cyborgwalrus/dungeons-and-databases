@@ -3,9 +3,10 @@ from typing import Any
 
 from flask import Blueprint, jsonify
 
-from ..game_utils import get_player
-from ..db.models import Character, Encounter, EnemyType, ItemType, db
-from ..serializers import serialize_character, serialize_encounter, serialize_item_type
+from ..utils.cache_helpers import get_all_enemy_type_data, get_all_item_type_data
+from ..utils.game_utils import get_player
+from ..db.models import Character, Encounter, db
+from ..utils.serializers import serialize_character, serialize_encounter
 from .common import get_character, json_error
 
 dungeon_bp = Blueprint('dungeon', __name__)
@@ -29,16 +30,17 @@ def create_new_encounter(character: Character | None = None) -> Encounter | None
 
     Encounter.query.filter_by(character_id=character.id).delete()
 
-    enemy_type = EnemyType.query.order_by(db.func.random()).first()
+    enemy_types = get_all_enemy_type_data()
+    enemy_type = random.choice(enemy_types) if enemy_types else None
     if not enemy_type:
         return None
 
-    enemy_health = enemy_type.base_health + (character.level * 10)
-    enemy_damage = enemy_type.base_damage + (character.level * 2)
+    enemy_health = enemy_type['base_health'] + (character.level * 10)
+    enemy_damage = enemy_type['base_damage'] + (character.level * 2)
 
     encounter = Encounter(
         character_id=character.id,
-        enemy_type_id=enemy_type.id,
+        enemy_type_id=enemy_type['id'],
         enemy_max_health=enemy_health,
         enemy_health=enemy_health,
         enemy_damage=enemy_damage,
@@ -57,15 +59,13 @@ def check_player_death(character: Character) -> bool:
 
 def drop_loot() -> list[dict[str, Any]]:
     items_dropped: list[dict[str, Any]] = []
-    all_items = ItemType.query.all()
+    all_items = get_all_item_type_data()
     if not all_items:
         return items_dropped
 
     num_items = random.randint(1, min(3, len(all_items)))
     for _ in range(num_items):
-        item_type = serialize_item_type(random.choice(all_items))
-        if item_type is not None:
-            items_dropped.append(item_type)
+        items_dropped.append(random.choice(all_items))
 
     return items_dropped
 

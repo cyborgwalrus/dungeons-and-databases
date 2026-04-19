@@ -2,9 +2,9 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
-from ..game_utils import add_inventory_item, apply_item_type_stats, clear_player_equipment, clear_player_inventory, remove_inventory_item, get_upgraded_item
+from ..utils.game_utils import add_inventory_item, apply_item_type_stats, clear_player_equipment, clear_player_inventory, remove_inventory_item, get_upgraded_item
 from ..db.models import Character, Item, db
-from ..serializers import serialize_character, serialize_item
+from ..utils.serializers import serialize_character, serialize_item
 from .common import get_character, get_item, get_item_type, get_json_data, json_error
 
 inventory_bp = Blueprint('inventory', __name__)
@@ -23,7 +23,7 @@ def _apply_item_updates(item: Item, data: dict[str, Any]) -> tuple[Any, int] | N
         item_type = get_item_type(item_type_id)
         if not item_type:
             return json_error('Item type not found', 404)
-        item.item_type_id = item_type.id
+        item.item_type_id = item_type['id']
 
     for field, value in (
         ('name', data.get('name')),
@@ -232,7 +232,7 @@ def duplicate_inventory_item(character_id: int, item_id: int):
         item_type = get_item_type(item_id)
         if not item_type:
             return json_error('Item not found', 404)
-        item = add_inventory_item(character, item_type.id, copy_from_item=False)
+        item = add_inventory_item(character, item_type['id'], copy_from_item=False)
     else:
         item = add_inventory_item(character, item.id, copy_from_item=True)
 

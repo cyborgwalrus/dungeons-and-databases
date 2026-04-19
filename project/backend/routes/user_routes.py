@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 from flask_login import current_user, logout_user
 
 from ..db.models import User, db
-from ..serializers import serialize_user
+from ..utils.serializers import serialize_user
 from .common import get_json_data, json_error
 
 user_bp = Blueprint('user', __name__)

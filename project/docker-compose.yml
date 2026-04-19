@@ -1,4 +1,12 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: dnd_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - dnd_network
+
   backend:
     build:
       context: ./backend
@@ -9,9 +17,14 @@ services:
     environment:
       - FLASK_APP=app.py
       - FLASK_ENV=development
+      - CACHE_TYPE=RedisCache
+      - CACHE_REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./backend:/app/backend
     # command removed so container will use the image default (runs start-backend.sh)
+    depends_on:
+      - redis
     networks:
       - dnd_network
 

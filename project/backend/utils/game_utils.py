@@ -3,7 +3,8 @@ import re
 from flask import session
 from flask_login import current_user
 
-from .db.models import Character, Item, ItemType, db
+from .cache_helpers import get_all_item_type_data, get_item_type_data, invalidate_reference_data_cache
+from ..db.models import Character, Item, ItemType, db
 
 
 PLAYER_SESSION_KEY = 'character_id'
@@ -57,23 +58,23 @@ def get_player() -> Character | None:
 
 
 def seed_character_loadout(character: Character) -> None:
+    item_types_by_name = {item_type['name']: item_type for item_type in get_all_item_type_data()}
     for item_name in DEFAULT_LOADOUT_ITEM_NAMES:
-        item_type = ItemType.query.filter_by(name=item_name).first()
+        item_type = item_types_by_name.get(item_name)
         if item_type:
-            add_inventory_item(character, item_type.id, copy_from_item=False)
+            add_inventory_item(character, item_type['id'], copy_from_item=False)
 
 
 def add_inventory_item(player: Character, item_id: int, *, copy_from_item: bool = False) -> Item | None:
     item_model = Item
-    item_type_model = ItemType
 
     source_item = item_model.query.get(item_id) if copy_from_item else None
     if source_item:
-        item_type = source_item.item_type or item_type_model.query.get(source_item.item_type_id)
+        item_type = get_item_type_data(source_item.item_type_id)
         level = source_item.level
         is_loot = source_item.is_loot
     else:
-        item_type = item_type_model.query.get(item_id)
+        item_type = get_item_type_data(item_id)
         if not item_type:
             return None
         level = 1
@@ -83,12 +84,12 @@ def add_inventory_item(player: Character, item_id: int, *, copy_from_item: bool 
         return None
 
     inventory_item = item_model(
-        name=item_type.name,
-        item_type_id=item_type.id,
+        name=item_type['name'],
+        item_type_id=item_type['id'],
         owner_id=player.id,
         level=level,
-        health_bonus=item_type.base_health_bonus or 0,
-        damage_bonus=item_type.base_damage_bonus or 0,
+        health_bonus=item_type['base_health_bonus'] or 0,
+        damage_bonus=item_type['base_damage_bonus'] or 0,
         is_equipped=False,
         is_loot=is_loot,
     )
@@ -121,11 +122,11 @@ def get_upgraded_item(item: Item) -> Item | None:
     item_model = Item
     item_type_model = ItemType
 
-    source_type = item.item_type if getattr(item, 'item_type', None) else item_type_model.query.get(item.item_type_id)
+    source_type = get_item_type_data(item.item_type_id)
     if not source_type:
         return None
 
-    base_name = re.sub(r'\s\+\d+$', '', item.name or source_type.name).strip()
+    base_name = re.sub(r'\s\+\d+$', '', item.name or source_type['name']).strip()
     new_level = (item.level or 0) + 1
     upgraded_name = f"{base_name} +{new_level}"
 
@@ -133,12 +134,13 @@ def get_upgraded_item(item: Item) -> Item | None:
     if not upgraded_item_type:
         upgraded_item_type = item_type_model(
             name=upgraded_name,
-            slot=source_type.slot,
-            base_damage_bonus=(getattr(source_type, 'base_damage_bonus', 0) or 0) * 2,
-            base_health_bonus=(getattr(source_type, 'base_health_bonus', 0) or 0) * 2,
+            slot=source_type['slot'],
+            base_damage_bonus=(source_type['base_damage_bonus'] or 0) * 2,
+            base_health_bonus=(source_type['base_health_bonus'] or 0) * 2,
         )
         db.session.add(upgraded_item_type)
         db.session.commit()
+        invalidate_reference_data_cache()
 
     upgraded_item = item_model(
         item_type_id=upgraded_item_type.id,
