@@ -104,6 +104,7 @@ def _reforge_once(character: Character) -> bool:
 
         for item in selected_items:
             if item.id != source_item.id:
+                character.inventory.remove(item)
                 db.session.delete(item)
 
         _upgrade_reforge_item(source_item)
@@ -349,5 +350,5 @@ def reforge_all_items(character_id: int) -> Any:
     if not made_changes:
         return json_error('No items to reforge')
 
-    db.session.expire(character)
+    db.session.commit()
     return _player_response(character, 'Reforge all complete')
