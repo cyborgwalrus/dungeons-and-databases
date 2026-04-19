@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify, request, session
 from ..utils.game_utils import get_player as get_current_character, seed_character_loadout, set_player
 from ..db.models import Character, db
 from ..utils.serializers import serialize_character
-from .common import get_character as get_character_by_id, get_current_user, json_error
+from .common import get_character as get_character_by_id, require_character_owner, require_current_user, json_error
 
 character_bp = Blueprint('character', __name__)
 
@@ -22,27 +22,29 @@ def _get_character(character_id: int | None = None) -> tuple[Character | None, t
     return None, json_error('No active character selected', 400)
 
 
-@character_bp.route('/users/<int:user_id>/characters/', methods=['GET'])
-def list_characters(user_id):
-    user = get_current_user()
-    if not user or user.id != user_id:    
-        return jsonify({'error': 'Unauthorized'}), 401
+@character_bp.route('/characters/', methods=['GET'])
+def list_characters():
+    user, error_response = require_current_user()
+    if error_response:
+        return error_response
+    assert user is not None
 
     characters = user.characters
+
     return jsonify([serialize_character(character, include_inventory=True) for character in characters])
 
 
-@character_bp.route('/users/<int:user_id>/characters/', methods=['POST'])
-def create_character(user_id):
+@character_bp.route('/characters/', methods=['POST'])
+def create_character():
     data = request.get_json(silent=True) or {}
-    user = get_current_user()
-
-    if user is None or user.id != user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
+    user, error_response = require_current_user()
+    if error_response:
+        return error_response
+    assert user is not None
 
     name = data.get('name', '').strip()
     if not name:
-        return jsonify({'error': 'Character name is required'}), 400
+        name = 'Hero'
     
     character = Character(
         user_id=user.id,
@@ -55,31 +57,24 @@ def create_character(user_id):
     db.session.flush()
     seed_character_loadout(character)
     db.session.commit()
-    set_player(character.id)
     return jsonify(serialize_character(character, include_inventory=True)), 201
 
 
-@character_bp.route('/users/<int:user_id>/characters/<int:character_id>', methods=['GET'])
-def get_character(user_id, character_id):
-    user = get_current_user()
-    if user is None or user.id != user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
-    
-    character = Character.query.get(character_id)
-    if not character:
-        return jsonify({'error': 'Character not found'}), 404
+@character_bp.route('/characters/<int:character_id>', methods=['GET'])
+def get_character(character_id):
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     return jsonify(serialize_character(character, include_inventory=True))
 
 
-@character_bp.route('/users/<int:user_id>/characters/<int:character_id>', methods=['DELETE'])
-def delete_character(user_id, character_id):
-    user = get_current_user()
-    if user is None or user.id != user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
-
-    character = Character.query.get(character_id)
-    if not character:
-        return jsonify({'error': 'Character not found'}), 404
+@character_bp.route('/characters/<int:character_id>', methods=['DELETE'])
+def delete_character(character_id):
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
 
     if session.get('character_id') == character.id:
         set_player(None)
@@ -89,19 +84,12 @@ def delete_character(user_id, character_id):
     return jsonify({'message': 'Character deleted'})
 
 
-@character_bp.route('/users/<int:user_id>/characters/<int:character_id>/select', methods=['POST'])
-def select_character(user_id, character_id):
-    user = get_current_user()
-    if user is None or user.id != user_id:
-        return jsonify({'error': 'Unauthorized'}), 401
-
-    character = Character.query.get(character_id)
-    if not character:
-        return jsonify({'error': 'Character not found'}), 404
-
-    user = get_current_user()
-    if not user or character.user_id != user.id:
-        return jsonify({'error': 'Character not found'}), 404
+@character_bp.route('/characters/<int:character_id>/select', methods=['POST'])
+def select_character(character_id):
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
 
     set_player(character.id)
     return jsonify({'message': 'Character selected', 'player': serialize_character(character, include_inventory=True)})

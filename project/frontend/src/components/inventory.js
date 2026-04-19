@@ -1,7 +1,7 @@
 import { bindDragSource, bindDropZone } from '../drag-drop.js';
 
 export function renderInventoryGrid(opts) {
-  const { inventory, getCharacterId, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, getItemType, makeIcon, formatStats } = opts;
+  const { inventory, getCharacterId, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
   const invContainer = document.getElementById('inventory-grid');
   if (!invContainer) return;
   if (!inventory || inventory.length === 0) {
@@ -11,14 +11,10 @@ export function renderInventoryGrid(opts) {
 
   // Keep the strongest upgraded items near the top so equip scans are easier to follow.
   const sortedInventory = [...inventory].filter(Boolean).sort((a, b) => {
-    function levelOf(inv) {
-      const name = inv && inv.name ? inv.name : '';
-      const m = name.match(/\s\+(\d+)$/);
-      return m ? parseInt(m[1], 10) : 0;
-    }
-    const la = levelOf(a), lb = levelOf(b);
+    const la = a.level || 1;
+    const lb = b.level || 1;
     if (la !== lb) return lb - la;
-    return (a.name || '').localeCompare(b.name || '');
+    return (getItemDisplayName(a) || '').localeCompare(getItemDisplayName(b) || '');
   });
 
   const cards = [];
@@ -30,7 +26,7 @@ export function renderInventoryGrid(opts) {
       <div class="inventory-card" draggable="true" data-instance-id="${instanceId}" data-item-id="${i.id}" data-item-type="${itype}">
         <div class="item-icon">${makeIcon(i)}</div>
         <div class="card-details">
-          <div class="item-name">${i.name}</div>
+          <div class="item-name">${getItemDisplayName(i)}</div>
           <div class="item-type">${formatStats(i)}</div>
         </div>
       </div>`);

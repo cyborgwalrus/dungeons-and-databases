@@ -1,55 +1,23 @@
 import { fetchJson } from './api.js';
-import { makeIcon, getItemType, formatDungeonMessage, formatStats, isSlotCompatible } from './helpers.js';
+import { makeIcon, getItemType, getItemDisplayName, formatDungeonMessage, formatStats, isSlotCompatible } from './helpers.js';
 import { renderPlayerStatsInto } from './components/player.js';
 import { renderEquipPanel as renderEquipPanelImpl } from './components/equip.js';
 import { renderInventoryGrid as renderInventoryGridImpl } from './components/inventory.js';
-import { showHome } from './screens/home.js';
-import { showDungeon } from './screens/dungeon.js';
 import { buildDungeonMarkup, applyDungeonCombatUpdate, showDungeonDefeatScreen } from './screens/dungeon-runtime.js';
-import { showLogin } from './screens/login.js';
-import { showCharacterSelect } from './screens/character-select.js';
-// action button helpers are used via page.js; no direct imports needed here
 import { setupActionButtons, setupRubbishBin } from './page.js';
+import { state, getCharacterId, getCharacterInventoryPath, getFullHealthForPlayer } from './app-state.js';
 
 const root = document.getElementById('root');
 
-// Shared app state stays in memory so each screen can re-render without rebuilding the data model.
-let currentUser = null;
-let characters = [];
-let player = null;
-let inventory = [];
-let equipped = [];
-let allItems = [];
-let currentDrag = null; // { itemId, itemType, from, slot }
-let lastDungeonMessage = null;
-let lootCounts = {}; // cumulative loot counts while in session
-let dungeonLoot = []; // temporary dungeon-run loot that is only banked on successful exit
-
-function getCharacterId() {
-  return player && player.id ? player.id : null;
-}
-
-function getCharacterInventoryPath(suffix = '') {
-  const characterId = getCharacterId();
-  if (!characterId) return null;
-  return `/characters/${characterId}/inventory/${suffix}`;
-}
-
-function getReforgeAllPath() {
-  const characterId = getCharacterId();
-  if (!characterId) return null;
-  return `/forge/reforge_all/${characterId}`;
-}
-
-function getFullHealthForPlayer(playerState) {
-  if (!playerState) return null;
-  const level = playerState.level || 1;
-  const baseMax = 100 + (Math.max(0, level - 1) * 10);
-  return baseMax + (playerState.bonus_health || 0);
+function syncPlayerSnapshot(playerData) {
+  state.player = playerData;
+  state.inventory = Array.isArray(playerData?.inventory) ? playerData.inventory : state.inventory;
+  state.equipped = Array.isArray(playerData?.equipped) ? playerData.equipped : state.equipped;
+  state.allItems = [...state.inventory, ...state.equipped];
 }
 
 async function syncPlayerHealthToFull() {
-  const fullHealth = getFullHealthForPlayer(player);
+  const fullHealth = getFullHealthForPlayer(state.player);
   if (fullHealth === null) return;
 
   await fetchJson('/player', {
@@ -60,36 +28,33 @@ async function syncPlayerHealthToFull() {
 
   const refreshedPlayer = await fetchJson('/player/full');
   if (refreshedPlayer.ok && refreshedPlayer.data) {
-    player = refreshedPlayer.data;
-    inventory = Array.isArray(player.inventory) ? player.inventory : inventory;
-    equipped = Array.isArray(player.equipped) ? player.equipped : equipped;
-    allItems = [...inventory, ...equipped];
+    syncPlayerSnapshot(refreshedPlayer.data);
     const statsContainer = document.getElementById('player-stats');
     if (statsContainer) {
-      renderPlayerStatsInto(statsContainer, player);
+      renderPlayerStatsInto(statsContainer, state.player);
     }
   }
 }
 
 function resetDungeonLoot() {
-  lootCounts = {};
-  dungeonLoot = [];
+  state.lootCounts = {};
+  state.dungeonLoot = [];
 }
 
 function recordDungeonLoot(itemsDropped) {
   (itemsDropped || []).forEach(item => {
     if (!item) return;
-    dungeonLoot.push(item);
+    state.dungeonLoot.push(item);
   });
 }
 
 async function bankDungeonLoot() {
-  if (!dungeonLoot.length) return;
+  if (!state.dungeonLoot.length) return;
   const inventoryPath = getCharacterInventoryPath();
   if (!inventoryPath) return;
 
   const countsById = new Map();
-  dungeonLoot.forEach(item => {
+  state.dungeonLoot.forEach(item => {
     if (!item || item.id === undefined || item.id === null) return;
     const current = countsById.get(item.id) || { item, quantity: 0 };
     current.quantity += 1;
@@ -110,70 +75,74 @@ async function bankDungeonLoot() {
 function updateSlotHighlights() {
   document.querySelectorAll('.equip-slot').forEach(slotEl => {
     slotEl.classList.remove('slot-allowed', 'slot-denied');
-    if (!currentDrag) return;
+    if (!state.currentDrag) return;
     const slotType = slotEl.getAttribute('data-slot-type') || 'misc';
-    const itype = currentDrag.itemType || 'misc';
-    if (isSlotCompatible(slotType, itype)) slotEl.classList.add('slot-allowed'); else slotEl.classList.add('slot-denied');
+    const itemType = state.currentDrag.itemType || 'misc';
+    if (isSlotCompatible(slotType, itemType)) slotEl.classList.add('slot-allowed'); else slotEl.classList.add('slot-denied');
   });
 }
 
-function updatePlayerPanel(p) {
-  if (!p) return;
+function updatePlayerPanel(player) {
+  if (!player) return;
   const ph = document.getElementById('player-health');
   const pd = document.getElementById('player-damage');
   const pl = document.getElementById('player-level');
   const pbh = document.getElementById('player-bonus-health');
   const pbd = document.getElementById('player-bonus-damage');
-  const level = p.level || 1;
-  const maxHealth = (100 + (Math.max(0, level - 1) * 10)) + (p.bonus_health || 0);
-  const totalDamage = (p.damage || 0) + (p.bonus_damage || 0);
-  if (ph) ph.textContent = `${p.health} / ${maxHealth} HP`;
+  const level = player.level || 1;
+  const maxHealth = (100 + (Math.max(0, level - 1) * 10)) + (player.bonus_health || 0);
+  const totalDamage = (player.damage || 0) + (player.bonus_damage || 0);
+  if (ph) ph.textContent = `${player.health} / ${maxHealth} HP`;
   if (pd) pd.textContent = `${totalDamage}`;
-  if (pl) pl.textContent = `${p.level}`;
-  if (pbh) pbh.textContent = `+${p.bonus_health}`;
-  if (pbd) pbd.textContent = `+${p.bonus_damage}`;
+  if (pl) pl.textContent = `${player.level}`;
+  if (pbh) pbh.textContent = `+${player.bonus_health}`;
+  if (pbd) pbd.textContent = `+${player.bonus_damage}`;
 }
 
-function updateEnemyPanel(en) {
-  if (!en) return;
+function updateEnemyPanel(enemy) {
+  if (!enemy) return;
   const enName = document.getElementById('enemy-name');
   const enLevel = document.getElementById('enemy-level');
   const enHealth = document.getElementById('enemy-health');
   const enDamage = document.getElementById('enemy-damage');
-  if (enName) enName.textContent = `Enemy: ${en.name || 'None'}`;
-  if (enLevel) enLevel.textContent = `${en.level || ''}`;
-  if (enHealth) enHealth.textContent = `${en.health} / ${en.max_health} HP`;
-  if (enDamage) enDamage.textContent = `${en.damage}`;
+  if (enName) enName.textContent = `Enemy: ${enemy.name || 'None'}`;
+  if (enLevel) enLevel.textContent = `${enemy.level || ''}`;
+  if (enHealth) enHealth.textContent = `${enemy.health} / ${enemy.max_health} HP`;
+  if (enDamage) enDamage.textContent = `${enemy.damage}`;
 }
 
 function renderEquipPanel() {
   return renderEquipPanelImpl({
-    equipped, inventory, allItems,
+    equipped: state.equipped,
+    inventory: state.inventory,
+    allItems: state.allItems,
     getCharacterId,
-    getCurrentDrag: () => currentDrag,
-    setCurrentDrag: v => { currentDrag = v; },
+    getCurrentDrag: () => state.currentDrag,
+    setCurrentDrag: value => { state.currentDrag = value; },
     updateSlotHighlights,
     fetchJson,
     loadStateAndRenderPartial,
     syncPlayerHealthToFull,
     getItemType,
     makeIcon,
-    formatStats
+    formatStats,
+    getItemDisplayName,
   });
 }
 
 function renderInventoryGrid() {
   return renderInventoryGridImpl({
-    inventory,
+    inventory: state.inventory,
     getCharacterId,
-    getCurrentDrag: () => currentDrag,
-    setCurrentDrag: v => { currentDrag = v; },
+    getCurrentDrag: () => state.currentDrag,
+    setCurrentDrag: value => { state.currentDrag = value; },
     updateSlotHighlights,
     fetchJson,
     loadStateAndRenderPartial,
     getItemType,
     makeIcon,
-    formatStats
+    formatStats,
+    getItemDisplayName,
   });
 }
 
@@ -181,19 +150,19 @@ async function handleDungeonAttack() {
   const res = await fetchJson('/dungeon/attack', { method: 'POST' });
   if (!res.ok || !res.data) return;
 
-  const d = res.data;
+  const dungeonState = res.data;
   const lootEl = document.getElementById('loot');
-  applyDungeonCombatUpdate(d, {
-    lootCounts,
+  applyDungeonCombatUpdate(dungeonState, {
+    lootCounts: state.lootCounts,
     onLootDropped: recordDungeonLoot,
     lootEl,
-    setLastDungeonMessage: v => { lastDungeonMessage = v; }
+    setLastDungeonMessage: value => { state.lastDungeonMessage = value; }
   });
 
-  if (d.player_died) {
+  if (dungeonState.player_died) {
     await showDungeonDefeatScreen({
-      message: d.message || 'You were defeated and lost the loot from this dungeon run.',
-      lootCounts,
+      message: dungeonState.message || 'You were defeated and lost the loot from this dungeon run.',
+      lootCounts: state.lootCounts,
       onExit: () => {
         resetDungeonLoot();
         navigateTo('/');
@@ -203,22 +172,22 @@ async function handleDungeonAttack() {
   }
 
   await loadStateAndRenderPartial();
-  if (d.player) updatePlayerPanel(d.player);
-  if (d.enemy) updateEnemyPanel(d.enemy);
+  if (dungeonState.player) updatePlayerPanel(dungeonState.player);
+  if (dungeonState.enemy) updateEnemyPanel(dungeonState.enemy);
 }
 
 async function handleDungeonRun() {
   const res = await fetchJson('/dungeon/run', { method: 'POST' });
   if (!res.ok || !res.data) return;
 
-  const d = res.data;
+  const dungeonState = res.data;
   const dungeonMessage = document.getElementById('dungeon-message');
-  if (dungeonMessage) dungeonMessage.innerHTML = formatDungeonMessage(d.message || 'Action result');
+  if (dungeonMessage) dungeonMessage.innerHTML = formatDungeonMessage(dungeonState.message || 'Action result');
 
-  if (d.player_died) {
+  if (dungeonState.player_died) {
     await showDungeonDefeatScreen({
-      message: d.message || 'You were defeated and lost the loot from this dungeon run.',
-      lootCounts,
+      message: dungeonState.message || 'You were defeated and lost the loot from this dungeon run.',
+      lootCounts: state.lootCounts,
       onExit: () => {
         resetDungeonLoot();
         navigateTo('/');
@@ -227,7 +196,7 @@ async function handleDungeonRun() {
     return;
   }
 
-  if (d.success) {
+  if (dungeonState.success) {
     setTimeout(async () => {
       try {
         await bankDungeonLoot();
@@ -242,29 +211,20 @@ async function handleDungeonRun() {
     setTimeout(() => renderDungeon({ resetRunState: false }), 500);
   }
 }
-// expose renderers for screen modules
-window.app = window.app || {};
-window.app.renderHome = renderHome;
 
 async function loadStateAndRenderPartial() {
-  // Pull the latest server state before redrawing the visible panels.
-  const pRes = await fetchJson('/player/full');
-  if (pRes.ok && pRes.data) {
-    player = pRes.data;
-    inventory = Array.isArray(pRes.data.inventory) ? pRes.data.inventory : [];
-    equipped = Array.isArray(pRes.data.equipped) ? pRes.data.equipped : [];
-    allItems = [...inventory, ...equipped];
+  const playerResponse = await fetchJson('/player/full');
+  if (playerResponse.ok && playerResponse.data) {
+    syncPlayerSnapshot(playerResponse.data);
   }
 
-  // update parts
   const mainContent = document.getElementById('main-content');
   if (!mainContent) return;
-  renderPlayerStatsInto(document.getElementById('player-stats'), player);
+  renderPlayerStatsInto(document.getElementById('player-stats'), state.player);
   renderEquipPanel();
   renderInventoryGrid();
 }
 
-/* --- Login Screen --- */
 async function renderLogin() {
   root.innerHTML = `
     <div class="game-container" style="display: flex; justify-content: center; align-items: center; min-height: 100vh;">
@@ -308,7 +268,7 @@ async function renderLogin() {
     });
 
     if (res.ok && res.data.user) {
-      currentUser = res.data.user;
+      state.currentUser = res.data.user;
       navigateTo('/character-select');
     } else {
       messageEl.textContent = res.data?.message || 'Sign in failed';
@@ -330,7 +290,7 @@ async function renderLogin() {
     });
 
     if (res.ok && res.data.user) {
-      currentUser = res.data.user;
+      state.currentUser = res.data.user;
       navigateTo('/character-select');
     } else {
       messageEl.textContent = res.data?.message || 'Sign up failed';
@@ -338,16 +298,16 @@ async function renderLogin() {
   });
 }
 
-window.app = window.app || {};
-window.app.renderLogin = renderLogin;
-
-/* --- Character Select Screen --- */
 async function renderCharacterSelect() {
   root.innerHTML = `<div class="game-container" style="display: flex; justify-content: center; align-items: center; min-height: 100vh;"><div style="width: 100%; max-width: 600px; padding: 20px;" id="char-select-content">Loading...</div></div>`;
   const content = document.getElementById('char-select-content');
+  if (!state.currentUser) {
+    navigateTo('/login');
+    return;
+  }
 
   const res = await fetchJson('/characters/');
-  characters = res.ok ? res.data : [];
+  state.characters = res.ok ? res.data : [];
 
   content.innerHTML = `
     <h1 style="text-align: center; margin-bottom: 30px;">Select or Create a Character</h1>
@@ -357,25 +317,25 @@ async function renderCharacterSelect() {
   `;
 
   const charList = document.getElementById('character-list');
-  if (characters.length === 0) {
+  if (state.characters.length === 0) {
     charList.innerHTML = '<p style="text-align: center; color: #999;">No characters yet. Create one to start playing!</p>';
   } else {
-    characters.forEach(char => {
+    state.characters.forEach(character => {
       const charEl = document.createElement('button');
       charEl.style.cssText = 'padding: 15px; text-align: left; cursor: pointer; border: 1px solid #ccc; background-color: #f5f5f5; border-radius: 4px;';
       charEl.innerHTML = `
-        <div style="font-weight: bold; margin-bottom: 5px;">${char.name}</div>
-        <div style="font-size: 12px; color: #666;">Level ${char.level} | ${char.health} HP</div>
+        <div style="font-weight: bold; margin-bottom: 5px;">${character.name}</div>
+        <div style="font-size: 12px; color: #666;">Level ${character.level} | ${character.health} HP</div>
       `;
       charEl.addEventListener('click', async () => {
-        const selectRes = await fetchJson(`/characters/${char.id}/select`, {
+        const selectRes = await fetchJson(`/characters/${character.id}/select`, {
           method: 'POST'
         });
         if (selectRes.ok && selectRes.data.player) {
-          player = selectRes.data.player;
-          inventory = [];
-          equipped = [];
-          allItems = [];
+          state.player = selectRes.data.player;
+          state.inventory = [];
+          state.equipped = [];
+          state.allItems = [];
           navigateTo('/');
         }
       });
@@ -391,28 +351,21 @@ async function renderCharacterSelect() {
       body: JSON.stringify({ name: charName })
     });
     if (createRes.ok && createRes.data) {
-      player = createRes.data;
-      inventory = [];
-      equipped = [];
-      allItems = [];
-      navigateTo('/');
+      state.characters = [...state.characters, createRes.data];
+      await renderCharacterSelect();
     }
   });
 
   document.getElementById('logout-btn').addEventListener('click', async () => {
     await fetchJson('/login/signout', { method: 'POST' });
-    currentUser = null;
-    player = null;
-    characters = [];
+    state.currentUser = null;
+    state.player = null;
+    state.characters = [];
     navigateTo('/login');
   });
 }
 
-window.app = window.app || {};
-window.app.renderCharacterSelect = renderCharacterSelect;
-
 async function renderHome() {
-  // Home is the management hub: stats, equipment, inventory, and the entry point to the dungeon.
   root.innerHTML = `<div class="game-container"><div id="main-content"></div></div>`;
   const main = document.getElementById('main-content');
   main.innerHTML = `
@@ -435,35 +388,32 @@ async function renderHome() {
   `;
 
   document.getElementById('enter-dungeon').addEventListener('click', () => navigateTo('/dungeon'));
-  
   document.getElementById('select-character-btn').addEventListener('click', () => navigateTo('/character-select'));
-  
+
   document.getElementById('logout-btn').addEventListener('click', async () => {
     await fetchJson('/login/signout', { method: 'POST' });
-    currentUser = null;
-    player = null;
-    characters = [];
+    state.currentUser = null;
+    state.player = null;
+    state.characters = [];
     navigateTo('/login');
   });
 
-  // clear any dungeon loot from previous runs when returning home
   resetDungeonLoot();
   await loadStateAndRenderPartial();
-  // Returning home restores the player to full health based on level and gear bonuses.
+
   try {
     await syncPlayerHealthToFull();
-    renderPlayerStatsInto(document.getElementById('player-stats'), player);
-  } catch (e) {
-    console.warn('Heal on home failed', e);
+    renderPlayerStatsInto(document.getElementById('player-stats'), state.player);
+  } catch (error) {
+    console.warn('Heal on home failed', error);
   }
 
-  // wire up action buttons and rubbish bin via helpers to keep main concise
   const actionsContainer = document.getElementById('player-stats-actions');
   setupActionButtons(actionsContainer, {
     fetchJson,
     loadStateAndRenderPartial,
-    getEquipped: () => equipped,
-    getInventory: () => inventory,
+    getEquipped: () => state.equipped,
+    getInventory: () => state.inventory,
     getItemType,
     getCharacterId,
     syncPlayerHealthToFull
@@ -473,86 +423,76 @@ async function renderHome() {
   setupRubbishBin(bin, {
     fetchJson,
     loadStateAndRenderPartial,
-    getCurrentDrag: () => currentDrag,
-    setCurrentDrag: v => { currentDrag = v; },
+    getCurrentDrag: () => state.currentDrag,
+    setCurrentDrag: value => { state.currentDrag = value; },
     updateSlotHighlights,
     getCharacterId,
     syncPlayerHealthToFull
   });
 }
 
-/* --- Dungeon view remains mostly unchanged but uses player updates from API --- */
 async function renderDungeon({ resetRunState = true } = {}) {
-  // Reset transient combat state only when starting a fresh dungeon screen.
   if (resetRunState) resetDungeonLoot();
-  lastDungeonMessage = null;
+  state.lastDungeonMessage = null;
   root.innerHTML = `<div class="game-container"><div id="dungeon-content">Loading...</div></div>`;
   const content = document.getElementById('dungeon-content');
 
-  const pRes = await fetchJson('/player/full');
-  if (pRes.ok && pRes.data) {
-    player = pRes.data;
-    inventory = Array.isArray(player.inventory) ? player.inventory : inventory;
-    equipped = Array.isArray(player.equipped) ? player.equipped : equipped;
-    allItems = [...inventory, ...equipped];
+  const playerResponse = await fetchJson('/player/full');
+  if (playerResponse.ok && playerResponse.data) {
+    syncPlayerSnapshot(playerResponse.data);
   }
 
   const playerId = getCharacterId();
   const encounterPath = playerId ? `/dungeon/encounters/${playerId}/current` : '/dungeon/encounters/';
-  const encRes = await fetchJson(encounterPath);
-  const enemy = encRes.ok ? encRes.data : { name: '', health: 0, max_health: 0, damage: 0, description: '' };
+  const encounterResponse = await fetchJson(encounterPath);
+  const enemy = encounterResponse.ok ? encounterResponse.data : { name: '', health: 0, max_health: 0, damage: 0, description: '' };
 
   const preface = `A wild ${enemy.name || 'creature'} appears! ${enemy.description || ''}`;
-  const messageToShow = lastDungeonMessage || preface;
+  const messageToShow = state.lastDungeonMessage || preface;
   content.innerHTML = buildDungeonMarkup(enemy, messageToShow);
 
-  // render player stats into dungeon layout
-  renderPlayerStatsInto(document.getElementById('player-stats-container'), player);
+  renderPlayerStatsInto(document.getElementById('player-stats-container'), state.player);
+  state.lastDungeonMessage = null;
 
-  // clear preserved message after rendering so future new-encounter renders use preface
-  lastDungeonMessage = null;
-
-  document.getElementById('attack').addEventListener('click', ev => { ev.preventDefault(); handleDungeonAttack(); });
-
-  document.getElementById('run').addEventListener('click', ev => { ev.preventDefault(); handleDungeonRun(); });
-
-  document.getElementById('back').addEventListener('click', (ev) => {
-    ev.preventDefault();
+  document.getElementById('attack').addEventListener('click', event => { event.preventDefault(); handleDungeonAttack(); });
+  document.getElementById('run').addEventListener('click', event => { event.preventDefault(); handleDungeonRun(); });
+  document.getElementById('back').addEventListener('click', event => {
+    event.preventDefault();
     resetDungeonLoot();
     navigateTo('/');
   });
 }
 
-// expose dungeon renderer as well
-window.app = window.app || {};
-window.app.renderDungeon = renderDungeon;
+function navigateTo(path) {
+  if (path === '/') location.hash = '#/'; else location.hash = `#${path}`;
+}
 
-/* --- Router --- */
-function navigateTo(path) { if (path === '/') location.hash = '#/'; else location.hash = `#${path}`; }
+async function route() {
+  const hash = location.hash.replace('#', '') || '/';
 
-async function route() { 
-  const hash = location.hash.replace('#', '') || '/'; 
-  
-  // Check authentication status if needed
-  if (!currentUser && hash !== '/login') {
-    // Try to load current user from server
+  if (!state.currentUser && hash !== '/login') {
     const res = await fetchJson('/login/me');
     if (res.ok && res.data && res.data.user) {
-      currentUser = res.data.user;
+      state.currentUser = res.data.user;
     } else {
-      // Not logged in, redirect to login
       location.hash = '#/login';
       return;
     }
   }
-  
-  if (hash === '/login') return showLogin();
-  else if (hash === '/character-select') return showCharacterSelect();
-  else if (hash === '/' || hash === '') return (player ? showHome() : showCharacterSelect());
-  else if (hash === '/dungeon') return showDungeon();
-  else return showHome();
+
+  if (hash === '/login') return renderLogin();
+  if (hash === '/character-select') return renderCharacterSelect();
+  if (hash === '/' || hash === '') return (state.player ? renderHome() : renderCharacterSelect());
+  if (hash === '/dungeon') return renderDungeon();
+  return renderHome();
 }
 
-// Keep the SPA shell in sync with the URL hash.
-window.addEventListener('hashchange', route);
-window.addEventListener('load', route);
+export {
+  navigateTo,
+  route,
+  renderLogin,
+  renderCharacterSelect,
+  renderHome,
+  renderDungeon,
+  loadStateAndRenderPartial,
+};

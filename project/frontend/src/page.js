@@ -1,8 +1,7 @@
 import { createActionButton, createActionBar } from './ui.js';
-import { getEquipScore, isSlotCompatible } from './helpers.js';
 
 export function setupActionButtons(actionsContainer, deps) {
-  const { fetchJson, loadStateAndRenderPartial, getEquipped, getInventory, getItemType, getCharacterId, syncPlayerHealthToFull } = deps;
+  const { fetchJson, loadStateAndRenderPartial, getCharacterId, syncPlayerHealthToFull } = deps;
   if (!actionsContainer || actionsContainer.dataset.buttonsBound) return;
 
   function getInventoryPath(suffix = '') {
@@ -26,14 +25,15 @@ export function setupActionButtons(actionsContainer, deps) {
     onClick: async (_ev, btn) => {
       btn.disabled = true;
       try {
-        const equipped = getEquipped();
-        if (equipped && equipped.length) {
-          for (const eq of equipped.slice()) {
-            await fetchJson(getInventoryPath(), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: eq.id, is_equipped: false }) });
-          }
-          await loadStateAndRenderPartial();
-          if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
+        const inventoryPath = getInventoryPath();
+        if (!inventoryPath) {
+          btn.disabled = false;
+          return;
         }
+        const res = await fetchJson(`${inventoryPath}unequip_all`, { method: 'POST' });
+        if (!res.ok) console.error('Unequip all failed', res.data);
+        await loadStateAndRenderPartial();
+        if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
       } catch (err) { console.error('Unequip all failed', err); }
       btn.disabled = false;
     }
@@ -68,33 +68,13 @@ export function setupActionButtons(actionsContainer, deps) {
     onClick: async (_ev, btn) => {
       btn.disabled = true;
       try {
-        const inventory = getInventory();
-        const equipped = getEquipped();
-        // Slot order matches the backend slot layout.
-        const SLOT_DEFS = [ 'helmet', 'armor', 'weapon', 'shield', 'ring', 'necklace' ];
-        for (let slot = 0; slot < SLOT_DEFS.length; slot++) {
-          const type = SLOT_DEFS[slot];
-          let best = null;
-          let bestScore = -Infinity;
-          for (const invItem of inventory) {
-            const item = invItem;
-            const itype = getItemType(item);
-            if (!isSlotCompatible(type, itype)) continue;
-            const score = getEquipScore(item, type);
-            if (score > bestScore) { bestScore = score; best = item; }
-          }
-          const currentlyEquipped = (equipped || []).find(e => e.slot === type);
-          let currentScore = -Infinity;
-          if (currentlyEquipped) {
-            const ci = currentlyEquipped;
-            currentScore = getEquipScore(ci, type);
-          }
-          if (best && bestScore > currentScore) {
-            const inventoryPath = getInventoryPath();
-            if (!inventoryPath) continue;
-            await fetchJson(inventoryPath, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: best.id }) });
-          }
+        const inventoryPath = getInventoryPath();
+        if (!inventoryPath) {
+          btn.disabled = false;
+          return;
         }
+        const res = await fetchJson(`${inventoryPath}equip_best_items`, { method: 'POST' });
+        if (!res.ok) console.error('Equip best items failed', res.data);
         await loadStateAndRenderPartial();
         if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
       } catch (err) { console.error('Equip best failed', err); }

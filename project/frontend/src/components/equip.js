@@ -2,7 +2,7 @@ import { isSlotCompatible } from '../helpers.js';
 import { bindDragSource, bindDropZone } from '../drag-drop.js';
 
 export async function renderEquipPanel(opts) {
-  const { equipped, inventory, allItems, getCharacterId, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats } = opts;
+  const { equipped, inventory, allItems, getCharacterId, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
   const equipPanel = document.getElementById('equip-panel');
   if (!equipPanel) return;
 
@@ -14,7 +14,7 @@ export async function renderEquipPanel(opts) {
       <div class="inventory-card equipped-card" draggable="false" data-item-id="${i.id}">
         <div class="item-icon">${makeIcon(i)}</div>
         <div class="card-details">
-          <div class="item-name">${i.name}</div>
+          <div class="item-name">${getItemDisplayName(i)}</div>
           <div class="item-type">${formatStats(i)}</div>
         </div>
       </div>`;

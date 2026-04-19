@@ -34,13 +34,11 @@ services:
       dockerfile: Dockerfile
     container_name: dnd_frontend
     ports:
-      - "8080:80"
+      - "8080:8080"
     depends_on:
       - backend
     networks:
       - dnd_network
-    environment:
-      - VITE_API_BASE=http://localhost:5000/api
 
 networks:
   dnd_network:

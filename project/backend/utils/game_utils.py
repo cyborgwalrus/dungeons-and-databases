@@ -1,10 +1,8 @@
-import re
-
 from flask import session
 from flask_login import current_user
 
-from .cache_helpers import get_all_item_type_data, get_item_type_data, invalidate_reference_data_cache
-from ..db.models import Character, Item, ItemType, db
+from .cache_helpers import get_all_item_type_data, get_item_type_data
+from ..db.models import Character, Item, db
 
 
 PLAYER_SESSION_KEY = 'character_id'
@@ -16,13 +14,6 @@ DEFAULT_LOADOUT_ITEM_NAMES = [
     'Silver Necklace',
     'Enchanted Ring',
 ]
-
-
-def apply_item_type_stats(item: Item, item_type: ItemType) -> Item:
-    item.name = item_type.name
-    item.health_bonus = item_type.base_health_bonus or 0
-    item.damage_bonus = item_type.base_damage_bonus or 0
-    return item
 
 
 def set_player(character_id: int | None) -> None:
@@ -116,40 +107,3 @@ def clear_player_inventory(player: Character) -> None:
 
 def clear_player_equipment(player: Character) -> None:
     Item.query.filter_by(owner_id=player.id, is_equipped=True).delete()
-
-
-def get_upgraded_item(item: Item) -> Item | None:
-    item_model = Item
-    item_type_model = ItemType
-
-    source_type = get_item_type_data(item.item_type_id)
-    if not source_type:
-        return None
-
-    base_name = re.sub(r'\s\+\d+$', '', item.name or source_type['name']).strip()
-    new_level = (item.level or 0) + 1
-    upgraded_name = f"{base_name} +{new_level}"
-
-    upgraded_item_type = item_type_model.query.filter_by(name=upgraded_name).first()
-    if not upgraded_item_type:
-        upgraded_item_type = item_type_model(
-            name=upgraded_name,
-            slot=source_type['slot'],
-            base_damage_bonus=(source_type['base_damage_bonus'] or 0) * 2,
-            base_health_bonus=(source_type['base_health_bonus'] or 0) * 2,
-        )
-        db.session.add(upgraded_item_type)
-        db.session.commit()
-        invalidate_reference_data_cache()
-
-    upgraded_item = item_model(
-        item_type_id=upgraded_item_type.id,
-        owner_id=item.owner_id,
-        level=new_level,
-        is_equipped=False,
-        is_loot=item.is_loot,
-    )
-    apply_item_type_stats(upgraded_item, upgraded_item_type)
-    db.session.add(upgraded_item)
-    db.session.commit()
-    return upgraded_item

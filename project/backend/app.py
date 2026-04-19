@@ -3,7 +3,6 @@ import os
 from flask import Flask, request
 from flask import redirect
 from flask import has_request_context
-from flask_cors import CORS
 from flask_login import LoginManager, current_user
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -19,7 +18,6 @@ from backend.routes.inventory_routes import inventory_bp
 
 
 app = Flask(__name__)
-CORS(app, supports_credentials=True, origins=['http://localhost:8080', 'http://localhost:3000', 'http://127.0.0.1:8080', 'http://127.0.0.1:3000'])
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
 login_manager = LoginManager()
 
@@ -50,13 +48,6 @@ app.register_blueprint(character_bp, url_prefix='/api')
 app.register_blueprint(dungeon_bp, url_prefix='/api')
 app.register_blueprint(inventory_bp, url_prefix='/api')
 
-# Handle OPTIONS preflight globally for all routes
-@app.route('/api/<path:path>', methods=['OPTIONS'])
-def handle_options(path):
-    """Handle CORS preflight requests"""
-    _ = path
-    return '', 200
-
 
 def ensure_player_exists():
     if not current_user.is_authenticated:
@@ -69,10 +60,6 @@ def ensure_player_exists():
 # Ensure player exists before each request
 @app.before_request
 def ensure_player():
-    # Skip OPTIONS preflight requests
-    if request.method == 'OPTIONS':
-        return None
-    
     # Skip auth endpoints and character management endpoints (they don't need an active player)
     endpoint = request.endpoint or ''
     if endpoint in {'auth.signup', 'auth.signin', 'auth.signout', 'auth.me',
@@ -89,10 +76,6 @@ def ensure_player():
 
 @app.before_request
 def require_login():
-    # Skip OPTIONS preflight requests
-    if request.method == 'OPTIONS':
-        return None
-    
     endpoint = request.endpoint or ''
     # Only skip auth endpoints - character endpoints still require login
     if endpoint in {'auth.signup', 'auth.signin', 'auth.signout', 'auth.me'}:
@@ -100,20 +83,6 @@ def require_login():
 
     if not current_user.is_authenticated:
         return unauthorized()
-
-@app.after_request
-def after_request(response):
-    """Ensure CORS headers are present on all responses"""
-    origin = request.headers.get('Origin')
-    allowed_origins = ['http://localhost:8080', 'http://localhost:3000', 'http://127.0.0.1:8080', 'http://127.0.0.1:3000']
-    
-    if origin in allowed_origins:
-        response.headers['Access-Control-Allow-Origin'] = origin
-        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-        response.headers['Access-Control-Allow-Credentials'] = 'true'
-    
-    return response
 
 @app.cli.command('init-db')
 def init_db():

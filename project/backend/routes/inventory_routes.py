@@ -2,10 +2,10 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
-from ..utils.game_utils import add_inventory_item, apply_item_type_stats, clear_player_equipment, clear_player_inventory, remove_inventory_item, get_upgraded_item
+from ..utils.game_utils import add_inventory_item, clear_player_equipment, clear_player_inventory, remove_inventory_item
 from ..db.models import Character, Item, db
 from ..utils.serializers import serialize_character, serialize_item
-from .common import get_character, get_item, get_item_type, get_json_data, json_error
+from .common import get_item, get_item_type, get_json_data, json_error, require_character_owner
 
 inventory_bp = Blueprint('inventory', __name__)
 
@@ -63,13 +63,6 @@ def _equip_item(character: Character, item: Item) -> None:
     item.is_equipped = True
 
 
-def _copy_upgraded_item_state(target_item: Item, upgraded_item: Item) -> None:
-    target_item.level = upgraded_item.level
-    target_item.is_loot = upgraded_item.is_loot
-    target_item.item_type_id = upgraded_item.item_type_id
-    apply_item_type_stats(target_item, upgraded_item.item_type)
-
-
 def _item_response(item: Item | None, status: int = 200) -> tuple[Any, int]:
     return jsonify(serialize_item(item)), status
 
@@ -89,87 +82,111 @@ def _get_item_or_error(character: Character, item_id: int, message: str = 'Item 
     return item, None
 
 
-def _build_reforge_groups(character: Character) -> dict[tuple[int, int], list[dict[str, Any]]]:
-    groups: dict[tuple[int, int], list[dict[str, Any]]] = {}
-    for inventory_item in Item.query.filter_by(owner_id=character.id, is_equipped=False).all():
-        groups.setdefault((inventory_item.item_type_id, inventory_item.level), []).append({'kind': 'inventory', 'row': inventory_item})
-    for equipped_item in Item.query.filter_by(owner_id=character.id, is_equipped=True).all():
-        groups.setdefault((equipped_item.item_type_id, equipped_item.level), []).append({'kind': 'equipped', 'row': equipped_item})
-    return groups
+def _upgrade_reforge_item(item: Item) -> None:
+    item.level = (item.level or 0) + 1
+    item.health_bonus = (item.health_bonus or 0) * 2
+    item.damage_bonus = (item.damage_bonus or 0) * 2
+    if item.item_type and item.item_type.name:
+        item.name = item.item_type.name
 
 
-def _find_reforge_source(groups: dict[tuple[int, int], list[dict[str, Any]]]) -> dict[str, Any] | None:
-    return next((group[0] for group in groups.values() if len(group) >= 3), None)
+def _reforge_once(character: Character) -> bool:
+    grouped_items: dict[tuple[int, int], list[Item]] = {}
+    for item in sorted(character.inventory, key=lambda value: (value.item_type_id, value.level, 0 if value.is_equipped else 1, value.id or 0)):
+        grouped_items.setdefault((item.item_type_id, item.level), []).append(item)
+
+    for items in grouped_items.values():
+        if len(items) < 3:
+            continue
+
+        selected_items = sorted(items, key=lambda value: (0 if value.is_equipped else 1, value.id or 0))[:3]
+        source_item = next((value for value in selected_items if value.is_equipped), selected_items[0])
+
+        for item in selected_items:
+            if item.id != source_item.id:
+                db.session.delete(item)
+
+        _upgrade_reforge_item(source_item)
+        return True
+
+    return False
 
 
-def _consume_reforge_items(items_to_consume: list[dict[str, Any]], source_row: Any) -> None:
-    for entry in items_to_consume:
-        if entry['row'] is not source_row:
-            db.session.delete(entry['row'])
+def _equip_best_items(character: Character) -> bool:
+    slot_order = ['helmet', 'armor', 'weapon', 'shield', 'ring', 'necklace']
+    changed = False
 
+    equipped_by_slot: dict[str, Item] = {}
+    for equipped_item in _equipped_items(character):
+        slot_value = equipped_item.item_type.slot.value if equipped_item.item_type and equipped_item.item_type.slot else None
+        if slot_value and slot_value not in equipped_by_slot:
+            equipped_by_slot[slot_value] = equipped_item
 
-def _apply_reforge_result(character: Character, source_row: Item | None, upgraded_item: Item) -> tuple[Any, int] | None:
-    if source_row:
-        _copy_upgraded_item_state(source_row, upgraded_item)
-        db.session.delete(upgraded_item)
-        return None
+    for slot_value in slot_order:
+        best_item = None
+        best_score = -1
 
-    new_item = add_inventory_item(character, upgraded_item.item_type_id)
-    if not new_item:
-        return json_error('Unable to create upgraded item', 500)
+        for inventory_item in [item for item in character.inventory if not item.is_equipped]:
+            item_slot = inventory_item.item_type.slot.value if inventory_item.item_type and inventory_item.item_type.slot else None
+            if item_slot != slot_value:
+                continue
 
-    _copy_upgraded_item_state(new_item, upgraded_item)
-    db.session.delete(upgraded_item)
-    return None
+            attack = inventory_item.damage_bonus or 0
+            health = inventory_item.health_bonus or 0
+            score = (attack * 10 + health) if slot_value == 'weapon' else (health * 10 + attack)
+            if score > best_score:
+                best_score = score
+                best_item = inventory_item
 
+        if not best_item:
+            continue
 
-def _reforge_next_batch(character: Character) -> bool | tuple[Any, int] | None:
-    groups = _build_reforge_groups(character)
-    if not groups:
-        return None
+        current_item = equipped_by_slot.get(slot_value)
+        current_attack = current_item.damage_bonus if current_item else 0
+        current_health = current_item.health_bonus if current_item else 0
+        current_score = ((current_attack * 10 + current_health) if slot_value == 'weapon' else (current_health * 10 + current_attack)) if current_item else -1
 
-    upgrade_source = _find_reforge_source(groups)
-    if not upgrade_source:
-        return None
+        if best_score > current_score:
+            _equip_item(character, best_item)
+            equipped_by_slot[slot_value] = best_item
+            changed = True
 
-    group_key = (upgrade_source['row'].item_type_id, upgrade_source['row'].level)
-    items_to_consume = groups[group_key][:3]
-    source_row = next((entry['row'] for entry in items_to_consume if entry['kind'] == 'equipped'), None)
-    _consume_reforge_items(items_to_consume, source_row)
-
-    upgraded = get_upgraded_item(upgrade_source['row'])
-    if not upgraded:
-        return json_error('Unable to reforge item', 500)
-
-    error_response = _apply_reforge_result(character, source_row, upgraded)
-    if error_response:
-        return error_response
-
-    db.session.commit()
-    return True
+    return changed
 
 
 @inventory_bp.route('/characters/<int:character_id>/inventory/', methods=['GET'])
 def get_inventory(character_id: int):
-    character = get_character(character_id)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     return jsonify([serialize_item(item) for item in character.inventory if not item.is_equipped])
 
 
 @inventory_bp.route('/characters/<int:character_id>/inventory/equipped', methods=['GET'])
 def get_equipped(character_id: int):
-    character = get_character(character_id)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     return jsonify([serialize_item(item) for item in _equipped_items(character)])
 
 
 @inventory_bp.route('/characters/<int:character_id>/inventory/items', methods=['GET'])
 def get_all_items(character_id: int):
-    character = get_character(character_id)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     return jsonify([serialize_item(item) for item in character.inventory])
 
 
 @inventory_bp.route('/characters/<int:character_id>/inventory/', methods=['POST'])
 def add_item_to_inventory(character_id: int, item_id: int | None = None):
-    character = get_character(character_id)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     data = get_json_data(request)
     source_id = data.get('item_type_id', data.get('item_id', item_id))
 
@@ -186,7 +203,10 @@ def add_item_to_inventory(character_id: int, item_id: int | None = None):
 
 @inventory_bp.route('/characters/<int:character_id>/inventory/', methods=['PUT'])
 def update_inventory(character_id: int):
-    character = get_character(character_id)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     data = get_json_data(request)
     item_id = data.get('item_id')
     if item_id is None:
@@ -208,16 +228,35 @@ def update_inventory(character_id: int):
 
 @inventory_bp.route('/characters/<int:character_id>/inventory/', methods=['DELETE'])
 def clear_inventory(character_id: int):
-    character = get_character(character_id)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     clear_player_inventory(character)
     clear_player_equipment(character)
     db.session.commit()
     return jsonify({'message': 'Inventory cleared'})
 
 
+@inventory_bp.route('/characters/<int:character_id>/inventory/unequip_all', methods=['POST'])
+def unequip_all(character_id: int) -> Any:
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
+
+    clear_player_equipment(character)
+    db.session.commit()
+    db.session.expire(character)
+    return _player_response(character, 'Unequipped all items')
+
+
 @inventory_bp.route('/characters/<int:character_id>/inventory/<int:item_id>', methods=['GET'])
 def get_inventory_item(character_id: int, item_id: int):
-    character = get_character(character_id)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     item, error_response = _get_item_or_error(character, item_id)
     if error_response:
         return error_response
@@ -226,7 +265,10 @@ def get_inventory_item(character_id: int, item_id: int):
 
 @inventory_bp.route('/characters/<int:character_id>/inventory/<int:item_id>', methods=['POST'])
 def duplicate_inventory_item(character_id: int, item_id: int):
-    character = get_character(character_id)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     item = get_item(character, item_id)
     if not item:
         item_type = get_item_type(item_id)
@@ -242,7 +284,10 @@ def duplicate_inventory_item(character_id: int, item_id: int):
 
 @inventory_bp.route('/characters/<int:character_id>/inventory/<int:item_id>', methods=['PUT'])
 def update_inventory_item(character_id: int, item_id: int):
-    character = get_character(character_id)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     item, error_response = _get_item_or_error(character, item_id)
     if error_response:
         return error_response
@@ -259,7 +304,10 @@ def update_inventory_item(character_id: int, item_id: int):
 
 @inventory_bp.route('/characters/<int:character_id>/inventory/<int:item_id>', methods=['DELETE'])
 def remove_inventory_item_route(character_id: int, item_id: int):
-    character = get_character(character_id)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     inventory_item = remove_inventory_item(character, item_id)
 
     if not inventory_item:
@@ -269,17 +317,32 @@ def remove_inventory_item_route(character_id: int, item_id: int):
     return _message_response('Item removed from inventory')
 
 
+@inventory_bp.route('/characters/<int:character_id>/inventory/equip_best_items', methods=['POST'])
+def equip_best_items(character_id: int) -> Any:
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
+
+    changed = _equip_best_items(character)
+    db.session.commit()
+    db.session.expire(character)
+
+    message = 'Best items equipped' if changed else 'No better items found'
+    return _player_response(character, message)
+
+
 @inventory_bp.route('/forge/reforge_all/<int:character_id>', methods=['POST'])
 def reforge_all_items(character_id: int) -> Any:
-    character = get_character(character_id)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
     made_changes = False
 
     while True:
-        result = _reforge_next_batch(character)
-        if result is None:
+        if not _reforge_once(character):
             break
-        if result is not True:
-            return result
 
         made_changes = True
 

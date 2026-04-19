@@ -1,7 +1,4 @@
 # Frontend (Static)
-
-This frontend has been refactored to a static HTML/JavaScript app (no Node, no React, no Vite).
-
 Quick run (local static server):
 
 ```bash
@@ -27,7 +24,5 @@ docker compose up --build
 ```
 
 Notes:
-- The app expects the API to be accessible at `http://localhost:5000/api` by default.
-- If you run the backend separately, keep it available on host port `5000` so the frontend can call it.
-
-If you want an alternative port or to embed an API base URL into the static build, I can add an index-time replacement step or runtime config snippet.
+- The nginx frontend proxies `/api` to the backend container, so the browser only talks to `http://localhost:8080`.
+- If you run the static frontend without nginx, set `window.__API_BASE__` yourself or serve it through a proxy that forwards `/api`.

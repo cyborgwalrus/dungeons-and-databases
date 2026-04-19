@@ -1,14 +1,11 @@
 import { formatDungeonMessage, formatLootLines } from '../helpers.js';
 
 export async function showDefeat({ message = 'You were defeated and lost the loot from this dungeon run.', lootCounts = {}, onExit = null } = {}) {
-  if (!(window.app && typeof window.app.renderDungeon === 'function')) {
-    // fallback: render a minimal defeat screen into root
-    const root = document.getElementById('root');
-    root.innerHTML = `<div class="game-container"><h1>${message}</h1></div>`;
-    return;
-  }
   // render into the existing dungeon content area if present
   const content = document.getElementById('dungeon-content') || document.getElementById('main-content') || document.getElementById('root');
+  if (!content) {
+    return;
+  }
   const lines = formatLootLines(lootCounts);
   content.innerHTML = `
     <div class="dungeon-defeat-screen">

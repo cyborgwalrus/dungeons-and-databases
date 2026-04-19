@@ -7,7 +7,7 @@ from ..utils.cache_helpers import get_all_enemy_type_data, get_all_item_type_dat
 from ..utils.game_utils import get_player
 from ..db.models import Character, Encounter, db
 from ..utils.serializers import serialize_character, serialize_encounter
-from .common import get_character, json_error
+from .common import get_character, json_error, require_character_owner, require_encounter_owner
 
 dungeon_bp = Blueprint('dungeon', __name__)
 
@@ -235,17 +235,17 @@ def create_encounter(character_id: int | None = None):
 
 @dungeon_bp.route('/dungeon/encounters/<int:encounter_id>', methods=['GET'])
 def get_encounter_by_id(encounter_id: int):
-    encounter = Encounter.query.get(encounter_id)
-    if not encounter:
-        return jsonify({'error': 'Encounter not found'}), 404
+    encounter, error_response = require_encounter_owner(encounter_id)
+    if error_response:
+        return error_response
     return jsonify(serialize_encounter(encounter))
 
 
 @dungeon_bp.route('/dungeon/encounters/<int:encounter_id>', methods=['DELETE'])
 def delete_encounter(encounter_id: int):
-    encounter = Encounter.query.get(encounter_id)
-    if not encounter:
-        return jsonify({'error': 'Encounter not found'}), 404
+    encounter, error_response = require_encounter_owner(encounter_id)
+    if error_response:
+        return error_response
     db.session.delete(encounter)
     db.session.commit()
     return jsonify({'message': 'Encounter deleted'})
@@ -253,9 +253,9 @@ def delete_encounter(encounter_id: int):
 
 @dungeon_bp.route('/dungeon/encounters/<int:character_id>/current', methods=['GET'])
 def get_current_character_encounter(character_id: int):
-    character = get_character(character_id)
-    if not character:
-        return json_error('Character not found', 404)
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
     encounter = _get_or_create_encounter(character)
     return jsonify(serialize_encounter(encounter))
 

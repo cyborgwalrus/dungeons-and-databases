@@ -1,4 +1,4 @@
-export const API_BASE = (window.__API_BASE__ || 'http://localhost:5000') + '/api';
+export const API_BASE = window.__API_BASE__ || '/api';
 
 export async function fetchJson(path, options) {
   try {

@@ -56,6 +56,13 @@ export function getEquipScore(item, slotType) {
   return slotType === 'weapon' ? (attack * 10 + health) : (health * 10 + attack);
 }
 
+export function getItemDisplayName(item) {
+  if (!item) return '';
+  const name = String(item.name || 'Item').replace(/\s+\+\d+$/, '').trim() || 'Item';
+  const level = item.level || 1;
+  return level > 1 ? `${name} +${level}` : name;
+}
+
 export function formatLootLines(lootCounts) {
   return Object.keys(lootCounts || {}).map(name => `${name}${lootCounts[name] > 1 ? ' x' + lootCounts[name] : ''}`);
 }

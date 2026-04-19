@@ -1,10 +1,11 @@
-FROM nginx:stable-alpine
+FROM nginxinc/nginx-unprivileged:1.27-alpine
 
 WORKDIR /usr/share/nginx/html
 
-# Copy all frontend files into nginx html directory
 COPY . /usr/share/nginx/html
 
-EXPOSE 80
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]
