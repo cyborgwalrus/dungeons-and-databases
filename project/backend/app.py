@@ -15,6 +15,7 @@ from backend.routes.character_routes import character_bp
 from backend.routes.dungeon_routes import dungeon_bp
 from backend.routes.inventory_routes import inventory_bp
 
+
 app = Flask(__name__)
 CORS(app, supports_credentials=True, origins=['http://localhost:8080', 'http://localhost:3000', 'http://127.0.0.1:8080', 'http://127.0.0.1:3000'])
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
