@@ -2,7 +2,7 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
-from ..db.models import Character, Item, db
+from ..db.models import Character, CharacterEquipment, Item, db
 from ..utils.game_utils import add_inventory_item, remove_inventory_item
 from ..utils.serializers import serialize_character, serialize_item
 from .common import get_item, get_item_type, get_json_data, json_error, require_current_character
@@ -12,8 +12,8 @@ item_bp = Blueprint('item', __name__)
 
 def _equipped_items(character: Character) -> list[Item]:
     return sorted(
-        [item for item in character.inventory if item.is_equipped],
-        key=lambda item: ((item.item_type.slot.value if item.item_type and item.item_type.slot else 'zzz'), item.id or 0),
+        [equipment.item for equipment in character.equipment if equipment.item],
+        key=lambda item: ((item.item_type.slot.value if item and item.item_type and item.item_type.slot else 'zzz'), item.id or 0),
     )
 
 
@@ -48,19 +48,27 @@ def _apply_item_updates(item: Item, data: dict[str, Any]) -> tuple[Any, int] | N
 
     if 'is_loot' in data:
         item.is_loot = bool(data['is_loot'])
-    if 'is_equipped' in data:
-        item.is_equipped = bool(data['is_equipped'])
 
     return None
 
 
 def _equip_item(character: Character, item: Item) -> None:
     slot_type = item.item_type.slot if item.item_type else None
-    if slot_type:
-        for equipped_item in _equipped_items(character):
-            if equipped_item.id != item.id and equipped_item.item_type and equipped_item.item_type.slot == slot_type:
-                equipped_item.is_equipped = False
-    item.is_equipped = True
+    if not slot_type:
+        return
+
+    if not character.user or not character.user.inventory:
+        return
+
+    existing_equipment = next((equipment for equipment in character.equipment if equipment.slot == slot_type), None)
+    if existing_equipment:
+        existing_item = existing_equipment.item
+        if existing_item:
+            existing_item.inventory_id = character.user.inventory.id
+        db.session.delete(existing_equipment)
+
+    item.inventory_id = None
+    db.session.add(CharacterEquipment(character=character, item=item, slot=slot_type))
 
 
 def _item_response(item: Item | None, status: int = 200) -> tuple[Any, int]:
@@ -136,15 +144,12 @@ def update_item(item_id: int):
     assert item is not None
 
     data = get_json_data(request)
-    equip_state = data.get('is_equipped') if 'is_equipped' in data else None
     error_response = _apply_item_updates(item, data)
     if error_response:
         return error_response
 
-    if equip_state is True:
-        _equip_item(character, item)
-    elif equip_state is False:
-        item.is_equipped = False
+    if 'is_equipped' in data:
+        return json_error('Use the character equipment endpoints to equip or unequip items', 400)
 
     db.session.commit()
     db.session.expire(character)

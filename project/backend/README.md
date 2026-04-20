@@ -8,7 +8,7 @@ The backend exposes its routes under the `/api` prefix.
 | :------------: | :------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------- | :---------: |
 | Authentication | `/login/signup` - `POST`<br>`/login/signin` - `POST`<br>`/login/signout` - `POST`<br>`/login/me` - `GET`                              | Token-based authentication endpoints                     |     Yes     |
 |     Users      | `/users/<int:user_id>` - `GET` `PUT` `DELETE`                                                                     | User account management                                  |     Yes     |
-|   Characters   | `/characters/` - `GET` `POST`<br>`/characters/<int:character_id>` - `GET` `PUT` `DELETE`<br>`/characters/<int:character_id>/select` - `POST`<br>`/characters/<int:character_id>/full_heal` - `POST`<br>`/characters/<int:character_id>/inventory/` - `DELETE` | Character management, selection, leveling, experience, healing, and inventory cleanup |     Yes     |
+|   Characters   | `/characters/` - `GET` `POST`<br>`/characters/<int:character_id>` - `GET` `PUT` `DELETE`<br>`/characters/<int:character_id>/select` - `POST`<br>`/characters/<int:character_id>/full_heal` - `POST`<br>`/characters/<int:character_id>/equipment` - `GET` `POST`<br>`/characters/<int:character_id>/equipment/<int:item_id>` - `DELETE` | Character management, selection, leveling, experience, equipment, and healing |     Yes     |
 |      Item      | `/items/` - `POST`<br>`/items/<int:item_id>` - `GET` `PUT` `DELETE`                                                                    | Item creation and item-level operations                  |     Yes     |
 |    Dungeon     | `/dungeon/enter` - `POST`<br>`/dungeon/attack` - `POST`<br>`/dungeon/run` - `POST`<br>`/dungeon/leave` - `POST`                       | Dungeon entry, combat, and cleanup operations            |     Yes     |
 
@@ -36,10 +36,17 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 - `DELETE /api/characters/<int:character_id>` - delete a character.
 - `POST /api/characters/<int:character_id>/select` - issue a token scoped to the selected character.
 - `POST /api/characters/<int:character_id>/full_heal` - heal a character to full health.
-- `DELETE /api/characters/<int:character_id>/inventory/` - clear a character's unequipped inventory.
+- `GET /api/characters/<int:character_id>/equipment` - list equipped items for a character.
+- `POST /api/characters/<int:character_id>/equipment` - equip an item from the user's shared inventory.
+- `DELETE /api/characters/<int:character_id>/equipment/<int:item_id>` - unequip an item and return it to the user's shared inventory.
 
 Character payloads returned by `GET /api/characters/<int:character_id>` include separate `inventory` and `equipped` arrays.
 Selecting a character via `POST /api/characters/<int:character_id>/select` returns a new token scoped to that character.
+
+## User Inventory
+
+- `GET /api/users/<int:user_id>/inventory/` - list the shared inventory items for a user.
+- `DELETE /api/users/<int:user_id>/inventory/` - clear the shared inventory while preserving equipped items.
 
 ## Items
 

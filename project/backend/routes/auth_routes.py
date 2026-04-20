@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from ..db.models import User, db
+from ..db.models import User, UserInventory, db
 from ..utils.game_utils import get_current_user as get_authenticated_user, get_player, issue_auth_token
 from ..utils.serializers import serialize_user
 from .common import get_json_data, json_error
@@ -26,6 +26,10 @@ def signup():
     user.password = generate_password_hash(password)
     db.session.add(user)
     db.session.commit()
+    if not user.inventory:
+        user.inventory = UserInventory(user_id=user.id)
+        db.session.add(user.inventory)
+        db.session.commit()
     token = issue_auth_token(user.id)
     return jsonify({'message': 'signup complete', 'user': serialize_user(user), 'token': token}), 201
 

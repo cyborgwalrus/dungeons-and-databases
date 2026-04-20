@@ -58,7 +58,7 @@ def serialize_character(character: Character | None, include_inventory: bool = F
     if not character:
         return None
 
-    equipped_items = sorted([item for item in character.inventory if item.is_equipped], key=_sort_key)
+    equipped_items = character.equipment_to_dict() if hasattr(character, 'equipment_to_dict') else []
     data = {
         'id': character.id,
         'user_id': character.user_id,
@@ -74,8 +74,8 @@ def serialize_character(character: Character | None, include_inventory: bool = F
     }
 
     if include_inventory:
-        data['inventory'] = [serialize_item(item) for item in character.inventory if not item.is_equipped]
-        data['equipped'] = [serialize_item(item) for item in equipped_items]
+        data['inventory'] = [serialize_item(item) for item in character.inventory_items]
+        data['equipped'] = equipped_items
 
     return data
 
@@ -87,6 +87,7 @@ def serialize_user(user: User | None) -> dict[str, Any] | None:
         'id': user.id,
         'username': user.username,
         'characters': [serialize_character(character) for character in user.characters],
+        'inventory': None if not user.inventory else {'id': user.inventory.id, 'user_id': user.inventory.user_id, 'items': [serialize_item(item) for item in user.inventory.items]},
     }
 
 

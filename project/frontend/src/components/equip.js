@@ -1,11 +1,13 @@
+import { getCharacterId } from '../app-state.js';
+
 async function unequipItemFromDoubleClick(opts, itemId) {
   const { fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
   if (!itemId) return;
+  const characterId = getCharacterId();
+  if (!characterId) return;
 
-  await fetchJson(`/items/${itemId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ is_equipped: false })
+  await fetchJson(`/characters/${characterId}/equipment/${Number(itemId)}`, {
+    method: 'DELETE'
   });
 
   await loadStateAndRenderPartial();

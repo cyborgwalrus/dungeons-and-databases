@@ -1,11 +1,15 @@
+import { getCharacterId } from '../app-state.js';
+
 async function toggleInventoryItemFromDoubleClick(opts, itemId) {
   const { fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
   if (!itemId) return;
+  const characterId = getCharacterId();
+  if (!characterId) return;
 
-  await fetchJson(`/items/${itemId}`, {
-    method: 'PUT',
+  await fetchJson(`/characters/${characterId}/equipment`, {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ is_equipped: true })
+    body: JSON.stringify({ item_id: Number(itemId) })
   });
 
   await loadStateAndRenderPartial();

@@ -12,6 +12,7 @@ class User(db.Model):
     password: Mapped[str] = db.Column(db.String(255), nullable=False)
 
     characters: Mapped[list['Character']] = relationship('Character', back_populates='user', cascade='all, delete-orphan')
+    inventory: Mapped['UserInventory'] = relationship('UserInventory', back_populates='user', uselist=False, cascade='all, delete-orphan')
 
     @property
     def is_authenticated(self):
@@ -36,6 +37,22 @@ class User(db.Model):
         }
 
 
+class UserInventory(db.Model):
+    __tablename__ = 'user_inventory'
+
+    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
+    user_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    user: Mapped['User'] = relationship('User', back_populates='inventory')
+    items: Mapped[list['Item']] = relationship('Item', back_populates='inventory', cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'user_id': self.user_id,
+            'items': [item.to_dict() for item in self.items],
+        }
+
+
 class Character(db.Model):
     __tablename__ = 'character'
 
@@ -48,26 +65,32 @@ class Character(db.Model):
 
     user_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     user: Mapped['User'] = relationship('User', back_populates='characters')
-    inventory: Mapped[list['Item']] = relationship('Item', back_populates='owner', cascade='all, delete-orphan')
+    equipment: Mapped[list['CharacterEquipment']] = relationship('CharacterEquipment', back_populates='character', cascade='all, delete-orphan')
     encounters: Mapped[list['Encounter']] = relationship('Encounter', back_populates='character', cascade='all, delete-orphan')
 
     @property
     def inventory_items(self):
-        return [item for item in self.inventory if not item.is_equipped]
+        if not self.user or not self.user.inventory:
+            return []
+        return list(self.user.inventory.items)
 
     @property
     def equipped_items(self):
-        return [item for item in self.inventory if item.is_equipped]
+        return [equipment.item for equipment in self.equipment if equipment.item]
+
+    @property
+    def inventory(self):
+        return self.inventory_items
 
     def inventory_to_dict(self):
         return [item.to_dict() for item in self.inventory_items]
 
     def equipment_to_dict(self):
         equipped_items = sorted(
-            self.equipped_items,
-            key=lambda item: (_slot_sort_key(item.equipped_slot), item.id or 0)
+            [equipment for equipment in self.equipment if equipment.item],
+            key=lambda equipment: (_slot_sort_key(equipment.slot), equipment.item.id or 0)
         )
-        return [item.to_dict() for item in equipped_items]
+        return [equipment.item.to_dict() for equipment in equipped_items if equipment.item]
 
     @property
     def bonus_health(self):
@@ -241,18 +264,34 @@ class Item(db.Model):
     level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
     health_bonus: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
     damage_bonus: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
-    is_equipped: Mapped[bool] = db.Column(db.Boolean, nullable=False, default=False)
     is_loot: Mapped[bool] = db.Column(db.Boolean, nullable=False, default=True)
     
-    owner_id: Mapped[int | None] = db.Column(db.Integer, db.ForeignKey('character.id'))
-    owner: Mapped['Character'] = relationship('Character', back_populates='inventory')
+    inventory_id: Mapped[int | None] = db.Column(db.Integer, db.ForeignKey('user_inventory.id'))
+    inventory: Mapped['UserInventory'] = relationship('UserInventory', back_populates='items')
     
     item_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('item_type.id'), nullable=False)
     item_type: Mapped['ItemType'] = relationship('ItemType', back_populates='items')
+    equipment: Mapped['CharacterEquipment'] = relationship('CharacterEquipment', back_populates='item', uselist=False)
 
     @property
     def slot(self):
         return self.item_type.slot if self.item_type else None
+
+    @property
+    def owner_id(self):
+        if self.inventory:
+            return self.inventory.user_id
+        if self.equipment and self.equipment.character:
+            return self.equipment.character.user_id
+        return None
+
+    @property
+    def equipped_slot(self):
+        return self.equipment.slot if self.equipment else None
+
+    @property
+    def is_equipped(self):
+        return self.equipment is not None
 
     def to_dict(self):
         return {
@@ -267,4 +306,33 @@ class Item(db.Model):
             'health_bonus': self.health_bonus,
             'damage_bonus': self.damage_bonus,
             'item_type': self.item_type.to_dict() if self.item_type else None,
+        }
+
+
+class CharacterEquipment(db.Model):
+    __tablename__ = 'character_equipment'
+
+    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
+    character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False)
+    item_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False, unique=True)
+    slot: Mapped[ItemSlot] = db.Column(
+        db.Enum(
+            ItemSlot,
+            native_enum=False,
+            validate_strings=True,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=False,
+    )
+
+    character: Mapped['Character'] = relationship('Character', back_populates='equipment')
+    item: Mapped['Item'] = relationship('Item', back_populates='equipment', uselist=False)
+
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'character_id': self.character_id,
+            'item_id': self.item_id,
+            'slot': self.slot.value if self.slot else None,
+            'item': self.item.to_dict() if self.item else None,
         }

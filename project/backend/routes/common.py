@@ -67,7 +67,9 @@ def require_encounter_owner(encounter_id: int) -> tuple[Encounter | None, tuple[
 
 
 def get_item(character: Character, item_id: int) -> Item | None:
-    return Item.query.filter_by(owner_id=character.id, id=item_id).first()
+    if not character.user or not character.user.inventory:
+        return None
+    return Item.query.filter_by(inventory_id=character.user.inventory.id, id=item_id).first()
 
 
 def get_item_type(item_type_id: int) -> dict[str, Any] | None:
