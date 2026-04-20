@@ -1,16 +1,15 @@
 from flask import Blueprint, jsonify, request
 
 from ..utils.game_utils import get_player as get_current_character, seed_character_loadout, issue_auth_token
-from ..db.models import Character, CharacterEquipment, db
+from ..db.models import Character, db
 from ..utils.serializers import serialize_character
 from ..utils.serializers import serialize_item
-from .common import require_character_owner, require_current_user
-from .common import get_item, json_error
+from .common import equip_item, get_item, json_error, require_character_owner, require_current_user, unequip_item
 
 character_bp = Blueprint('character', __name__)
 
 
-@character_bp.route('/characters/', methods=['GET'])
+@character_bp.route('/characters', methods=['GET'])
 def list_characters():
     user, error_response = require_current_user()
     if error_response:
@@ -22,7 +21,7 @@ def list_characters():
     return jsonify([serialize_character(character, include_inventory=True) for character in characters])
 
 
-@character_bp.route('/characters/', methods=['POST'])
+@character_bp.route('/characters', methods=['POST'])
 def create_character():
     data = request.get_json(silent=True) or {}
     user, error_response = require_current_user()
@@ -148,20 +147,10 @@ def equip_character_item(character_id):
     if not item:
         return json_error('Item not found in inventory', 404)
 
-    slot = item.slot
-    if not slot:
-        return json_error('Item cannot be equipped', 400)
+    error_response = equip_item(character, item)
+    if error_response:
+        return error_response
 
-    existing_equipment = next((equipment for equipment in character.equipment if equipment.slot == slot), None)
-    if existing_equipment:
-        existing_item = existing_equipment.item
-        if existing_item:
-            existing_item.inventory_id = character.user.inventory.id
-        db.session.delete(existing_equipment)
-
-    item.inventory_id = None
-    equipment = CharacterEquipment(character=character, item=item, slot=slot)
-    db.session.add(equipment)
     db.session.commit()
     db.session.expire(character)
     return jsonify({'message': 'Item equipped', 'item': serialize_item(item), 'character': serialize_character(character, include_inventory=True)})
@@ -173,17 +162,10 @@ def unequip_character_item(character_id, item_id):
     if error_response:
         return error_response
     assert character is not None
-    if not character.user or not character.user.inventory:
-        return json_error('No inventory found', 404)
+    error_response = unequip_item(character, item_id)
+    if error_response:
+        return error_response
 
-    equipment = next((equipment for equipment in character.equipment if equipment.item and equipment.item.id == item_id), None)
-    if not equipment:
-        return json_error('Equipment not found', 404)
-
-    item = equipment.item
-    if item:
-        item.inventory_id = character.user.inventory.id
-    db.session.delete(equipment)
     db.session.commit()
     db.session.expire(character)
     return jsonify({'message': 'Item unequipped', 'character': serialize_character(character, include_inventory=True)})

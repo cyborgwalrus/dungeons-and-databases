@@ -2,7 +2,7 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
-from ..db.models import Character, CharacterEquipment, Item, db
+from ..db.models import Character, Item, db
 from ..utils.game_utils import add_inventory_item, remove_inventory_item
 from ..utils.serializers import serialize_character, serialize_item
 from .common import get_item, get_item_type, get_json_data, json_error, require_current_character
@@ -52,25 +52,6 @@ def _apply_item_updates(item: Item, data: dict[str, Any]) -> tuple[Any, int] | N
     return None
 
 
-def _equip_item(character: Character, item: Item) -> None:
-    slot_type = item.item_type.slot if item.item_type else None
-    if not slot_type:
-        return
-
-    if not character.user or not character.user.inventory:
-        return
-
-    existing_equipment = next((equipment for equipment in character.equipment if equipment.slot == slot_type), None)
-    if existing_equipment:
-        existing_item = existing_equipment.item
-        if existing_item:
-            existing_item.inventory_id = character.user.inventory.id
-        db.session.delete(existing_equipment)
-
-    item.inventory_id = None
-    db.session.add(CharacterEquipment(character=character, item=item, slot=slot_type))
-
-
 def _item_response(item: Item | None, status: int = 200) -> tuple[Any, int]:
     return jsonify(serialize_item(item)), status
 
@@ -86,7 +67,7 @@ def _get_item_or_error(character: Character, item_id: int, message: str = 'Item 
     return item, None
 
 
-@item_bp.route('/items/', methods=['POST'])
+@item_bp.route('/items', methods=['POST'])
 def create_item():
     character, error_response = require_current_character()
     if error_response:

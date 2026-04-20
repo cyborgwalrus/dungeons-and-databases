@@ -1,20 +1,4 @@
-import { getCharacterId } from '../app-state.js';
-
-async function toggleInventoryItemFromDoubleClick(opts, itemId) {
-  const { fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
-  if (!itemId) return;
-  const characterId = getCharacterId();
-  if (!characterId) return;
-
-  await fetchJson(`/characters/${characterId}/equipment`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ item_id: Number(itemId) })
-  });
-
-  await loadStateAndRenderPartial();
-  if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
-}
+import { equipInventoryItem } from './item-actions.js';
 
 export function renderInventoryGrid(opts) {
   const { inventory, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
@@ -60,7 +44,7 @@ export function renderInventoryGrid(opts) {
       event.stopPropagation();
       const itemId = card.getAttribute('data-item-id');
       try {
-        await toggleInventoryItemFromDoubleClick({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
+        await equipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
       } catch (error) {
         console.error('Failed to equip item from double click', error);
       }

@@ -3,8 +3,8 @@ from typing import Any
 from flask import jsonify
 
 from ..db.cache_helpers import get_item_type_data
+from ..db.models import Character, CharacterEquipment, Encounter, Item, User, db
 from ..utils.game_utils import get_current_user as get_authenticated_user, get_player
-from ..db.models import Character, Encounter, Item, User
 
 
 def get_current_user() -> User | None:
@@ -70,6 +70,40 @@ def get_item(character: Character, item_id: int) -> Item | None:
     if not character.user or not character.user.inventory:
         return None
     return Item.query.filter_by(inventory_id=character.user.inventory.id, id=item_id).first()
+
+
+def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
+    if not character.user or not character.user.inventory:
+        return json_error('No inventory found', 404)
+
+    slot = item.slot
+    if not slot:
+        return json_error('Item cannot be equipped', 400)
+
+    existing_equipment = next((equipment for equipment in character.equipment if equipment.slot == slot), None)
+    if existing_equipment:
+        existing_item = existing_equipment.item
+        if existing_item:
+            existing_item.inventory_id = character.user.inventory.id
+        db.session.delete(existing_equipment)
+
+    item.inventory_id = None
+    db.session.add(CharacterEquipment(character=character, item=item, slot=slot))
+    return None
+
+
+def unequip_item(character: Character, item_id: int) -> tuple[Any, int] | None:
+    if not character.user or not character.user.inventory:
+        return json_error('No inventory found', 404)
+
+    equipment = next((equipment for equipment in character.equipment if equipment.item and equipment.item.id == item_id), None)
+    if not equipment:
+        return json_error('Equipment not found', 404)
+
+    if equipment.item:
+        equipment.item.inventory_id = character.user.inventory.id
+    db.session.delete(equipment)
+    return None
 
 
 def get_item_type(item_type_id: int) -> dict[str, Any] | None:

@@ -45,7 +45,7 @@ def delete_user(user_id):
     return jsonify({'message': 'User deleted'})
 
 
-@user_bp.route('/users/<int:user_id>/inventory/', methods=['GET'])
+@user_bp.route('/users/<int:user_id>/inventory', methods=['GET'])
 def list_user_inventory(user_id):
     user, error_response = require_current_user_id(user_id)
     if error_response:
@@ -58,7 +58,7 @@ def list_user_inventory(user_id):
     return jsonify([serialize_item(item) for item in user.inventory.items])
 
 
-@user_bp.route('/users/<int:user_id>/inventory/', methods=['DELETE'])
+@user_bp.route('/users/<int:user_id>/inventory', methods=['DELETE'])
 def clear_user_inventory(user_id):
     user, error_response = require_current_user_id(user_id)
     if error_response:

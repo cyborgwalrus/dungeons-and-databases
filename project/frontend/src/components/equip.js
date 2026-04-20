@@ -1,18 +1,4 @@
-import { getCharacterId } from '../app-state.js';
-
-async function unequipItemFromDoubleClick(opts, itemId) {
-  const { fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
-  if (!itemId) return;
-  const characterId = getCharacterId();
-  if (!characterId) return;
-
-  await fetchJson(`/characters/${characterId}/equipment/${Number(itemId)}`, {
-    method: 'DELETE'
-  });
-
-  await loadStateAndRenderPartial();
-  if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
-}
+import { unequipInventoryItem } from './item-actions.js';
 
 export async function renderEquipPanel(opts) {
   const { equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, makeIcon, formatStats, getItemDisplayName } = opts;
@@ -63,7 +49,7 @@ export async function renderEquipPanel(opts) {
         event.stopPropagation();
         const itemId = equippedCard.getAttribute('data-item-id');
         try {
-          await unequipItemFromDoubleClick({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
+          await unequipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
         } catch (error) {
           console.error('Failed to unequip item from double click', error);
         }

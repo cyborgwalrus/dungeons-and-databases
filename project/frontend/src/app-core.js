@@ -33,10 +33,10 @@ function resetDungeonLoot() {
 }
 
 async function clearUnequippedInventory() {
-  const characterId = getCharacterId();
-  if (!characterId) return;
+  const userId = state.currentUser?.id || state.player?.user_id;
+  if (!userId) return;
 
-  await fetchJson(`/characters/${characterId}/inventory/`, { method: 'DELETE' });
+  await fetchJson(`/users/${userId}/inventory`, { method: 'DELETE' });
   await loadStateAndRenderPartial();
   await syncPlayerHealthToFull();
 }
@@ -263,7 +263,7 @@ async function renderCharacterSelect() {
     return;
   }
 
-  const res = await fetchJson('/characters/');
+  const res = await fetchJson('/characters');
   state.characters = res.ok ? res.data : [];
 
   content.innerHTML = `
@@ -305,7 +305,7 @@ async function renderCharacterSelect() {
 
   document.getElementById('create-char-btn').addEventListener('click', async () => {
     const charName = createCharNameInput.value.trim() || 'Hero';
-    const createRes = await fetchJson('/characters/', {
+    const createRes = await fetchJson('/characters', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: charName })

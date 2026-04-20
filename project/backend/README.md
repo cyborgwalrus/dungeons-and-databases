@@ -7,9 +7,9 @@ The backend exposes its routes under the `/api` prefix.
 | Resource name  | Resource URL                                                                                                                          | Resource description                                     | Implemented |
 | :------------: | :------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------- | :---------: |
 | Authentication | `/login/signup` - `POST`<br>`/login/signin` - `POST`<br>`/login/signout` - `POST`<br>`/login/me` - `GET`                              | Token-based authentication endpoints                     |     Yes     |
-|     Users      | `/users/<int:user_id>` - `GET` `PUT` `DELETE`                                                                     | User account management                                  |     Yes     |
-|   Characters   | `/characters/` - `GET` `POST`<br>`/characters/<int:character_id>` - `GET` `PUT` `DELETE`<br>`/characters/<int:character_id>/select` - `POST`<br>`/characters/<int:character_id>/full_heal` - `POST`<br>`/characters/<int:character_id>/equipment` - `GET` `POST`<br>`/characters/<int:character_id>/equipment/<int:item_id>` - `DELETE` | Character management, selection, leveling, experience, equipment, and healing |     Yes     |
-|      Item      | `/items/` - `POST`<br>`/items/<int:item_id>` - `GET` `PUT` `DELETE`                                                                    | Item creation and item-level operations                  |     Yes     |
+|     Users      | `/users/<int:user_id>` - `GET` `PUT` `DELETE`<br>`/users/<int:user_id>/inventory` - `GET` `DELETE`                                     | User account management and shared inventory            |     Yes     |
+|   Characters   | `/characters` - `GET` `POST`<br>`/characters/<int:character_id>` - `GET` `PUT` `DELETE`<br>`/characters/<int:character_id>/select` - `POST`<br>`/characters/<int:character_id>/full_heal` - `POST`<br>`/characters/<int:character_id>/equipment` - `GET` `POST`<br>`/characters/<int:character_id>/equipment/<int:item_id>` - `DELETE` | Character management, selection, leveling, experience, equipment, and healing |     Yes     |
+|      Item      | `/items` - `POST`<br>`/items/<int:item_id>` - `GET` `PUT` `DELETE`                                                                    | Item creation and item-level operations                  |     Yes     |
 |    Dungeon     | `/dungeon/enter` - `POST`<br>`/dungeon/attack` - `POST`<br>`/dungeon/run` - `POST`<br>`/dungeon/leave` - `POST`                       | Dungeon entry, combat, and cleanup operations            |     Yes     |
 
 ## Authentication
@@ -29,8 +29,8 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 
 ## Characters
 
-- `GET /api/characters/` - list characters.
-- `POST /api/characters/` - create a character.
+- `GET /api/characters` - list characters.
+- `POST /api/characters` - create a character.
 - `GET /api/characters/<int:character_id>` - fetch one character.
 - `PUT /api/characters/<int:character_id>` - update a character's stats.
 - `DELETE /api/characters/<int:character_id>` - delete a character.
@@ -45,12 +45,12 @@ Selecting a character via `POST /api/characters/<int:character_id>/select` retur
 
 ## User Inventory
 
-- `GET /api/users/<int:user_id>/inventory/` - list the shared inventory items for a user.
-- `DELETE /api/users/<int:user_id>/inventory/` - clear the shared inventory while preserving equipped items.
+- `GET /api/users/<int:user_id>/inventory` - list the shared inventory items for a user.
+- `DELETE /api/users/<int:user_id>/inventory` - clear the shared inventory while preserving equipped items.
 
 ## Items
 
-- `POST /api/items/` - create one or more new items for the active character.
+- `POST /api/items` - create one or more new items for the active character.
 - `GET /api/items/<int:item_id>` - fetch one item.
 - `PUT /api/items/<int:item_id>` - update or equip an item.
 - `DELETE /api/items/<int:item_id>` - remove an item.
