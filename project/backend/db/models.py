@@ -128,10 +128,12 @@ class Character(db.Model):
         self.experience -= self.experience_to_next_level
         next_level = self.level + 1
         next_max_health = self._max_health_for_level(next_level) + self.bonus_health
+        damage_gain = 3 + max(0, (next_level - 1) // 6)
+        health_gain = 6 + (max(0, (next_level - 1) // 4) * 2)
 
         self.level = next_level
-        self.damage += 5
-        self.health = min(self.health + 10, next_max_health)
+        self.damage += damage_gain
+        self.health = min(self.health + health_gain, next_max_health)
         return True
 
     def to_dict(self, include_inventory=False):

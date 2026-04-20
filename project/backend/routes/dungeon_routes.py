@@ -4,9 +4,9 @@ from typing import Any
 from flask import Blueprint, jsonify
 
 from ..db.cache_helpers import get_all_enemy_type_data, get_all_item_type_data
+from ..utils.serializers import serialize_character, serialize_encounter
 from ..utils.game_utils import add_inventory_item, clear_loot_flags, destroy_loot_items, get_player
 from ..db.models import Character, Encounter, db
-from ..utils.serializers import serialize_character, serialize_encounter
 from .common import get_character, json_error
 
 dungeon_bp = Blueprint('dungeon', __name__)
@@ -122,15 +122,26 @@ def _destroy_active_loot_and_encounter(character: Character) -> None:
     _remove_active_encounter(character)
 
 
-def drop_loot() -> list[dict[str, Any]]:
+def _loot_item_level(monster_level: int) -> int:
+    return max(1, monster_level + random.choice([-1, 0, 0, 1]))
+
+
+def drop_loot(encounter: Encounter) -> list[dict[str, Any]]:
     items_dropped: list[dict[str, Any]] = []
     all_items = get_all_item_type_data()
     if not all_items:
         return items_dropped
 
-    num_items = random.randint(1, min(3, len(all_items)))
+    monster_level = max(1, encounter.enemy_level or 1)
+    num_items = min(3, 1 + max(0, (monster_level - 1) // 4))
     for _ in range(num_items):
-        items_dropped.append(random.choice(all_items))
+        item_type = random.choice(all_items)
+        items_dropped.append(
+            {
+                **item_type,
+                'level': _loot_item_level(monster_level),
+            }
+        )
 
     return items_dropped
 
@@ -202,12 +213,12 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
         'Victory!',
         f'You dealt {player_hits} damage and defeated the {enemy_name}!',
     ]
-    items_dropped = drop_loot()
+    items_dropped = drop_loot(encounter)
     if items_dropped:
         item_names = ', '.join(item['name'] for item in items_dropped)
         message_lines.append(f'You found {item_names}!')
         for item in items_dropped:
-            add_inventory_item(character, item['id'], is_loot=True)
+            add_inventory_item(character, item['id'], level=item['level'], is_loot=True)
 
     _apply_victory_experience(character, encounter, message_lines)
 

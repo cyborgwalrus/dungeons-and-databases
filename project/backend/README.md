@@ -9,7 +9,7 @@ The backend exposes its routes under the `/api` prefix.
 | Authentication | `/login/signup` - `POST`<br>`/login/signin` - `POST`<br>`/login/signout` - `POST`<br>`/login/me` - `GET`                              | Token-based authentication endpoints                     |     Yes     |
 |     Users      | `/users/<int:user_id>` - `GET` `PUT` `DELETE`<br>`/users/<int:user_id>/inventory` - `GET` `DELETE`                                     | User account management and shared inventory            |     Yes     |
 |   Characters   | `/characters` - `GET` `POST`<br>`/characters/<int:character_id>` - `GET` `PUT` `DELETE`<br>`/characters/<int:character_id>/select` - `POST`<br>`/characters/<int:character_id>/full_heal` - `POST`<br>`/characters/<int:character_id>/equipment` - `GET` `POST`<br>`/characters/<int:character_id>/equipment/<int:item_id>` - `DELETE` | Character management, selection, leveling, experience, equipment, and healing |     Yes     |
-|      Item      | `/items` - `POST`<br>`/items/<int:item_id>` - `GET` `PUT` `DELETE`                                                                    | Item creation and item-level operations                  |     Yes     |
+|      Item      | `/items` - `POST`<br>`/items/<int:item_id>` - `GET` `DELETE`                                                                    | Item creation and inventory operations                   |     Yes     |
 |    Dungeon     | `/dungeon/enter` - `POST`<br>`/dungeon/attack` - `POST`<br>`/dungeon/run` - `POST`<br>`/dungeon/leave` - `POST`                       | Dungeon entry, combat, and cleanup operations            |     Yes     |
 
 ## Authentication
@@ -52,7 +52,6 @@ Selecting a character via `POST /api/characters/<int:character_id>/select` retur
 
 - `POST /api/items` - create one or more new items for the active character.
 - `GET /api/items/<int:item_id>` - fetch one item.
-- `PUT /api/items/<int:item_id>` - update or equip an item.
 - `DELETE /api/items/<int:item_id>` - remove an item.
 
 ## Dungeon

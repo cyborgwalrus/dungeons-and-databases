@@ -106,7 +106,7 @@ def seed_character_loadout(character: Character) -> None:
     for item_name in DEFAULT_LOADOUT_ITEM_NAMES:
         item_type = item_types_by_name.get(item_name)
         if item_type:
-            add_inventory_item(character, item_type['id'], copy_from_item=False)
+            add_inventory_item(character, item_type['id'])
 
 
 def _get_or_create_user_inventory(character: Character) -> UserInventory:
@@ -121,21 +121,19 @@ def _get_or_create_user_inventory(character: Character) -> UserInventory:
     return user_inventory
 
 
-def add_inventory_item(player: Character, item_id: int, *, copy_from_item: bool = False, is_loot: bool | None = None) -> Item | None:
-    source_item = Item.query.get(item_id) if copy_from_item else None
-    if source_item:
-        item_type = get_item_type_data(source_item.item_type_id)
-        level = source_item.level
-        loot_flag = source_item.is_loot if is_loot is None else is_loot
-    else:
-        item_type = get_item_type_data(item_id)
-        if not item_type:
-            return None
-        level = 1
-        loot_flag = False if is_loot is None else is_loot
+def _scaled_bonus(base_bonus: int, level: int) -> int:
+    if base_bonus <= 0:
+        return 0
+    bonus_multiplier = 1 + (0.25 * max(0, level - 1))
+    return max(0, int(round(base_bonus * bonus_multiplier)))
 
+
+def add_inventory_item(player: Character, item_id: int, *, level: int = 1, is_loot: bool | None = None) -> Item | None:
+    item_type = get_item_type_data(item_id)
     if not item_type:
         return None
+
+    loot_flag = False if is_loot is None else is_loot
 
     user_inventory = _get_or_create_user_inventory(player)
 
@@ -143,9 +141,9 @@ def add_inventory_item(player: Character, item_id: int, *, copy_from_item: bool 
         name=item_type['name'],
         item_type_id=item_type['id'],
         inventory_id=user_inventory.id,
-        level=level,
-        health_bonus=item_type['base_health_bonus'] or 0,
-        damage_bonus=item_type['base_damage_bonus'] or 0,
+        level=max(1, int(level)),
+        health_bonus=_scaled_bonus(item_type['base_health_bonus'] or 0, level),
+        damage_bonus=_scaled_bonus(item_type['base_damage_bonus'] or 0, level),
         is_loot=loot_flag,
     )
     db.session.add(inventory_item)

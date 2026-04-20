@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from ..db.models import Character, Item, db
 from ..utils.game_utils import add_inventory_item, remove_inventory_item
-from ..utils.serializers import serialize_character, serialize_item
+from ..utils.serializers import serialize_item
 from .common import get_item, get_item_type, get_json_data, json_error, require_current_character
 
 item_bp = Blueprint('item', __name__)
@@ -15,41 +15,6 @@ def _equipped_items(character: Character) -> list[Item]:
         [equipment.item for equipment in character.equipment if equipment.item],
         key=lambda item: ((item.item_type.slot.value if item and item.item_type and item.item_type.slot else 'zzz'), item.id or 0),
     )
-
-
-def _apply_item_updates(item: Item, data: dict[str, Any]) -> tuple[Any, int] | None:
-    item_type_id = data.get('item_type_id')
-    if item_type_id is not None:
-        item_type = get_item_type(item_type_id)
-        if not item_type:
-            return json_error('Item type not found', 404)
-        item.item_type_id = item_type['id']
-
-    for field, value in (
-        ('name', data.get('name')),
-        ('level', data.get('level')),
-        ('health_bonus', data.get('health_bonus')),
-        ('damage_bonus', data.get('damage_bonus')),
-        ('bonus_health', data.get('bonus_health')),
-        ('bonus_attack', data.get('bonus_attack')),
-    ):
-        if value is None:
-            continue
-        if field == 'name':
-            item.name = value
-        elif field in {'level', 'health_bonus', 'damage_bonus', 'bonus_health', 'bonus_attack'}:
-            numeric_value = int(value)
-            if field == 'level':
-                item.level = numeric_value
-            elif field in {'health_bonus', 'bonus_health'}:
-                item.health_bonus = numeric_value
-            else:
-                item.damage_bonus = numeric_value
-
-    if 'is_loot' in data:
-        item.is_loot = bool(data['is_loot'])
-
-    return None
 
 
 def _item_response(item: Item | None, status: int = 200) -> tuple[Any, int]:
@@ -94,7 +59,7 @@ def create_item():
         item_type = get_item_type(source_id)
         if not item_type:
             return json_error('Item not found', 404)
-        item = add_inventory_item(character, source_id, copy_from_item=False)
+        item = add_inventory_item(character, source_id)
         created_items.append(item)
 
     db.session.commit()
@@ -111,30 +76,6 @@ def get_item_route(item_id: int):
     if error_response:
         return error_response
     return _item_response(item)
-
-
-@item_bp.route('/items/<int:item_id>', methods=['PUT'])
-def update_item(item_id: int):
-    character, error_response = require_current_character()
-    if error_response:
-        return error_response
-    assert character is not None
-    item, error_response = _get_item_or_error(character, item_id)
-    if error_response:
-        return error_response
-    assert item is not None
-
-    data = get_json_data(request)
-    error_response = _apply_item_updates(item, data)
-    if error_response:
-        return error_response
-
-    if 'is_equipped' in data:
-        return json_error('Use the character equipment endpoints to equip or unequip items', 400)
-
-    db.session.commit()
-    db.session.expire(character)
-    return jsonify({'message': 'Item updated', 'item': serialize_item(item), 'character': serialize_character(character, include_inventory=True)})
 
 
 @item_bp.route('/items/<int:item_id>', methods=['DELETE'])
