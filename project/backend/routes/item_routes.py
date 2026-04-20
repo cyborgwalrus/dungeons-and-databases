@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 from flask import Blueprint, jsonify, request
@@ -5,16 +7,9 @@ from flask import Blueprint, jsonify, request
 from ..db.models import Character, Item, db
 from ..utils.game_utils import add_inventory_item, remove_inventory_item
 from ..utils.serializers import serialize_item
-from .common import get_item, get_item_type, get_json_data, json_error, require_current_character
+from .common import get_item, get_json_data, json_error, require_current_character
 
 item_bp = Blueprint('item', __name__)
-
-
-def _equipped_items(character: Character) -> list[Item]:
-    return sorted(
-        [equipment.item for equipment in character.equipment if equipment.item],
-        key=lambda item: ((item.item_type.slot.value if item and item.item_type and item.item_type.slot else 'zzz'), item.id or 0),
-    )
 
 
 def _item_response(item: Item | None, status: int = 200) -> tuple[Any, int]:
@@ -56,10 +51,9 @@ def create_item():
 
     created_items: list[Item] = []
     for source_id in source_ids:
-        item_type = get_item_type(source_id)
-        if not item_type:
-            return json_error('Item not found', 404)
         item = add_inventory_item(character, source_id)
+        if not item:
+            return json_error('Item not found', 404)
         created_items.append(item)
 
     db.session.commit()

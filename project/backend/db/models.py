@@ -162,24 +162,8 @@ class EnemyType(db.Model):
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     name: Mapped[str] = db.Column(db.String(80), nullable=False)
     description: Mapped[str | None] = db.Column(db.String(255))
-    health: Mapped[int] = db.Column('base_health', db.Integer, nullable=False)
-    damage: Mapped[int] = db.Column('base_damage', db.Integer, nullable=False)
-
-    @property
-    def base_health(self):
-        return self.health
-
-    @base_health.setter
-    def base_health(self, value):
-        self.health = value
-
-    @property
-    def base_damage(self):
-        return self.damage
-
-    @base_damage.setter
-    def base_damage(self, value):
-        self.damage = value
+    health: Mapped[int] = db.Column(db.Integer, nullable=False)
+    damage: Mapped[int] = db.Column(db.Integer, nullable=False)
 
     encounters: Mapped[list['Encounter']] = relationship('Encounter', back_populates='enemy_type')
 
@@ -204,33 +188,9 @@ class Encounter(db.Model):
     enemy_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('enemy_type.id'), nullable=False)
     enemy_type: Mapped['EnemyType'] = relationship('EnemyType', back_populates='encounters')
     enemy_level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
-    max_health: Mapped[int] = db.Column('enemy_max_health', db.Integer, nullable=False)
-    health: Mapped[int] = db.Column('enemy_health', db.Integer, nullable=False)
-    damage: Mapped[int] = db.Column('enemy_damage', db.Integer, nullable=False)
-
-    @property
-    def enemy_max_health(self):
-        return self.max_health
-
-    @enemy_max_health.setter
-    def enemy_max_health(self, value):
-        self.max_health = value
-
-    @property
-    def enemy_health(self):
-        return self.health
-
-    @enemy_health.setter
-    def enemy_health(self, value):
-        self.health = value
-
-    @property
-    def enemy_damage(self):
-        return self.damage
-
-    @enemy_damage.setter
-    def enemy_damage(self, value):
-        self.damage = value
+    max_health: Mapped[int] = db.Column(db.Integer, nullable=False)
+    health: Mapped[int] = db.Column(db.Integer, nullable=False)
+    damage: Mapped[int] = db.Column(db.Integer, nullable=False)
 
     def to_dict(self):
         return {
@@ -283,24 +243,8 @@ class ItemType(db.Model):
         ),
         nullable=False,
     )
-    health: Mapped[int] = db.Column('base_health_bonus', db.Integer, nullable=False, default=0)
-    damage: Mapped[int] = db.Column('base_damage_bonus', db.Integer, nullable=False, default=0)
-
-    @property
-    def base_health_bonus(self):
-        return self.health
-
-    @base_health_bonus.setter
-    def base_health_bonus(self, value):
-        self.health = value
-
-    @property
-    def base_damage_bonus(self):
-        return self.damage
-
-    @base_damage_bonus.setter
-    def base_damage_bonus(self, value):
-        self.damage = value
+    health: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
+    damage: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
 
     items: Mapped[list['Item']] = relationship('Item', back_populates='item_type')
 
@@ -320,8 +264,8 @@ class Item(db.Model):
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     name: Mapped[str] = db.Column(db.String(80), nullable=False)
     level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
-    health: Mapped[int] = db.Column('health_bonus', db.Integer, nullable=False, default=0)
-    damage: Mapped[int] = db.Column('damage_bonus', db.Integer, nullable=False, default=0)
+    health: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
+    damage: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
     is_loot: Mapped[bool] = db.Column(db.Boolean, nullable=False, default=True)
     
     inventory_id: Mapped[int | None] = db.Column(db.Integer, db.ForeignKey('user_inventory.id'))
@@ -350,22 +294,6 @@ class Item(db.Model):
     @property
     def is_equipped(self):
         return self.equipment is not None
-
-    @property
-    def health_bonus(self):
-        return self.health
-
-    @health_bonus.setter
-    def health_bonus(self, value):
-        self.health = value
-
-    @property
-    def damage_bonus(self):
-        return self.damage
-
-    @damage_bonus.setter
-    def damage_bonus(self, value):
-        self.damage = value
 
     def to_dict(self):
         return {

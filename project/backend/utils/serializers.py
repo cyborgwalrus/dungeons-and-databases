@@ -3,25 +3,10 @@ from typing import Any
 from ..db.models import Character, Encounter, Item, ItemType, User
 
 
-ITEM_SLOT_ORDER = {
-    'helmet': 0,
-    'armor': 1,
-    'weapon': 2,
-    'shield': 3,
-    'ring': 4,
-    'necklace': 5,
-}
-
-
 def _slot_value(item: Any) -> str | None:
     if not item or not item.item_type or not item.item_type.slot:
         return None
     return item.item_type.slot.value
-
-
-def _sort_key(item: Any) -> tuple[int, int]:
-    slot_value = _slot_value(item)
-    return (ITEM_SLOT_ORDER.get(slot_value, 999) if slot_value is not None else 999, item.id or 0)
 
 
 def serialize_item_type(item_type: ItemType | None) -> dict[str, Any] | None:
