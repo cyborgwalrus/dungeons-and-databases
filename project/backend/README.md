@@ -6,7 +6,7 @@ The backend exposes its routes under the `/api` prefix.
 
 | Resource name  | Resource url                                                                                                                          | Resource description                                     | Implemented |
 | :------------: | :------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------- | :---------: |
-| Authentication | `/login/signup` - `POST`<br>`/login/signin` - `POST`<br>`/login/signout` - `POST`<br>`/login/me` - `GET`                              | Authentication endpoints for Flask-Login                 |     Yes     |
+| Authentication | `/login/signup` - `POST`<br>`/login/signin` - `POST`<br>`/login/signout` - `POST`<br>`/login/me` - `GET`                              | Token-based authentication endpoints                     |     Yes     |
 |     Users      | `/users/` - `GET`<br>`/users/<int:user_id>` - `GET` `PUT` `DELETE`                                                                     | User account management                                  |     Yes     |
 |   Characters   | `/characters/` - `GET` `POST`<br>`/characters/<int:character_id>` - `GET` `DELETE`                                                     | Character management                                     |     Yes     |
 |     Player     | `/player` - `GET` `PUT`<br>`/player/full` - `GET`<br>`/player/level-up` - `POST`<br>`/player/health` - `POST`                         | Alias for managing the currently active player character |     Yes     |
@@ -18,8 +18,10 @@ The backend exposes its routes under the `/api` prefix.
 
 - `POST /api/login/signup` - create a user account.
 - `POST /api/login/signin` - authenticate a user.
-- `POST /api/login/signout` - clear the active session.
+- `POST /api/login/signout` - clear the client token.
 - `GET /api/login/me` - return the current authenticated user.
+
+Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me` response also includes the currently selected player character when the token is scoped to one.
 
 ## Users
 
@@ -34,6 +36,7 @@ The backend exposes its routes under the `/api` prefix.
 - `POST /api/characters/` - create a character.
 - `GET /api/characters/<int:character_id>` - fetch one character.
 - `DELETE /api/characters/<int:character_id>` - delete a character.
+- `POST /api/characters/<int:character_id>/select` - issue a token scoped to the selected character.
 - `GET /api/player` - fetch the active player character.
 - `PUT /api/player` - update the active player character.
 - `POST /api/player/level-up` - level up the active player character.
@@ -48,6 +51,7 @@ The backend exposes its routes under the `/api` prefix.
 - `POST /api/characters/<int:character_id>/inventory/<int:item_id>` - equip or unequip an item.
 
 Character and player payloads returned by `/api/characters/<int:character_id>` and `/api/player/full` include separate `inventory` and `equipped` arrays.
+Selecting a character via `POST /api/characters/<int:character_id>/select` returns a new token scoped to that character.
 
 ## Setup
 

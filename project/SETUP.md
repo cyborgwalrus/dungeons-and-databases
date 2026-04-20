@@ -92,6 +92,15 @@ The server will start on `http://localhost:5000`
 ### GET /api/player
 
 - Returns the current player stats
+- Requires `Authorization: Bearer <token>`
+
+### POST /api/login/signin
+
+- Returns a bearer token for the logged-in user
+
+### POST /api/characters/<character_id>/select
+
+- Returns a new bearer token scoped to the selected character
 
 ### PUT /api/player
 
@@ -107,6 +116,11 @@ The server will start on `http://localhost:5000`
 - Apply damage to the player
 - Body: `{ "damage": 10 }`
 
+### Authentication note
+
+- All authenticated requests must send `Authorization: Bearer <token>`.
+- `/api/login/me` returns the current user and the currently selected player, if the token is scoped to one.
+
 ## Running the Full Application (Without Docker)
 
 1. **Terminal 1 - Backend:**
@@ -117,6 +131,7 @@ The server will start on `http://localhost:5000`
    ```
 
 2. **Terminal 2 - Frontend:**
+
    ```bash
    cd Dnd
    npm run dev

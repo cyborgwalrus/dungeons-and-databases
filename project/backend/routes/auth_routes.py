@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
-from flask_login import current_user, login_user, logout_user
 
 from ..db.models import User, db
+from ..utils.game_utils import get_current_user as get_authenticated_user, get_player, issue_auth_token
 from ..utils.serializers import serialize_user
 from .common import get_json_data, json_error
 
@@ -25,8 +25,8 @@ def signup():
     user.password = password
     db.session.add(user)
     db.session.commit()
-    login_user(user)
-    return jsonify({'message': 'signup complete', 'user': serialize_user(user)}), 201
+    token = issue_auth_token(user.id)
+    return jsonify({'message': 'signup complete', 'user': serialize_user(user), 'token': token}), 201
 
 
 @auth_bp.route('/login/signin', methods=['POST'])
@@ -39,18 +39,19 @@ def signin():
     if not user:
         return json_error('invalid username or password', 401)
 
-    login_user(user)
-    return jsonify({'message': 'signin complete', 'user': serialize_user(user)})
+    token = issue_auth_token(user.id)
+    return jsonify({'message': 'signin complete', 'user': serialize_user(user), 'token': token})
 
 
 @auth_bp.route('/login/signout', methods=['POST'])
 def signout():
-    logout_user()
     return jsonify({'message': 'signed out'})
 
 
 @auth_bp.route('/login/me', methods=['GET'])
 def me():
-    user_id = current_user.get_id() if current_user.is_authenticated else None
-    user = User.query.get(int(user_id)) if user_id else None
-    return jsonify({'user': serialize_user(user)})
+    user = get_authenticated_user()
+    if not user:
+        return json_error('Unauthorized', 401)
+    player = get_player()
+    return jsonify({'user': serialize_user(user), 'player': None if not player else player.to_dict(include_inventory=True)})

@@ -1,6 +1,6 @@
-from flask import Blueprint, jsonify, request, session
+from flask import Blueprint, jsonify, request
 
-from ..utils.game_utils import get_player as get_current_character, seed_character_loadout, set_player
+from ..utils.game_utils import get_player as get_current_character, seed_character_loadout, issue_auth_token
 from ..db.models import Character, db
 from ..utils.serializers import serialize_character
 from .common import get_character as get_character_by_id, require_character_owner, require_current_user, json_error
@@ -71,17 +71,23 @@ def get_character(character_id):
 
 @character_bp.route('/characters/<int:character_id>', methods=['DELETE'])
 def delete_character(character_id):
+    user, error_response = require_current_user()
+    if error_response:
+        return error_response
+    assert user is not None
     character, error_response = require_character_owner(character_id)
     if error_response:
         return error_response
     assert character is not None
 
-    if session.get('character_id') == character.id:
-        set_player(None)
+    active_character = get_current_character()
 
     db.session.delete(character)
     db.session.commit()
-    return jsonify({'message': 'Character deleted'})
+    response: dict[str, object] = {'message': 'Character deleted'}
+    if active_character and active_character.id == character.id:
+        response['token'] = issue_auth_token(user.id)
+    return jsonify(response)
 
 
 @character_bp.route('/characters/<int:character_id>/select', methods=['POST'])
@@ -91,8 +97,8 @@ def select_character(character_id):
         return error_response
     assert character is not None
 
-    set_player(character.id)
-    return jsonify({'message': 'Character selected', 'player': serialize_character(character, include_inventory=True)})
+    token = issue_auth_token(character.user_id, character.id)
+    return jsonify({'message': 'Character selected', 'player': serialize_character(character, include_inventory=True), 'token': token})
 
 
 @character_bp.route('/player', methods=['GET'])

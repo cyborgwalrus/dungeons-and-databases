@@ -1,11 +1,14 @@
-from flask import session
-from flask_login import current_user
+from typing import Any
+
+from flask import current_app, request
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from .cache_helpers import get_all_item_type_data, get_item_type_data
-from ..db.models import Character, Item, db
+from ..db.models import Character, Item, User, db
 
 
-PLAYER_SESSION_KEY = 'character_id'
+AUTH_TOKEN_SALT = 'dungeons-and-databases-auth-token'
+DEFAULT_AUTH_TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 DEFAULT_LOADOUT_ITEM_NAMES = [
     'Steel Sword',
     'Leather Armor',
@@ -16,34 +19,84 @@ DEFAULT_LOADOUT_ITEM_NAMES = [
 ]
 
 
-def set_player(character_id: int | None) -> None:
-    if character_id is None:
-        session.pop(PLAYER_SESSION_KEY, None)
-        return
-    session[PLAYER_SESSION_KEY] = int(character_id)
+def _get_auth_serializer() -> URLSafeTimedSerializer:
+    secret_key = current_app.config.get('SECRET_KEY')
+    if not secret_key:
+        raise RuntimeError('SECRET_KEY is required for token auth')
+    return URLSafeTimedSerializer(secret_key=secret_key, salt=AUTH_TOKEN_SALT)
 
 
-def get_player() -> Character | None:
-    character_id = session.get(PLAYER_SESSION_KEY)
-    if character_id is None:
+def issue_auth_token(user_id: int, character_id: int | None = None) -> str:
+    serializer = _get_auth_serializer()
+    payload = {'user_id': int(user_id), 'character_id': int(character_id) if character_id is not None else None}
+    return serializer.dumps(payload)
+
+
+def get_request_auth_payload() -> dict[str, Any] | None:
+    authorization = request.headers.get('Authorization', '').strip()
+    if not authorization:
+        return None
+
+    token_prefix = 'bearer '
+    if authorization.lower().startswith(token_prefix):
+        token = authorization[len(token_prefix):].strip()
+    else:
+        token = authorization
+    if not token:
         return None
 
     try:
-        resolved_character_id = int(character_id)
+        serializer = _get_auth_serializer()
+        max_age = int(current_app.config.get('AUTH_TOKEN_MAX_AGE_SECONDS', DEFAULT_AUTH_TOKEN_MAX_AGE_SECONDS))
+        payload = serializer.loads(token, max_age=max_age)
+    except (BadSignature, SignatureExpired, TypeError, ValueError):
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    user_id = payload.get('user_id')
+    if user_id is None:
+        return None
+    try:
+        payload['user_id'] = int(user_id)
     except (TypeError, ValueError):
-        session.pop(PLAYER_SESSION_KEY, None)
         return None
 
-    character = Character.query.get(resolved_character_id)
-    if not character:
-        session.pop(PLAYER_SESSION_KEY, None)
-        return None
-
-    if current_user.is_authenticated:
-        user_id = current_user.get_id()
-        if user_id and character.user_id != int(user_id):
-            session.pop(PLAYER_SESSION_KEY, None)
+    character_id = payload.get('character_id')
+    if character_id is not None:
+        try:
+            payload['character_id'] = int(character_id)
+        except (TypeError, ValueError):
             return None
+
+    return payload
+
+
+def get_current_user() -> User | None:
+    payload = get_request_auth_payload()
+    if not payload:
+        return None
+
+    user = User.query.get(payload['user_id'])
+    return user
+
+
+def get_player() -> Character | None:
+    payload = get_request_auth_payload()
+    if not payload:
+        return None
+
+    character_id = payload.get('character_id')
+    if character_id is None:
+        return None
+
+    character = Character.query.get(character_id)
+    if not character:
+        return None
+
+    if character.user_id != payload['user_id']:
+        return None
 
     return character
 

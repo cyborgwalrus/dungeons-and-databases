@@ -1,6 +1,22 @@
 import { isSlotCompatible } from '../helpers.js';
 import { bindDragSource, bindDropZone } from '../drag-drop.js';
 
+async function unequipItemFromDoubleClick(opts, itemId) {
+  const { fetchJson, inventoryPath, loadStateAndRenderPartial, syncPlayerHealthToFull, setCurrentDrag, updateSlotHighlights } = opts;
+  if (!inventoryPath || !itemId) return;
+
+  await fetchJson(inventoryPath, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ item_id: Number(itemId), is_equipped: false })
+  });
+
+  await loadStateAndRenderPartial();
+  if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
+  setCurrentDrag(null);
+  updateSlotHighlights();
+}
+
 export async function renderEquipPanel(opts) {
   const { equipped, inventory, allItems, getCharacterId, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
   const equipPanel = document.getElementById('equip-panel');
@@ -46,6 +62,20 @@ export async function renderEquipPanel(opts) {
     </div>`;
 
   document.querySelectorAll('.equip-slot').forEach(slotEl => {
+    const equippedCard = slotEl.querySelector('.equipped-card');
+    if (equippedCard) {
+      equippedCard.addEventListener('dblclick', async event => {
+        event.preventDefault();
+        event.stopPropagation();
+        const itemId = equippedCard.getAttribute('data-item-id');
+        try {
+          await unequipItemFromDoubleClick({ fetchJson, inventoryPath, loadStateAndRenderPartial, syncPlayerHealthToFull, setCurrentDrag, updateSlotHighlights }, itemId);
+        } catch (error) {
+          console.error('Failed to unequip item from double click', error);
+        }
+      });
+    }
+
     bindDragSource(slotEl, {
       createPayload: () => {
       const itemId = slotEl.getAttribute('data-item-id');
@@ -70,7 +100,6 @@ export async function renderEquipPanel(opts) {
         const raw = ev.dataTransfer.getData('text/plain');
         const payload = raw ? JSON.parse(raw) : getCurrentDrag();
         if (!payload) return;
-        const slot = Number(slotEl.getAttribute('data-slot'));
         const slotType = slotEl.getAttribute('data-slot-type') || 'misc';
         const itemId = Number(payload.itemId);
 

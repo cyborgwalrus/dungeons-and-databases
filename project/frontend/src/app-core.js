@@ -1,4 +1,4 @@
-import { fetchJson } from './api.js';
+import { fetchJson, clearAuthToken, setAuthToken } from './api.js';
 import { makeIcon, getItemType, getItemDisplayName, formatDungeonMessage, formatStats, isSlotCompatible } from './helpers.js';
 import { renderPlayerStatsInto } from './components/player.js';
 import { renderEquipPanel as renderEquipPanelImpl } from './components/equip.js';
@@ -133,6 +133,7 @@ function renderInventoryGrid() {
     updateSlotHighlights,
     fetchJson,
     loadStateAndRenderPartial,
+    syncPlayerHealthToFull,
     getItemType,
     makeIcon,
     formatStats,
@@ -262,6 +263,7 @@ async function renderLogin() {
     });
 
     if (res.ok && res.data.user) {
+      if (res.data.token) setAuthToken(res.data.token);
       state.currentUser = res.data.user;
       navigateTo('/character-select');
     } else {
@@ -284,6 +286,7 @@ async function renderLogin() {
     });
 
     if (res.ok && res.data.user) {
+      if (res.data.token) setAuthToken(res.data.token);
       state.currentUser = res.data.user;
       navigateTo('/character-select');
     } else {
@@ -326,6 +329,7 @@ async function renderCharacterSelect() {
           method: 'POST'
         });
         if (selectRes.ok && selectRes.data.player) {
+          if (selectRes.data.token) setAuthToken(selectRes.data.token);
           state.player = selectRes.data.player;
           navigateTo('/');
         }
@@ -349,6 +353,7 @@ async function renderCharacterSelect() {
 
   document.getElementById('logout-btn').addEventListener('click', async () => {
     await fetchJson('/login/signout', { method: 'POST' });
+    clearAuthToken();
     state.currentUser = null;
     state.player = null;
     state.characters = [];
@@ -382,6 +387,7 @@ async function renderHome() {
 
   document.getElementById('logout-btn').addEventListener('click', async () => {
     await fetchJson('/login/signout', { method: 'POST' });
+    clearAuthToken();
     state.currentUser = null;
     state.player = null;
     state.characters = [];
@@ -453,7 +459,9 @@ async function route() {
     const res = await fetchJson('/login/me');
     if (res.ok && res.data && res.data.user) {
       state.currentUser = res.data.user;
+      if (res.data.player) syncPlayerSnapshot(res.data.player);
     } else {
+      if (res.status === 401) clearAuthToken();
       location.hash = '#/login';
       return;
     }

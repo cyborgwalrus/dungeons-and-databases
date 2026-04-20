@@ -1,20 +1,14 @@
 from typing import Any
 
 from flask import jsonify
-from flask_login import current_user
 
 from ..utils.cache_helpers import get_item_type_data
-from ..utils.game_utils import get_player
+from ..utils.game_utils import get_current_user as get_authenticated_user, get_player
 from ..db.models import Character, Encounter, Item, User
 
 
 def get_current_user() -> User | None:
-    if current_user.is_authenticated:
-        user_id = current_user.get_id()
-        user = User.query.get(int(user_id)) if user_id else None
-        if user:
-            return user
-    return None
+    return get_authenticated_user()
 
 
 def require_current_user() -> tuple[User | None, tuple[Any, int] | None]:

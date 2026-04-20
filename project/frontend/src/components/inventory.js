@@ -1,7 +1,25 @@
 import { bindDragSource, bindDropZone } from '../drag-drop.js';
 
+async function toggleInventoryItemFromDoubleClick(opts, itemId) {
+  const { fetchJson, getCharacterId, loadStateAndRenderPartial, syncPlayerHealthToFull, updateSlotHighlights, setCurrentDrag } = opts;
+  const characterId = getCharacterId ? getCharacterId() : null;
+  const inventoryPath = characterId ? `/characters/${characterId}/inventory/` : null;
+  if (!inventoryPath || !itemId) return;
+
+  await fetchJson(inventoryPath, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ item_id: Number(itemId) })
+  });
+
+  await loadStateAndRenderPartial();
+  if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
+  setCurrentDrag(null);
+  updateSlotHighlights();
+}
+
 export function renderInventoryGrid(opts) {
-  const { inventory, getCharacterId, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
+  const { inventory, getCharacterId, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
   const invContainer = document.getElementById('inventory-grid');
   if (!invContainer) return;
   if (!inventory || inventory.length === 0) {
@@ -34,6 +52,17 @@ export function renderInventoryGrid(opts) {
   invContainer.innerHTML = cards.join('');
 
   document.querySelectorAll('.inventory-card').forEach(card => {
+    card.addEventListener('dblclick', async event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const itemId = card.getAttribute('data-item-id');
+      try {
+        await toggleInventoryItemFromDoubleClick({ fetchJson, getCharacterId, loadStateAndRenderPartial, syncPlayerHealthToFull, updateSlotHighlights, setCurrentDrag }, itemId);
+      } catch (error) {
+        console.error('Failed to equip item from double click', error);
+      }
+    });
+
     bindDragSource(card, {
       createPayload: () => {
       const id = card.getAttribute('data-item-id');
