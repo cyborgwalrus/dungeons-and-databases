@@ -4,7 +4,7 @@ import { renderPlayerStatsInto } from './components/player.js';
 import { renderEquipPanel as renderEquipPanelImpl } from './components/equip.js';
 import { renderInventoryGrid as renderInventoryGridImpl } from './components/inventory.js';
 import { buildDungeonMarkup, applyDungeonCombatUpdate, showDungeonDefeatScreen } from './screens/dungeon-runtime.js';
-import { setupActionButtons, setupRubbishBin } from './page.js';
+import { setupRubbishBin } from './page.js';
 import { state, getCharacterId, getCharacterInventoryPath, getFullHealthForPlayer } from './app-state.js';
 
 const root = document.getElementById('root');
@@ -372,7 +372,6 @@ async function renderHome() {
     <div style="display:flex;gap:20;align-items:stretch;">
       <div id="player-stats-container" style="flex:1;min-width:260px;display:flex;flex-direction:column;box-sizing:border-box;height:100%;min-height:0">
         <div id="player-stats" style=""></div>
-          <div id="player-stats-actions"></div>
       </div>
       <div id="equip-panel" style="flex:1;min-width:260px"></div>
     </div>
@@ -407,17 +406,6 @@ async function renderHome() {
   } catch (error) {
     console.warn('Heal on home failed', error);
   }
-
-  const actionsContainer = document.getElementById('player-stats-actions');
-  setupActionButtons(actionsContainer, {
-    fetchJson,
-    loadStateAndRenderPartial,
-    getEquipped: () => state.equipped,
-    getInventory: () => state.inventory,
-    getItemType,
-    getCharacterId,
-    syncPlayerHealthToFull
-  });
 
   const bin = document.getElementById('rubbish-bin');
   setupRubbishBin(bin, {

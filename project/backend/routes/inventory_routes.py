@@ -82,79 +82,6 @@ def _get_item_or_error(character: Character, item_id: int, message: str = 'Item 
     return item, None
 
 
-def _upgrade_reforge_item(item: Item) -> None:
-    item.level = (item.level or 0) + 1
-    item.health_bonus = (item.health_bonus or 0) * 2
-    item.damage_bonus = (item.damage_bonus or 0) * 2
-    if item.item_type and item.item_type.name:
-        item.name = item.item_type.name
-
-
-def _reforge_once(character: Character) -> bool:
-    grouped_items: dict[tuple[int, int], list[Item]] = {}
-    for item in sorted(character.inventory, key=lambda value: (value.item_type_id, value.level, 0 if value.is_equipped else 1, value.id or 0)):
-        grouped_items.setdefault((item.item_type_id, item.level), []).append(item)
-
-    for items in grouped_items.values():
-        if len(items) < 3:
-            continue
-
-        selected_items = sorted(items, key=lambda value: (0 if value.is_equipped else 1, value.id or 0))[:3]
-        source_item = next((value for value in selected_items if value.is_equipped), selected_items[0])
-
-        for item in selected_items:
-            if item.id != source_item.id:
-                character.inventory.remove(item)
-                db.session.delete(item)
-
-        _upgrade_reforge_item(source_item)
-        return True
-
-    return False
-
-
-def _equip_best_items(character: Character) -> bool:
-    slot_order = ['helmet', 'armor', 'weapon', 'shield', 'ring', 'necklace']
-    changed = False
-
-    equipped_by_slot: dict[str, Item] = {}
-    for equipped_item in _equipped_items(character):
-        slot_value = equipped_item.item_type.slot.value if equipped_item.item_type and equipped_item.item_type.slot else None
-        if slot_value and slot_value not in equipped_by_slot:
-            equipped_by_slot[slot_value] = equipped_item
-
-    for slot_value in slot_order:
-        best_item = None
-        best_score = -1
-
-        for inventory_item in [item for item in character.inventory if not item.is_equipped]:
-            item_slot = inventory_item.item_type.slot.value if inventory_item.item_type and inventory_item.item_type.slot else None
-            if item_slot != slot_value:
-                continue
-
-            attack = inventory_item.damage_bonus or 0
-            health = inventory_item.health_bonus or 0
-            score = (attack * 10 + health) if slot_value == 'weapon' else (health * 10 + attack)
-            if score > best_score:
-                best_score = score
-                best_item = inventory_item
-
-        if not best_item:
-            continue
-
-        current_item = equipped_by_slot.get(slot_value)
-        current_attack = current_item.damage_bonus if current_item else 0
-        current_health = current_item.health_bonus if current_item else 0
-        current_score = ((current_attack * 10 + current_health) if slot_value == 'weapon' else (current_health * 10 + current_attack)) if current_item else -1
-
-        if best_score > current_score:
-            _equip_item(character, best_item)
-            equipped_by_slot[slot_value] = best_item
-            changed = True
-
-    return changed
-
-
 @inventory_bp.route('/characters/<int:character_id>/inventory/', methods=['GET'])
 def get_inventory(character_id: int):
     character, error_response = require_character_owner(character_id)
@@ -239,19 +166,6 @@ def clear_inventory(character_id: int):
     return jsonify({'message': 'Inventory cleared'})
 
 
-@inventory_bp.route('/characters/<int:character_id>/inventory/unequip_all', methods=['POST'])
-def unequip_all(character_id: int) -> Any:
-    character, error_response = require_character_owner(character_id)
-    if error_response:
-        return error_response
-    assert character is not None
-
-    clear_player_equipment(character)
-    db.session.commit()
-    db.session.expire(character)
-    return _player_response(character, 'Unequipped all items')
-
-
 @inventory_bp.route('/characters/<int:character_id>/inventory/<int:item_id>', methods=['GET'])
 def get_inventory_item(character_id: int, item_id: int):
     character, error_response = require_character_owner(character_id)
@@ -317,38 +231,3 @@ def remove_inventory_item_route(character_id: int, item_id: int):
     db.session.commit()
     return _message_response('Item removed from inventory')
 
-
-@inventory_bp.route('/characters/<int:character_id>/inventory/equip_best_items', methods=['POST'])
-def equip_best_items(character_id: int) -> Any:
-    character, error_response = require_character_owner(character_id)
-    if error_response:
-        return error_response
-    assert character is not None
-
-    changed = _equip_best_items(character)
-    db.session.commit()
-    db.session.expire(character)
-
-    message = 'Best items equipped' if changed else 'No better items found'
-    return _player_response(character, message)
-
-
-@inventory_bp.route('/forge/reforge_all/<int:character_id>', methods=['POST'])
-def reforge_all_items(character_id: int) -> Any:
-    character, error_response = require_character_owner(character_id)
-    if error_response:
-        return error_response
-    assert character is not None
-    made_changes = False
-
-    while True:
-        if not _reforge_once(character):
-            break
-
-        made_changes = True
-
-    if not made_changes:
-        return json_error('No items to reforge')
-
-    db.session.commit()
-    return _player_response(character, 'Reforge all complete')

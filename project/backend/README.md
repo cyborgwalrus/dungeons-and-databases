@@ -12,7 +12,6 @@ The backend exposes its routes under the `/api` prefix.
 |     Player     | `/player` - `GET` `PUT`<br>`/player/full` - `GET`<br>`/player/level-up` - `POST`<br>`/player/health` - `POST`                         | Alias for managing the currently active player character |     Yes     |
 |   Inventory    | `/characters/<int:character_id>/inventory/` - `GET` `POST` `PUT` `DELETE`<br>`/characters/<int:character_id>/inventory/equipped` - `GET`<br>`/characters/<int:character_id>/inventory/items` - `GET` | Character inventory operations                           |     Yes     |
 |      Item      | `/characters/<int:character_id>/inventory/<int:item_id>` - `GET` `POST` `PUT` `DELETE`                                                 | Individual inventory item operations                     |     Yes     |
-|     Forge      | `/forge/reforge_all/<int:character_id>` - `POST`                                                                                       | Reforge eligible items in a character inventory          |     Yes     |
 |    Dungeon     | `/dungeon/encounters/` - `GET` `POST`<br>`/dungeon/encounters/<int:encounter_id>` - `GET` `DELETE`<br>`/dungeon/encounters/<int:character_id>/current` - `GET`<br>`/dungeon/attack` - `POST`<br>`/dungeon/run` - `POST` | Dungeon encounter and combat operations                  |     Yes     |
 
 ## Authentication
@@ -50,7 +49,6 @@ The backend exposes its routes under the `/api` prefix.
 - `DELETE /api/characters/<int:character_id>/inventory/` - clear inventory.
 - `GET /api/characters/<int:character_id>/inventory/<int:item_id>` - fetch one inventory item.
 - `POST /api/characters/<int:character_id>/inventory/<int:item_id>` - equip or unequip an item.
-
 
 ## Setup
 

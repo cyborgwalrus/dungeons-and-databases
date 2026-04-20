@@ -216,9 +216,6 @@
 }
 
 .equip-slot.empty { opacity: 0.6; }
-.equip-slot .unequip-button {
-  display: none;
-}
 
 .drag-over { box-shadow: 0 0 0 3px rgba(78,205,196,0.18) inset; transform: scale(1.01); }
 
@@ -358,39 +355,3 @@
   margin: 6px 0 0;
 }
 
-/* Action bar buttons under player stats */
-.player-stats #player-stats-actions { width: 100%; }
-.action-bar {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: repeat(2, minmax(86px, 1fr));
-  gap: 4px;
-  width: 100%;
-  height: 100%;
-}
-.action-button {
-  padding: 10px 8px;
-  font-size: 0.95em;
-  min-height: 86px;
-  box-sizing: border-box;
-  white-space: normal;
-  text-transform: uppercase;
-  overflow-wrap: break-word;
-  hyphens: auto;
-  min-width: 0;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  text-align:center;
-  line-height: 1.05;
-}
-.action-bar-spacer {
-  visibility: hidden;
-}
-.action-button.unequip-button { background: linear-gradient(135deg,#6c5ce7 0%,#5a4bd6 100%); }
-.action-button.reforge-button { background: linear-gradient(135deg,#2b8a3e 0%,#1f6f2f 100%); }
-.action-button.equip-best-button { background: linear-gradient(135deg,#3a86ff 0%,#2970e0 100%); }
-.action-button:disabled { opacity: 0.6; cursor: not-allowed; }
-
-/* Ensure action container reserves height beneath stats */
-#player-stats-actions { min-height: 90px; flex: 1; display:flex; align-items:stretch; }
