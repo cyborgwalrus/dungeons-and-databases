@@ -343,7 +343,10 @@ async function renderHome() {
         </div>
       </div>
       <div class="clear-inventory-row" style="display:flex;justify-content:center;">
-        <button class="dungeon-button clear-inventory-btn" id="clear-inventory-btn" style="background-color:#b23b3b;">Clear Inventory</button>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center;">
+          <button class="dungeon-button clear-inventory-btn" id="clear-inventory-btn" style="background-color:#b23b3b;">Clear Inventory</button>
+          <button type="button" class="dungeon-button trash-dropzone" id="inventory-trash-dropzone" aria-label="Trash inventory item" title="Drop inventory items here to delete" style="background-color:#5f6d7a;">🗑 Trash</button>
+        </div>
       </div>
       <div class="home-actions-row" style="display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:56px;">
         <button class="dungeon-button" id="enter-dungeon">Enter the Dungeon</button>

@@ -1,4 +1,4 @@
-import { unequipInventoryItem } from './item-actions.js';
+import { equipInventoryItem, getItemDragData, setItemDragData, unequipInventoryItem } from './item-actions.js';
 
 export async function renderEquipPanel(opts) {
   const { equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, makeIcon, formatStats, getItemDisplayName } = opts;
@@ -7,7 +7,7 @@ export async function renderEquipPanel(opts) {
 
   function inventoryCardHtml(i) {
     return `
-      <button type="button" class="inventory-card equipped-card" data-item-id="${i.id}">
+      <button type="button" draggable="true" class="inventory-card equipped-card" data-item-id="${i.id}" data-item-source="equipped">
         <div class="item-icon">${makeIcon(i)}</div>
         <div class="card-details">
           <div class="item-name">${getItemDisplayName(i)}</div>
@@ -42,8 +42,44 @@ export async function renderEquipPanel(opts) {
     </div>`;
 
   document.querySelectorAll('.equip-slot').forEach(slotEl => {
+    slotEl.ondragover = event => {
+      const payload = getItemDragData(event);
+      if (!payload || payload.source !== 'inventory') return;
+      event.preventDefault();
+      slotEl.classList.add('equip-slot--drop-active');
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    };
+
+    slotEl.ondragleave = () => {
+      slotEl.classList.remove('equip-slot--drop-active');
+    };
+
+    slotEl.ondrop = async event => {
+      slotEl.classList.remove('equip-slot--drop-active');
+      const payload = getItemDragData(event);
+      if (!payload || payload.source !== 'inventory') return;
+      event.preventDefault();
+      try {
+        await equipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, payload.itemId);
+      } catch (error) {
+        console.error('Failed to equip item from drag and drop', error);
+      }
+    };
+
     const equippedCard = slotEl.querySelector('.equipped-card');
     if (equippedCard) {
+      equippedCard.addEventListener('dragstart', event => {
+        setItemDragData(event, {
+          itemId: Number(equippedCard.getAttribute('data-item-id')),
+          source: equippedCard.getAttribute('data-item-source') || 'equipped',
+        });
+        equippedCard.classList.add('dragging');
+      });
+
+      equippedCard.addEventListener('dragend', () => {
+        equippedCard.classList.remove('dragging');
+      });
+
       equippedCard.addEventListener('dblclick', async event => {
         event.preventDefault();
         event.stopPropagation();

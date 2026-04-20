@@ -288,7 +288,7 @@
 
 .inventory-card.inventory-card--better {
   border: 2px solid #7dff9b;
-  box-shadow: 0 0 0 2px rgba(125, 255, 155, 0.22), 0 0 18px rgba(125, 255, 155, 0.32);
+  box-shadow: 0 0 0 2px rgba(125, 255, 155, 0.34), 0 0 24px rgba(125, 255, 155, 0.48);
 }
 
 .inventory-card.inventory-card--better .item-type,
@@ -316,6 +316,26 @@
 }
 
 .equip-slot.empty { opacity: 0.6; }
+
+.inventory-scroll-box.inventory-dropzone--active,
+.equip-slot--drop-active {
+  box-shadow: inset 0 0 0 2px rgba(125, 255, 155, 0.55);
+  border-color: rgba(125, 255, 155, 0.8);
+}
+
+.trash-dropzone {
+  min-width: 180px;
+}
+
+.trash-dropzone--active {
+  background: linear-gradient(135deg, #ff7b7b 0%, #d64545 100%) !important;
+  box-shadow: 0 0 0 2px rgba(255, 123, 123, 0.45), 0 0 24px rgba(255, 123, 123, 0.4);
+}
+
+.inventory-card.dragging,
+.inventory-card.equipped-card.dragging {
+  opacity: 0.5;
+}
 
 /* Dungeon top area */
 #dungeon-top { box-sizing: border-box; }

@@ -1,18 +1,15 @@
-import { equipInventoryItem } from './item-actions.js';
+import { discardInventoryItem, equipInventoryItem, getItemDragData, setItemDragData, unequipInventoryItem } from './item-actions.js';
 
 export function renderInventoryGrid(opts) {
   const { inventory, equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
   const invContainer = document.getElementById('inventory-grid');
   if (!invContainer) return;
   const scrollBox = invContainer.closest('.inventory-scroll-box');
+  const dropZone = scrollBox || invContainer;
   const itemCount = Array.isArray(inventory) ? inventory.length : 0;
   if (scrollBox) {
     scrollBox.classList.toggle('inventory-empty', itemCount === 0);
     scrollBox.style.maxHeight = itemCount > 5 ? '390px' : 'none';
-  }
-  if (!inventory || inventory.length === 0) {
-    invContainer.innerHTML = '<p style="color:#999;font-style:italic">Your inventory is empty</p>';
-    return;
   }
 
   const equippedBySlot = new Map(
@@ -69,23 +66,90 @@ export function renderInventoryGrid(opts) {
     return getItemScore(item) > getItemScore(equippedItem || { health: 0, damage: 0 });
   }
 
-  const cards = [];
-  sortedInventory.forEach(invItem => {
-    const i = invItem;
-    const itype = getItemType(i);
-    const isBetter = isBetterThanEquipped(i);
-    cards.push(`
-      <button type="button" class="inventory-card${isBetter ? ' inventory-card--better' : ''}" data-item-id="${i.id}" data-item-type="${itype}">
-        <div class="item-icon">${makeIcon(i)}</div>
-        <div class="card-details">
-          <div class="item-name">${getItemDisplayName(i)}</div>
-          <div class="item-type${isBetter ? ' item-type--better' : ''}">${formatStats(i)}</div>
-        </div>
-      </button>`);
-  });
-  invContainer.innerHTML = cards.join('');
+  if (!inventory || inventory.length === 0) {
+    invContainer.innerHTML = '<div style="grid-column:1 / -1"><p style="color:#999;font-style:italic;margin:0">Your inventory is empty.</p><p style="color:#999;font-style:italic;margin:4px 0 0">Note: the inventory is shared between characters.</p></div>';
+  } else {
+    const cards = [];
+    sortedInventory.forEach(invItem => {
+      const i = invItem;
+      const itype = getItemType(i);
+      const isBetter = isBetterThanEquipped(i);
+      cards.push(`
+        <button type="button" draggable="true" class="inventory-card${isBetter ? ' inventory-card--better' : ''}" data-item-id="${i.id}" data-item-type="${itype}" data-item-source="inventory">
+          <div class="item-icon">${makeIcon(i)}</div>
+          <div class="card-details">
+            <div class="item-name">${getItemDisplayName(i)}</div>
+            <div class="item-type${isBetter ? ' item-type--better' : ''}">${formatStats(i)}</div>
+          </div>
+        </button>`);
+    });
+    invContainer.innerHTML = cards.join('');
+  }
+
+  dropZone.ondragover = event => {
+    const payload = getItemDragData(event);
+    if (!payload || payload.source !== 'equipped') return;
+    event.preventDefault();
+    dropZone.classList.add('inventory-dropzone--active');
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+  };
+
+  dropZone.ondragleave = () => {
+    dropZone.classList.remove('inventory-dropzone--active');
+  };
+
+  dropZone.ondrop = async event => {
+    dropZone.classList.remove('inventory-dropzone--active');
+    const payload = getItemDragData(event);
+    if (!payload || payload.source !== 'equipped') return;
+    event.preventDefault();
+    try {
+      await unequipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, payload.itemId);
+    } catch (error) {
+      console.error('Failed to unequip item from drag and drop', error);
+    }
+  };
+
+  const trashDropzone = document.getElementById('inventory-trash-dropzone');
+  if (trashDropzone) {
+    trashDropzone.ondragover = event => {
+      const payload = getItemDragData(event);
+      if (!payload || payload.source !== 'inventory') return;
+      event.preventDefault();
+      trashDropzone.classList.add('trash-dropzone--active');
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    };
+
+    trashDropzone.ondragleave = () => {
+      trashDropzone.classList.remove('trash-dropzone--active');
+    };
+
+    trashDropzone.ondrop = async event => {
+      trashDropzone.classList.remove('trash-dropzone--active');
+      const payload = getItemDragData(event);
+      if (!payload || payload.source !== 'inventory') return;
+      event.preventDefault();
+      try {
+        await discardInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, payload.itemId);
+      } catch (error) {
+        console.error('Failed to discard item from drag and drop', error);
+      }
+    };
+  }
 
   document.querySelectorAll('.inventory-card').forEach(card => {
+    card.addEventListener('dragstart', event => {
+      setItemDragData(event, {
+        itemId: Number(card.getAttribute('data-item-id')),
+        source: card.getAttribute('data-item-source') || 'inventory',
+      });
+      card.classList.add('dragging');
+    });
+
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+    });
+
     card.addEventListener('dblclick', async event => {
       event.preventDefault();
       event.stopPropagation();

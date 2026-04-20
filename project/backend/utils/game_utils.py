@@ -11,7 +11,7 @@ AUTH_TOKEN_SALT = 'dungeons-and-databases-auth-token'
 DEFAULT_AUTH_TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 DEFAULT_LOADOUT_ITEM_NAMES = [
     'Steel Sword',
-    'Leather Armor',
+    'Steel Armor',
     'Iron Shield',
     'Iron Helmet',
     'Silver Necklace',
@@ -124,7 +124,7 @@ def _get_or_create_user_inventory(character: Character) -> UserInventory:
 def _scaled_bonus(base_bonus: int, level: int) -> int:
     if base_bonus <= 0:
         return 0
-    bonus_multiplier = 1 + (0.25 * max(0, level - 1))
+    bonus_multiplier = 1.10 ** max(0, level - 1)
     return max(0, int(round(base_bonus * bonus_multiplier)))
 
 

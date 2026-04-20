@@ -239,7 +239,7 @@ def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, A
     enemy_name = encounter.enemy_type.name
     dice_roll = random.randint(1, 6)
 
-    if dice_roll >= 5:
+    if dice_roll >= 4:
         db.session.delete(encounter)
         return {
             'message': f'You rolled a {dice_roll}! You successfully escaped and returned home!',
