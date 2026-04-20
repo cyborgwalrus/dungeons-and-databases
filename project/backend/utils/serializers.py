@@ -31,8 +31,8 @@ def serialize_item_type(item_type: ItemType | None) -> dict[str, Any] | None:
         'id': item_type.id,
         'name': item_type.name,
         'slot': item_type.slot.value if item_type.slot else None,
-        'base_health_bonus': item_type.base_health_bonus,
-        'base_damage_bonus': item_type.base_damage_bonus,
+        'health': item_type.health,
+        'damage': item_type.damage,
     }
 
 
@@ -48,8 +48,8 @@ def serialize_item(item: Item | None) -> dict[str, Any] | None:
         'is_equipped': item.is_equipped,
         'slot': _slot_value(item),
         'is_loot': item.is_loot,
-        'health_bonus': item.health_bonus or 0,
-        'damage_bonus': item.damage_bonus or 0,
+        'health': item.health or 0,
+        'damage': item.damage or 0,
         'item_type': serialize_item_type(item.item_type),
     }
 
@@ -99,9 +99,9 @@ def serialize_encounter(encounter: Encounter | None) -> dict[str, Any] | None:
         'character_id': encounter.character_id,
         'enemy_type_id': encounter.enemy_type_id,
         'name': encounter.enemy_type.name if encounter.enemy_type else None,
-        'health': encounter.enemy_health,
-        'max_health': encounter.enemy_max_health,
-        'damage': encounter.enemy_damage,
+        'health': encounter.health,
+        'max_health': encounter.max_health,
+        'damage': encounter.damage,
         'level': encounter.enemy_level,
         'description': encounter.enemy_type.description if encounter.enemy_type else None,
     }

@@ -15,15 +15,15 @@ class SeedRecord(ABC):
 @dataclass(frozen=True, slots=True)
 class EnemyTypeSeed(SeedRecord):
     name: str
-    base_health: int
-    base_damage: int
+    health: int
+    damage: int
     description: str
 
     def model_kwargs(self) -> dict[str, object]:
         return {
             'name': self.name,
-            'base_health': self.base_health,
-            'base_damage': self.base_damage,
+            'health': self.health,
+            'damage': self.damage,
             'description': self.description,
         }
 
@@ -32,15 +32,15 @@ class EnemyTypeSeed(SeedRecord):
 class ItemTypeSeed(SeedRecord):
     name: str
     slot: ItemSlot
-    base_health_bonus: int
-    base_damage_bonus: int
+    health: int
+    damage: int
 
     def model_kwargs(self) -> dict[str, object]:
         return {
             'name': self.name,
             'slot': self.slot.value,
-            'base_health_bonus': self.base_health_bonus,
-            'base_damage_bonus': self.base_damage_bonus,
+            'health': self.health,
+            'damage': self.damage,
         }
 
 

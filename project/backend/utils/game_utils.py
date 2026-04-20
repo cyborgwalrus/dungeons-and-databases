@@ -142,8 +142,8 @@ def add_inventory_item(player: Character, item_id: int, *, level: int = 1, is_lo
         item_type_id=item_type['id'],
         inventory_id=user_inventory.id,
         level=max(1, int(level)),
-        health_bonus=_scaled_bonus(item_type['base_health_bonus'] or 0, level),
-        damage_bonus=_scaled_bonus(item_type['base_damage_bonus'] or 0, level),
+        health=_scaled_bonus(item_type['health'] or 0, level),
+        damage=_scaled_bonus(item_type['damage'] or 0, level),
         is_loot=loot_flag,
     )
     db.session.add(inventory_item)

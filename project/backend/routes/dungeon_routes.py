@@ -40,16 +40,16 @@ def create_new_encounter(character: Character | None = None) -> Encounter | None
         return None
 
     enemy_level = 1
-    enemy_health = enemy_type['base_health'] + (enemy_level * 10)
-    enemy_damage = enemy_type['base_damage'] + (enemy_level * 2)
+    enemy_health = enemy_type['health'] + (enemy_level * 10)
+    enemy_damage = enemy_type['damage'] + (enemy_level * 2)
 
     encounter = Encounter(
         character_id=character.id,
         enemy_type_id=enemy_type['id'],
         enemy_level=enemy_level,
-        enemy_max_health=enemy_health,
-        enemy_health=enemy_health,
-        enemy_damage=enemy_damage,
+        max_health=enemy_health,
+        health=enemy_health,
+        damage=enemy_damage,
     )
     db.session.add(encounter)
     db.session.commit()
@@ -90,16 +90,16 @@ def _create_next_encounter(character: Character, encounter: Encounter) -> Encoun
     if not enemy_type:
         return None
 
-    enemy_health = enemy_type['base_health'] + (next_enemy_level * 10)
-    enemy_damage = enemy_type['base_damage'] + (next_enemy_level * 2)
+    enemy_health = enemy_type['health'] + (next_enemy_level * 10)
+    enemy_damage = enemy_type['damage'] + (next_enemy_level * 2)
 
     next_encounter = Encounter(
         character_id=character.id,
         enemy_type_id=enemy_type['id'],
         enemy_level=next_enemy_level,
-        enemy_max_health=enemy_health,
-        enemy_health=enemy_health,
-        enemy_damage=enemy_damage,
+        max_health=enemy_health,
+        health=enemy_health,
+        damage=enemy_damage,
     )
     db.session.add(next_encounter)
     return next_encounter
@@ -180,11 +180,11 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
     enemy_name = encounter.enemy_type.name
     effective_damage = character.damage + character.bonus_damage
     player_hits = _combat_damage_roll(effective_damage)
-    monster_hits = _combat_damage_roll(encounter.enemy_damage)
+    monster_hits = _combat_damage_roll(encounter.damage)
 
-    encounter.enemy_health = max(0, encounter.enemy_health - player_hits)
+    encounter.health = max(0, encounter.health - player_hits)
 
-    if encounter.enemy_health > 0:
+    if encounter.health > 0:
         character.health = max(0, character.health - monster_hits)
         if check_character_death(character):
             return {
@@ -252,7 +252,7 @@ def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, A
             'encounter': encounter,
         }
 
-    damage_taken = _combat_damage_roll(encounter.enemy_damage)
+    damage_taken = _combat_damage_roll(encounter.damage)
     character.health = max(0, character.health - damage_taken)
     if check_character_death(character):
         return {

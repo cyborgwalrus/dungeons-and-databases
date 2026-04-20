@@ -12,8 +12,8 @@ export function makeIcon(i) {
   if (name.includes('ring')) return '💍';
   if (name.includes('necklace') || name.includes('amulet')) return '📿';
   if (name.includes('shield')) return '🛡️';
-  const attack = i.damage_bonus ?? i.bonus_attack ?? 0;
-  const health = i.health_bonus ?? i.bonus_health ?? 0;
+  const attack = i.damage ?? 0;
+  const health = i.health ?? 0;
   if (attack > 0 && health === 0) return '⚔️';
   if (health > 0 && attack === 0) return '👕';
   if (health > 0 && attack > 0) return '💎';
@@ -34,8 +34,8 @@ export function getItemType(i) {
   if (name.includes('helmet') || name.includes('helm') || name.includes('cap')) return 'helmet';
   if (name.includes('necklace') || name.includes('amulet')) return 'necklace';
   if (name.includes('ring')) return 'ring';
-  const attack = i.damage_bonus ?? i.bonus_attack ?? 0;
-  const health = i.health_bonus ?? i.bonus_health ?? 0;
+  const attack = i.damage ?? 0;
+  const health = i.health ?? 0;
   if (attack > 0 && health === 0) return 'weapon';
   if (health > 0 && attack === 0) return 'armor';
   return 'misc';
@@ -99,8 +99,8 @@ export function formatDungeonMessage(message) {
 
 export function formatStats(i) {
   if (!i) return '';
-  const ha = i.health_bonus ?? i.bonus_health ?? 0;
-  const aa = i.damage_bonus ?? i.bonus_attack ?? 0;
+  const ha = i.health ?? 0;
+  const aa = i.damage ?? 0;
   if (ha > 0 && aa === 0) return `${ha} HP`;
   if (aa > 0 && ha === 0) return `${aa} ATK`;
   return `+${ha} HP / +${aa} ATK`;

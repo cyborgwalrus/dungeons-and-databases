@@ -94,11 +94,11 @@ class Character(db.Model):
 
     @property
     def bonus_health(self):
-        return sum(item.health_bonus or 0 for item in self.equipped_items)
+        return sum(item.health or 0 for item in self.equipped_items)
 
     @property
     def bonus_damage(self):
-        return sum(item.damage_bonus or 0 for item in self.equipped_items)
+        return sum(item.damage or 0 for item in self.equipped_items)
 
     @staticmethod
     def _max_health_for_level(level: int) -> int:
@@ -162,8 +162,24 @@ class EnemyType(db.Model):
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     name: Mapped[str] = db.Column(db.String(80), nullable=False)
     description: Mapped[str | None] = db.Column(db.String(255))
-    base_health: Mapped[int] = db.Column(db.Integer, nullable=False)
-    base_damage: Mapped[int] = db.Column(db.Integer, nullable=False)
+    health: Mapped[int] = db.Column('base_health', db.Integer, nullable=False)
+    damage: Mapped[int] = db.Column('base_damage', db.Integer, nullable=False)
+
+    @property
+    def base_health(self):
+        return self.health
+
+    @base_health.setter
+    def base_health(self, value):
+        self.health = value
+
+    @property
+    def base_damage(self):
+        return self.damage
+
+    @base_damage.setter
+    def base_damage(self, value):
+        self.damage = value
 
     encounters: Mapped[list['Encounter']] = relationship('Encounter', back_populates='enemy_type')
 
@@ -172,8 +188,8 @@ class EnemyType(db.Model):
             'id': self.id,
             'name': self.name,
             'description': self.description,
-            'base_health': self.base_health,
-            'base_damage': self.base_damage,
+            'health': self.health,
+            'damage': self.damage,
         }
 
 
@@ -188,9 +204,33 @@ class Encounter(db.Model):
     enemy_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('enemy_type.id'), nullable=False)
     enemy_type: Mapped['EnemyType'] = relationship('EnemyType', back_populates='encounters')
     enemy_level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
-    enemy_max_health: Mapped[int] = db.Column(db.Integer, nullable=False)
-    enemy_health: Mapped[int] = db.Column(db.Integer, nullable=False)
-    enemy_damage: Mapped[int] = db.Column(db.Integer, nullable=False)
+    max_health: Mapped[int] = db.Column('enemy_max_health', db.Integer, nullable=False)
+    health: Mapped[int] = db.Column('enemy_health', db.Integer, nullable=False)
+    damage: Mapped[int] = db.Column('enemy_damage', db.Integer, nullable=False)
+
+    @property
+    def enemy_max_health(self):
+        return self.max_health
+
+    @enemy_max_health.setter
+    def enemy_max_health(self, value):
+        self.max_health = value
+
+    @property
+    def enemy_health(self):
+        return self.health
+
+    @enemy_health.setter
+    def enemy_health(self, value):
+        self.health = value
+
+    @property
+    def enemy_damage(self):
+        return self.damage
+
+    @enemy_damage.setter
+    def enemy_damage(self, value):
+        self.damage = value
 
     def to_dict(self):
         return {
@@ -198,9 +238,9 @@ class Encounter(db.Model):
             'character_id': self.character_id,
             'enemy_type_id': self.enemy_type_id,
             'name': self.enemy_type.name,
-            'health': self.enemy_health,
-            'max_health': self.enemy_max_health,
-            'damage': self.enemy_damage,
+            'health': self.health,
+            'max_health': self.max_health,
+            'damage': self.damage,
             'level': self.enemy_level,
             'description': self.enemy_type.description
         }
@@ -243,8 +283,24 @@ class ItemType(db.Model):
         ),
         nullable=False,
     )
-    base_health_bonus: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
-    base_damage_bonus: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
+    health: Mapped[int] = db.Column('base_health_bonus', db.Integer, nullable=False, default=0)
+    damage: Mapped[int] = db.Column('base_damage_bonus', db.Integer, nullable=False, default=0)
+
+    @property
+    def base_health_bonus(self):
+        return self.health
+
+    @base_health_bonus.setter
+    def base_health_bonus(self, value):
+        self.health = value
+
+    @property
+    def base_damage_bonus(self):
+        return self.damage
+
+    @base_damage_bonus.setter
+    def base_damage_bonus(self, value):
+        self.damage = value
 
     items: Mapped[list['Item']] = relationship('Item', back_populates='item_type')
 
@@ -253,8 +309,8 @@ class ItemType(db.Model):
             'id': self.id,
             'name': self.name,
             'slot': self.slot.value if self.slot else None,
-            'base_health_bonus': self.base_health_bonus,
-            'base_damage_bonus': self.base_damage_bonus,
+            'health': self.health,
+            'damage': self.damage,
         }
 
 
@@ -264,8 +320,8 @@ class Item(db.Model):
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     name: Mapped[str] = db.Column(db.String(80), nullable=False)
     level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
-    health_bonus: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
-    damage_bonus: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
+    health: Mapped[int] = db.Column('health_bonus', db.Integer, nullable=False, default=0)
+    damage: Mapped[int] = db.Column('damage_bonus', db.Integer, nullable=False, default=0)
     is_loot: Mapped[bool] = db.Column(db.Boolean, nullable=False, default=True)
     
     inventory_id: Mapped[int | None] = db.Column(db.Integer, db.ForeignKey('user_inventory.id'))
@@ -295,6 +351,22 @@ class Item(db.Model):
     def is_equipped(self):
         return self.equipment is not None
 
+    @property
+    def health_bonus(self):
+        return self.health
+
+    @health_bonus.setter
+    def health_bonus(self, value):
+        self.health = value
+
+    @property
+    def damage_bonus(self):
+        return self.damage
+
+    @damage_bonus.setter
+    def damage_bonus(self, value):
+        self.damage = value
+
     def to_dict(self):
         return {
             'id': self.id,
@@ -305,8 +377,8 @@ class Item(db.Model):
             'is_equipped': self.is_equipped,
             'slot': self.slot.value if self.slot else None,
             'is_loot': self.is_loot,
-            'health_bonus': self.health_bonus,
-            'damage_bonus': self.damage_bonus,
+            'health': self.health,
+            'damage': self.damage,
             'item_type': self.item_type.to_dict() if self.item_type else None,
         }
 

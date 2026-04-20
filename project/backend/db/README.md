@@ -27,11 +27,11 @@ The Character table represents a playable character. Each character belongs to a
 ### ItemType
 
 The ItemType table defines item templates that store static item attributes.
-When the player receives loot in a dungeon, an ItemType template is instantiated into an Item object with additional dynamic fields.
+When the player receives loot in a dungeon, an ItemType template is instantiated into an Item object with item-level health and damage values.
 
 ### Item
 
-A table of items that players have looted from the dungeon. Each Item is connected to one ItemType template and one shared UserInventory row. The player can combine multiple items together to create a new item with a high level attribute that will be used in damage calculations. When an item is dropped in the dungeon, it starts with its is_loot flag set to true. If the player is defeated during a dungeon run, all items marked with is_loot are deleted from their inventory.
+A table of items that players have looted from the dungeon. Each Item is connected to one ItemType template and one shared UserInventory row. The player can combine multiple items together to create a new item with a higher item level that will be used in damage calculations. When an item is dropped in the dungeon, it starts with its is_loot flag set to true. If the player is defeated during a dungeon run, all items marked with is_loot are deleted from their inventory.
 
 ### CharacterEquipment
 
@@ -39,7 +39,7 @@ A table of equipped items for a character. Each row links one item to one charac
 
 ### Encounter
 
-When the player enters a dungeon, an Encounter entry is created and connected to the player character using a foreign key. An EnemyType is chosen at random to face the player character, and the EnemyType entry's base_health and base_damage values are scaled to the active dungeon enemy level and stored in the Encounter's enemy_health and enemy_damage fields. Defeating enemies awards experience based on the active enemy level, and each new monster in the same dungeon run starts one or more levels higher depending on the character's level.
+When the player enters a dungeon, an Encounter entry is created and connected to the player character using a foreign key. An EnemyType is chosen at random to face the player character, and the EnemyType entry's health and damage values are scaled to the active dungeon enemy level and stored in the Encounter's health and damage fields. Defeating enemies awards experience based on the active enemy level, and each new monster in the same dungeon run starts one or more levels higher depending on the character's level.
 
 ### EnemyType
 
@@ -68,16 +68,16 @@ ItemType | Type | Description | Relations
 id | int | Item type ID | PK
 name | string | Item name | -
 slot | enum | Equipment slot. One of `weapon`, `shield`, `armor`, `helmet`, `ring`, `necklace` | -
-base_health_bonus | int | Base health bonus | -
-base_damage_bonus | int | Base damage bonus | -
+health | int | Health | -
+damage | int | Damage | -
 
 Item | Type | Description | Relations
 -- | -- | -- | --
 id | int | Item ID | PK
 name | string | Item name | -
 level | int | Item level | -
-health_bonus | int | Health bonus | -
-damage_bonus | int | Damage bonus | -
+health | int | Health | -
+damage | int | Damage | -
 item_type_id | int | Item type | ItemType.id
 inventory_id | int | FK of owning UserInventory | UserInventory.id
 is_loot | boolean | Loot state | -
@@ -95,15 +95,15 @@ id | int | Encounter ID | PK
 character_id | int | Player character | FK Character.id
 enemy_type_id | int | Enemy type | FK EnemyType.id
 enemy_level | int | Active dungeon enemy level | -
-enemy_health | int | Current enemy health | -
-enemy_damage | int | Current enemy damage | -
+health | int | Current enemy health | -
+damage | int | Current enemy damage | -
 
 EnemyType | Type | Description | Relations
 -- | -- | -- | --
 id | int | Enemy type ID | PK
 name | string | Name | -
 description | string | Description | -
-base_health | int | Base health | -
-base_damage | int | Base damage | -
+health | int | Health | -
+damage | int | Damage | -
 ---
 
