@@ -2,7 +2,7 @@ from typing import Any
 
 from flask import jsonify
 
-from ..utils.cache_helpers import get_item_type_data
+from ..db.cache_helpers import get_item_type_data
 from ..utils.game_utils import get_current_user as get_authenticated_user, get_player
 from ..db.models import Character, Encounter, Item, User
 

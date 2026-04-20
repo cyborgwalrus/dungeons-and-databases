@@ -1,41 +1,78 @@
-import csv
-import os
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from collections.abc import Sequence
 
-from .models import EnemyType, ItemType, db
+from .models import EnemyType, ItemSlot, ItemType, db
 
 
-def _load_csv_rows(filename):
-    csv_path = os.path.join(os.path.dirname(__file__), filename)
-    with open(csv_path, newline='', encoding='utf-8') as csv_file:
-        return list(csv.DictReader(csv_file))
+@dataclass(frozen=True, slots=True)
+class SeedRecord(ABC):
+    @abstractmethod
+    def model_kwargs(self) -> dict[str, object]:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class EnemyTypeSeed(SeedRecord):
+    name: str
+    base_health: int
+    base_damage: int
+    description: str
+
+    def model_kwargs(self) -> dict[str, object]:
+        return {
+            'name': self.name,
+            'base_health': self.base_health,
+            'base_damage': self.base_damage,
+            'description': self.description,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ItemTypeSeed(SeedRecord):
+    name: str
+    slot: ItemSlot
+    base_health_bonus: int
+    base_damage_bonus: int
+
+    def model_kwargs(self) -> dict[str, object]:
+        return {
+            'name': self.name,
+            'slot': self.slot.value,
+            'base_health_bonus': self.base_health_bonus,
+            'base_damage_bonus': self.base_damage_bonus,
+        }
 
 
 ENEMY_TYPES = [
-    {
-        'name': row['name'],
-        'base_health': int(row['base_health']),
-        'base_damage': int(row['base_damage']),
-        'description': row['description'],
-    }
-    for row in _load_csv_rows('enemy_types.csv')
+    EnemyTypeSeed('Goblin', 20, 5, 'A weak goblin'),
+    EnemyTypeSeed('Orc', 35, 8, 'A brutish orc'),
+    EnemyTypeSeed('Skeleton', 18, 6, 'A rattling skeleton'),
+    EnemyTypeSeed('Slime', 14, 4, 'A sticky slime'),
+    EnemyTypeSeed('Wolf', 22, 7, 'A hungry wolf'),
+    EnemyTypeSeed('Bandit', 28, 9, 'A road bandit'),
+    EnemyTypeSeed('Mage', 24, 11, 'A rogue mage'),
 ]
 
 ITEM_TYPES = [
-    {
-        'name': row['name'],
-        'slot': row['slot'],
-        'base_health_bonus': int(row['base_health_bonus']),
-        'base_damage_bonus': int(row['base_damage_bonus']),
-    }
-    for row in _load_csv_rows('item_types.csv')
+    ItemTypeSeed('Steel Sword', ItemSlot.WEAPON, 0, 10),
+    ItemTypeSeed('Leather Armor', ItemSlot.ARMOR, 15, 0),
+    ItemTypeSeed('Steel Armor', ItemSlot.ARMOR, 25, 0),
+    ItemTypeSeed('Iron Helmet', ItemSlot.HELMET, 8, 0),
+    ItemTypeSeed('Silver Necklace', ItemSlot.NECKLACE, 5, 2),
+    ItemTypeSeed('Enchanted Ring', ItemSlot.RING, 10, 3),
+    ItemTypeSeed('Iron Shield', ItemSlot.SHIELD, 20, 0),
 ]
 
 
-def seed_initial_data():
-    if EnemyType.query.count() == 0:
-        db.session.add_all([EnemyType(**seed) for seed in ENEMY_TYPES])
-        db.session.commit()
+def _seed_table(model_cls, seeds: Sequence[SeedRecord]) -> None:
+    if model_cls.query.count() != 0:
+        return
 
-    if ItemType.query.count() == 0:
-        db.session.add_all([ItemType(**seed) for seed in ITEM_TYPES])
-        db.session.commit()
+    db.session.add_all([model_cls(**seed.model_kwargs()) for seed in seeds])
+    db.session.commit()
+
+
+def seed_initial_data():
+    _seed_table(EnemyType, ENEMY_TYPES)
+    _seed_table(ItemType, ITEM_TYPES)

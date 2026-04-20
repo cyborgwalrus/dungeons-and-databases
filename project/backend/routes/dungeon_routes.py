@@ -3,7 +3,7 @@ from typing import Any
 
 from flask import Blueprint, jsonify
 
-from ..utils.cache_helpers import get_all_enemy_type_data, get_all_item_type_data
+from ..db.cache_helpers import get_all_enemy_type_data, get_all_item_type_data
 from ..utils.game_utils import add_inventory_item, clear_loot_flags, destroy_loot_items, get_player
 from ..db.models import Character, Encounter, db
 from ..utils.serializers import serialize_character, serialize_encounter

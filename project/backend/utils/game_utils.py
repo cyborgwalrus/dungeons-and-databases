@@ -3,7 +3,7 @@ from typing import Any
 from flask import current_app, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from .cache_helpers import get_all_item_type_data, get_item_type_data
+from ..db.cache_helpers import get_all_item_type_data, get_item_type_data
 from ..db.models import Character, Item, User, db
 
 

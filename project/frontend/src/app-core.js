@@ -1,5 +1,5 @@
 import { fetchJson, clearAuthToken, setAuthToken } from './api.js';
-import { makeIcon, getItemType, getItemDisplayName, formatDungeonMessage, formatStats } from './helpers.js';
+import { escapeHtml, makeIcon, getItemType, getItemDisplayName, formatDungeonMessage, formatStats } from './helpers.js';
 import { renderPlayerStatsInto } from './components/player.js';
 import { renderEquipPanel as renderEquipPanelImpl } from './components/equip.js';
 import { renderInventoryGrid as renderInventoryGridImpl } from './components/inventory.js';
@@ -280,7 +280,7 @@ async function renderCharacterSelect() {
       const charEl = document.createElement('button');
       charEl.style.cssText = 'padding: 15px; text-align: left; cursor: pointer; border: 1px solid #ccc; background-color: #f5f5f5; border-radius: 4px;';
       charEl.innerHTML = `
-        <div style="font-weight: bold; margin-bottom: 5px;">${character.name}</div>
+        <div style="font-weight: bold; margin-bottom: 5px;">${escapeHtml(character.name)}</div>
         <div style="font-size: 12px; color: #666;">Level ${character.level} | ${character.health} HP</div>
       `;
       charEl.addEventListener('click', async () => {

@@ -1,5 +1,5 @@
-from flask_sqlalchemy import SQLAlchemy
 from enum import Enum
+from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import relationship, Mapped
 
 db = SQLAlchemy()
@@ -162,7 +162,6 @@ ITEM_SLOT_ORDER = {
     ItemSlot.NECKLACE: 5,
 }
 
-
 def _slot_sort_key(slot):
     if slot is None:
         return 999
@@ -173,7 +172,15 @@ class ItemType(db.Model):
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     name: Mapped[str] = db.Column(db.String(80), nullable=False)
-    slot: Mapped[ItemSlot] = db.Column(db.Enum(ItemSlot, native_enum=False, validate_strings=True), nullable=False)
+    slot: Mapped[ItemSlot] = db.Column(
+        db.Enum(
+            ItemSlot,
+            native_enum=False,
+            validate_strings=True,
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=False,
+    )
     base_health_bonus: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
     base_damage_bonus: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
 

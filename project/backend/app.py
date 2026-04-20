@@ -1,5 +1,4 @@
 import os
-
 from flask import Flask
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -14,8 +13,12 @@ from .utils import cache, init_cache
 
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
+secret_key = os.environ.get('SECRET_KEY')
+if not secret_key:
+    raise RuntimeError('SECRET_KEY must be set')
+app.config['SECRET_KEY'] = secret_key
 app.config['AUTH_TOKEN_MAX_AGE_SECONDS'] = int(os.environ.get('AUTH_TOKEN_MAX_AGE_SECONDS', 60 * 60 * 24 * 30))
+app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', '').lower() in {'1', 'true', 'yes', 'on'}
 
 # Database configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -61,4 +64,4 @@ def delete_db():
             print('Failed to delete database:', e)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=app.config['DEBUG'], port=5000)

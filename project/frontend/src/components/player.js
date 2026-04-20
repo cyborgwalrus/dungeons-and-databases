@@ -1,3 +1,5 @@
+import { escapeHtml } from '../helpers.js';
+
 export function renderPlayerStatsInto(container, player) {
   if (!container) return;
   if (!player) {
@@ -11,7 +13,7 @@ export function renderPlayerStatsInto(container, player) {
 
   container.innerHTML = `
     <div class="player-stats">
-      <h2>${player.name}</h2>
+      <h2>${escapeHtml(player.name)}</h2>
       <div class="player-stat-lines">
         <div class="stat"><span class="stat-label">Health:</span><span id="player-health" class="stat-value">${player.health} / ${maxHealth} HP</span></div>
         <div class="stat"><span class="stat-label">Damage:</span><span id="player-damage" class="stat-value">${totalDamage}</span></div>
