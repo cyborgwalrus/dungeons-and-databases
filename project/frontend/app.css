@@ -286,6 +286,16 @@
 
 .inventory-card.equipped-card { padding:6px; gap:6px; border-radius:10px; }
 
+.inventory-card.inventory-card--better {
+  border: 2px solid #7dff9b;
+  box-shadow: 0 0 0 2px rgba(125, 255, 155, 0.22), 0 0 18px rgba(125, 255, 155, 0.32);
+}
+
+.inventory-card.inventory-card--better .item-type,
+.inventory-card .item-type.item-type--better {
+  color: #7dff9b;
+}
+
 .inventory-card:active { cursor: pointer; }
 
 .inventory-card .item-icon { font-size: 1.6em; }

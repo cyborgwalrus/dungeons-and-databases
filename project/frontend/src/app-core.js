@@ -93,8 +93,10 @@ function renderEquipPanel() {
 
 function renderInventoryGrid() {
   const inventory = Array.isArray(state.player?.inventory) ? state.player.inventory : [];
+  const equipped = Array.isArray(state.player?.equipped) ? state.player.equipped : [];
   return renderInventoryGridImpl({
     inventory,
+    equipped,
     fetchJson,
     loadStateAndRenderPartial,
     syncPlayerHealthToFull,
