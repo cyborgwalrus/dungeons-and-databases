@@ -132,3 +132,20 @@ def full_heal_character(character_id):
     db.session.commit()
 
     return jsonify(serialize_character(character, include_inventory=True))
+
+
+@character_bp.route('/characters/<int:character_id>/inventory/', methods=['DELETE'])
+def clear_character_inventory(character_id):
+    character, error_response = require_character_owner(character_id)
+    if error_response:
+        return error_response
+    assert character is not None
+
+    removable_items = [item for item in character.inventory if not item.is_equipped]
+    for item in removable_items:
+        character.inventory.remove(item)
+        db.session.delete(item)
+
+    db.session.commit()
+    db.session.expire(character)
+    return jsonify(serialize_character(character, include_inventory=True))

@@ -2,18 +2,9 @@ from flask import Blueprint, jsonify, request
 
 from ..db.models import db
 from ..utils.serializers import serialize_user
-from .common import get_json_data, require_current_user, require_current_user_id
+from .common import get_json_data, require_current_user_id
 
 user_bp = Blueprint('user', __name__)
-
-
-@user_bp.route('/users/', methods=['GET'])
-def list_users():
-    user, error_response = require_current_user()
-    if error_response:
-        return error_response
-    assert user is not None
-    return jsonify([serialize_user(user)])
 
 
 @user_bp.route('/users/<int:user_id>', methods=['GET'])

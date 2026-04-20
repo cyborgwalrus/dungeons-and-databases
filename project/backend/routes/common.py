@@ -35,6 +35,13 @@ def get_character(character_id: int | None = None) -> Character:
     return get_player()
 
 
+def require_current_character() -> tuple[Character | None, tuple[Any, int] | None]:
+    character = get_character()
+    if not character:
+        return None, json_error('No active character selected', 400)
+    return character, None
+
+
 def require_character_owner(character_id: int) -> tuple[Character | None, tuple[Any, int] | None]:
     user, error_response = require_current_user()
     if error_response:

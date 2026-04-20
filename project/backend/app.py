@@ -3,14 +3,14 @@ import os
 from flask import Flask
 from sqlalchemy.exc import SQLAlchemyError
 
-from .utils import cache, init_cache
 from backend.db.init_db import seed_initial_data
 from backend.db.models import db
 from backend.routes.auth_routes import auth_bp
 from backend.routes.user_routes import user_bp
 from backend.routes.character_routes import character_bp
+from backend.routes.item_routes import item_bp
 from backend.routes.dungeon_routes import dungeon_bp
-from backend.routes.inventory_routes import inventory_bp
+from .utils import cache, init_cache
 
 
 app = Flask(__name__)
@@ -30,8 +30,8 @@ init_cache(app)
 app.register_blueprint(auth_bp, url_prefix='/api')
 app.register_blueprint(user_bp, url_prefix='/api')
 app.register_blueprint(character_bp, url_prefix='/api')
+app.register_blueprint(item_bp, url_prefix='/api')
 app.register_blueprint(dungeon_bp, url_prefix='/api')
-app.register_blueprint(inventory_bp, url_prefix='/api')
 
 @app.cli.command('init-db')
 def init_db():

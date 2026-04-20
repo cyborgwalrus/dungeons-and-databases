@@ -4,7 +4,7 @@ import { renderPlayerStatsInto } from './components/player.js';
 import { renderEquipPanel as renderEquipPanelImpl } from './components/equip.js';
 import { renderInventoryGrid as renderInventoryGridImpl } from './components/inventory.js';
 import { buildDungeonMarkup, applyDungeonCombatUpdate, showDungeonDefeatScreen } from './screens/dungeon-runtime.js';
-import { state, getCharacterId, getCharacterInventoryPath } from './app-state.js';
+import { state, getCharacterId } from './app-state.js';
 
 const root = document.getElementById('root');
 
@@ -30,32 +30,15 @@ async function syncPlayerHealthToFull() {
 
 function resetDungeonLoot() {
   state.lootCounts = {};
-  state.dungeonLoot = [];
 }
 
-function recordDungeonLoot(itemsDropped) {
-  (itemsDropped || []).forEach(item => {
-    if (!item) return;
-    state.dungeonLoot.push(item);
-  });
-}
+async function clearUnequippedInventory() {
+  const characterId = getCharacterId();
+  if (!characterId) return;
 
-async function bankDungeonLoot() {
-  if (!state.dungeonLoot.length) return;
-  const inventoryPath = getCharacterInventoryPath();
-  if (!inventoryPath) return;
-
-  const itemTypeIds = state.dungeonLoot
-    .map(item => item && (item.item_type_id || item.id))
-    .filter(itemTypeId => itemTypeId !== undefined && itemTypeId !== null);
-
-  if (!itemTypeIds.length) return;
-
-  await fetchJson(inventoryPath, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(itemTypeIds)
-  });
+  await fetchJson(`/characters/${characterId}/inventory/`, { method: 'DELETE' });
+  await loadStateAndRenderPartial();
+  await syncPlayerHealthToFull();
 }
 
 function updatePlayerPanel(player) {
@@ -126,7 +109,6 @@ async function handleDungeonAttack() {
   const lootEl = document.getElementById('loot');
   applyDungeonCombatUpdate(dungeonState, {
     lootCounts: state.lootCounts,
-    onLootDropped: recordDungeonLoot,
     lootEl,
     setLastDungeonMessage: value => { state.lastDungeonMessage = value; }
   });
@@ -170,14 +152,8 @@ async function handleDungeonRun() {
 
   if (dungeonState.success) {
     setTimeout(async () => {
-      try {
-        await bankDungeonLoot();
-      } catch (err) {
-        console.error('Banking dungeon loot failed', err);
-      } finally {
-        resetDungeonLoot();
-        navigateTo('/');
-      }
+      resetDungeonLoot();
+      navigateTo('/');
     }, 1500);
   } else {
     setTimeout(() => renderDungeon({ resetRunState: false }), 500);
@@ -198,15 +174,6 @@ async function loadStateAndRenderPartial() {
   renderPlayerStatsInto(document.getElementById('player-stats'), state.player);
   renderEquipPanel();
   renderInventoryGrid();
-}
-
-async function clearUnequippedInventory() {
-  const inventoryPath = getCharacterInventoryPath();
-  if (!inventoryPath) return;
-
-  await fetchJson(inventoryPath, { method: 'DELETE' });
-  await loadStateAndRenderPartial();
-  await syncPlayerHealthToFull();
 }
 
 async function renderLogin() {
@@ -432,6 +399,7 @@ async function renderHome() {
       clearButton.textContent = 'Clear Inventory';
     });
   }
+
 }
 
 async function renderDungeon({ resetRunState = true } = {}) {
@@ -465,8 +433,10 @@ async function renderDungeon({ resetRunState = true } = {}) {
   document.getElementById('run').addEventListener('click', event => { event.preventDefault(); handleDungeonRun(); });
   document.getElementById('back').addEventListener('click', event => {
     event.preventDefault();
-    resetDungeonLoot();
-    navigateTo('/');
+    fetchJson('/dungeon/leave', { method: 'POST' }).finally(() => {
+      resetDungeonLoot();
+      navigateTo('/');
+    });
   });
 }
 

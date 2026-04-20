@@ -2,12 +2,12 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
-from ..utils.game_utils import add_inventory_item, clear_player_inventory, remove_inventory_item
 from ..db.models import Character, Item, db
+from ..utils.game_utils import add_inventory_item, remove_inventory_item
 from ..utils.serializers import serialize_character, serialize_item
-from .common import get_character, get_item, get_item_type, get_json_data, json_error, require_character_owner
+from .common import get_item, get_item_type, get_json_data, json_error, require_current_character
 
-inventory_bp = Blueprint('inventory', __name__)
+item_bp = Blueprint('item', __name__)
 
 
 def _equipped_items(character: Character) -> list[Item]:
@@ -67,10 +67,6 @@ def _item_response(item: Item | None, status: int = 200) -> tuple[Any, int]:
     return jsonify(serialize_item(item)), status
 
 
-def _character_response(character: Character, message: str, status: int = 200) -> tuple[Any, int]:
-    return jsonify({'message': message, 'character': serialize_character(character, include_inventory=True)}), status
-
-
 def _message_response(message: str, status: int = 200) -> tuple[Any, int]:
     return jsonify({'message': message}), status
 
@@ -82,14 +78,14 @@ def _get_item_or_error(character: Character, item_id: int, message: str = 'Item 
     return item, None
 
 
-def _current_character() -> tuple[Character | None, tuple[Any, int] | None]:
-    character = get_character()
-    if not character:
-        return None, json_error('No active character selected', 400)
-    return character, None
+@item_bp.route('/items/', methods=['POST'])
+def create_item():
+    character, error_response = require_current_character()
+    if error_response:
+        return error_response
+    assert character is not None
+    data = get_json_data(request)
 
-
-def _normalize_item_type_ids(data: Any) -> tuple[list[int] | None, tuple[Any, int] | None]:
     if isinstance(data, list):
         source_ids = data
     else:
@@ -97,57 +93,28 @@ def _normalize_item_type_ids(data: Any) -> tuple[list[int] | None, tuple[Any, in
         source_ids = [source_id] if source_id is not None else []
 
     if not source_ids:
-        return None, json_error('item_type_id is required')
+        return json_error('item_type_id is required')
 
     try:
         source_ids = [int(source_id) for source_id in source_ids]
     except (TypeError, ValueError):
-        return None, json_error('item_type_id must be an integer')
+        return json_error('item_type_id must be an integer')
 
+    created_items: list[Item] = []
     for source_id in source_ids:
-        if not get_item_type(source_id):
-            return None, json_error('Item not found', 404)
+        item_type = get_item_type(source_id)
+        if not item_type:
+            return json_error('Item not found', 404)
+        item = add_inventory_item(character, source_id, copy_from_item=False)
+        created_items.append(item)
 
-    return source_ids, None
-
-
-def _add_items_to_character(character: Character, data: Any) -> tuple[list[Item] | None, tuple[Any, int] | None]:
-    source_ids, error_response = _normalize_item_type_ids(data)
-    if error_response:
-        return None, error_response
-
-    assert source_ids is not None
-    created_items = [add_inventory_item(character, source_id, copy_from_item=False) for source_id in source_ids]
-    return created_items, None
-
-
-def _require_owned_character(character_id: int) -> tuple[Character | None, tuple[Any, int] | None]:
-    character, error_response = require_character_owner(character_id)
-    if error_response:
-        return None, error_response
-    return character, None
-
-
-@inventory_bp.route('/items/', methods=['POST'])
-def create_inventory_item():
-    character, error_response = _current_character()
-    if error_response:
-        return error_response
-    assert character is not None
-
-    data = get_json_data(request)
-    created_items, error_response = _add_items_to_character(character, data)
-    if error_response:
-        return error_response
-
-    assert created_items is not None
     db.session.commit()
     return jsonify([serialize_item(item) for item in created_items]), 201
 
 
-@inventory_bp.route('/items/<int:item_id>', methods=['GET'])
-def get_inventory_item(item_id: int):
-    character, error_response = _current_character()
+@item_bp.route('/items/<int:item_id>', methods=['GET'])
+def get_item_route(item_id: int):
+    character, error_response = require_current_character()
     if error_response:
         return error_response
     assert character is not None
@@ -157,9 +124,9 @@ def get_inventory_item(item_id: int):
     return _item_response(item)
 
 
-@inventory_bp.route('/items/<int:item_id>', methods=['PUT'])
-def update_inventory_item(item_id: int):
-    character, error_response = _current_character()
+@item_bp.route('/items/<int:item_id>', methods=['PUT'])
+def update_item(item_id: int):
+    character, error_response = require_current_character()
     if error_response:
         return error_response
     assert character is not None
@@ -184,9 +151,9 @@ def update_inventory_item(item_id: int):
     return jsonify({'message': 'Item updated', 'item': serialize_item(item), 'character': serialize_character(character, include_inventory=True)})
 
 
-@inventory_bp.route('/items/<int:item_id>', methods=['DELETE'])
-def remove_inventory_item_route(item_id: int):
-    character, error_response = _current_character()
+@item_bp.route('/items/<int:item_id>', methods=['DELETE'])
+def remove_item(item_id: int):
+    character, error_response = require_current_character()
     if error_response:
         return error_response
     assert character is not None
@@ -197,35 +164,3 @@ def remove_inventory_item_route(item_id: int):
 
     db.session.commit()
     return _message_response('Item removed from inventory')
-
-
-@inventory_bp.route('/characters/<int:character_id>/inventory/', methods=['POST'])
-def add_items_to_inventory(character_id: int):
-    character, error_response = _require_owned_character(character_id)
-    if error_response:
-        return error_response
-    assert character is not None
-
-    data = get_json_data(request)
-    created_items, error_response = _add_items_to_character(character, data)
-    if error_response:
-        return error_response
-
-    assert created_items is not None
-    db.session.commit()
-    db.session.expire(character)
-    return _character_response(character, 'Inventory updated', 201)
-
-
-@inventory_bp.route('/characters/<int:character_id>/inventory/', methods=['DELETE'])
-def clear_inventory(character_id: int):
-    character, error_response = _require_owned_character(character_id)
-    if error_response:
-        return error_response
-    assert character is not None
-
-    clear_player_inventory(character)
-    db.session.commit()
-    db.session.expire(character)
-    return jsonify({'message': 'Unequipped items cleared'})
-

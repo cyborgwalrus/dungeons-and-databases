@@ -109,25 +109,23 @@ def seed_character_loadout(character: Character) -> None:
             add_inventory_item(character, item_type['id'], copy_from_item=False)
 
 
-def add_inventory_item(player: Character, item_id: int, *, copy_from_item: bool = False) -> Item | None:
-    item_model = Item
-
-    source_item = item_model.query.get(item_id) if copy_from_item else None
+def add_inventory_item(player: Character, item_id: int, *, copy_from_item: bool = False, is_loot: bool | None = None) -> Item | None:
+    source_item = Item.query.get(item_id) if copy_from_item else None
     if source_item:
         item_type = get_item_type_data(source_item.item_type_id)
         level = source_item.level
-        is_loot = source_item.is_loot
+        loot_flag = source_item.is_loot if is_loot is None else is_loot
     else:
         item_type = get_item_type_data(item_id)
         if not item_type:
             return None
         level = 1
-        is_loot = False
+        loot_flag = False if is_loot is None else is_loot
 
     if not item_type:
         return None
 
-    inventory_item = item_model(
+    inventory_item = Item(
         name=item_type['name'],
         item_type_id=item_type['id'],
         owner_id=player.id,
@@ -135,24 +133,34 @@ def add_inventory_item(player: Character, item_id: int, *, copy_from_item: bool 
         health_bonus=item_type['base_health_bonus'] or 0,
         damage_bonus=item_type['base_damage_bonus'] or 0,
         is_equipped=False,
-        is_loot=is_loot,
+        is_loot=loot_flag,
     )
     db.session.add(inventory_item)
     return inventory_item
 
 
 def remove_inventory_item(player: Character, item_id: int) -> Item | None:
-    item_model = Item
-
-    inventory_item = item_model.query.filter_by(owner_id=player.id, is_equipped=False, id=item_id).first()
+    inventory_item = Item.query.filter_by(owner_id=player.id, is_equipped=False, id=item_id).first()
     if not inventory_item:
-        inventory_item = item_model.query.filter_by(owner_id=player.id, is_equipped=False, item_type_id=item_id).first()
+        inventory_item = Item.query.filter_by(owner_id=player.id, is_equipped=False, item_type_id=item_id).first()
     if not inventory_item:
         return None
 
+    if inventory_item in player.inventory:
+        player.inventory.remove(inventory_item)
     db.session.delete(inventory_item)
     return inventory_item
 
 
-def clear_player_inventory(player: Character) -> None:
-    Item.query.filter_by(owner_id=player.id, is_equipped=False).delete()
+def clear_loot_flags(player: Character) -> None:
+    for item in player.inventory:
+        if item.is_loot:
+            item.is_loot = False
+
+
+def destroy_loot_items(player: Character) -> None:
+    loot_items = [item for item in player.inventory if item.is_loot]
+    for item in loot_items:
+        if item in player.inventory:
+            player.inventory.remove(item)
+        db.session.delete(item)

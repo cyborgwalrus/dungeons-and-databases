@@ -4,7 +4,7 @@ from typing import Any
 from flask import Blueprint, jsonify
 
 from ..utils.cache_helpers import get_all_enemy_type_data, get_all_item_type_data
-from ..utils.game_utils import get_player
+from ..utils.game_utils import add_inventory_item, clear_loot_flags, destroy_loot_items, get_player
 from ..db.models import Character, Encounter, db
 from ..utils.serializers import serialize_character, serialize_encounter
 from .common import get_character, json_error
@@ -54,11 +54,21 @@ def create_new_encounter(character: Character | None = None) -> Encounter | None
     return encounter
 
 
-def check_player_death(character: Character) -> bool:
-    if character.health <= 0:
-        Encounter.query.filter_by(character_id=character.id).delete()
-        return True
-    return False
+def check_character_death(character: Character) -> bool:
+    return character.health <= 0
+
+
+def _remove_active_encounter(character: Character) -> None:
+    Encounter.query.filter_by(character_id=character.id).delete()
+
+
+def _finalize_loot(character: Character) -> None:
+    clear_loot_flags(character)
+
+
+def _destroy_active_loot_and_encounter(character: Character) -> None:
+    destroy_loot_items(character)
+    _remove_active_encounter(character)
 
 
 def drop_loot() -> list[dict[str, Any]]:
@@ -114,7 +124,7 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
 
     if encounter.enemy_health > 0:
         character.health = max(0, character.health - monster_hits)
-        if check_player_death(character):
+        if check_character_death(character):
             return {
                 'message': (
                     'Defeat!\n'
@@ -145,6 +155,8 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
     if items_dropped:
         item_names = ', '.join(item['name'] for item in items_dropped)
         message_lines.append(f'You found {item_names}!')
+        for item in items_dropped:
+            add_inventory_item(character, item['id'], is_loot=True)
 
     if random.random() < 0.4:
         character.level += 1
@@ -152,7 +164,7 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
         character.health = min(character.health + 20, 100 + (character.level * 10) + character.bonus_health)
         message_lines.append('You leveled up!')
 
-    db.session.delete(encounter)
+    _remove_active_encounter(character)
     db.session.commit()
     next_encounter = create_new_encounter(character)
 
@@ -184,7 +196,7 @@ def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, A
 
     damage_taken = _combat_damage_roll(encounter.enemy_damage)
     character.health = max(0, character.health - damage_taken)
-    if check_player_death(character):
+    if check_character_death(character):
         return {
             'message': (
                 f'You rolled a {dice_roll} and failed to escape. '
@@ -235,6 +247,8 @@ def attack_monster() -> Any:
     if not encounter:
         return json_error('No active encounter. Enter the dungeon first', 400)
     outcome = _resolve_attack_turn(character, encounter)
+    if outcome['player_died']:
+        _destroy_active_loot_and_encounter(character)
     db.session.commit()
 
     return build_combat_response(
@@ -256,6 +270,10 @@ def run_away() -> Any:
     if not encounter:
         return json_error('No active encounter. Enter the dungeon first', 400)
     outcome = _resolve_run_turn(character, encounter)
+    if outcome['player_died']:
+        _destroy_active_loot_and_encounter(character)
+    elif outcome['success']:
+        _finalize_loot(character)
     db.session.commit()
     return build_combat_response(
         character,
@@ -268,3 +286,14 @@ def run_away() -> Any:
         damage=outcome['damage'],
         dice_roll=outcome['dice_roll'],
     )
+
+
+@dungeon_bp.route('/dungeon/leave', methods=['POST'])
+def leave_dungeon() -> Any:
+    character = get_character()
+    if not character:
+        return json_error('No active character selected', 400)
+
+    _destroy_active_loot_and_encounter(character)
+    db.session.commit()
+    return jsonify({'message': 'You left the dungeon'})
