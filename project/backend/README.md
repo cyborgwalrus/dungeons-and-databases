@@ -8,7 +8,7 @@ The backend exposes its routes under the `/api` prefix.
 | :------------: | :------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------- | :---------: |
 | Authentication | `/login/signup` - `POST`<br>`/login/signin` - `POST`<br>`/login/signout` - `POST`<br>`/login/me` - `GET`                              | Token-based authentication endpoints                     |     Yes     |
 |     Users      | `/users/<int:user_id>` - `GET` `PUT` `DELETE`                                                                     | User account management                                  |     Yes     |
-|   Characters   | `/characters/` - `GET` `POST`<br>`/characters/<int:character_id>` - `GET` `PUT` `DELETE`<br>`/characters/<int:character_id>/select` - `POST`<br>`/characters/<int:character_id>/level_up` - `POST`<br>`/characters/<int:character_id>/full_heal` - `POST`<br>`/characters/<int:character_id>/inventory/` - `DELETE` | Character management, selection, leveling, healing, and inventory cleanup |     Yes     |
+|   Characters   | `/characters/` - `GET` `POST`<br>`/characters/<int:character_id>` - `GET` `PUT` `DELETE`<br>`/characters/<int:character_id>/select` - `POST`<br>`/characters/<int:character_id>/full_heal` - `POST`<br>`/characters/<int:character_id>/inventory/` - `DELETE` | Character management, selection, leveling, experience, healing, and inventory cleanup |     Yes     |
 |      Item      | `/items/` - `POST`<br>`/items/<int:item_id>` - `GET` `PUT` `DELETE`                                                                    | Item creation and item-level operations                  |     Yes     |
 |    Dungeon     | `/dungeon/enter` - `POST`<br>`/dungeon/attack` - `POST`<br>`/dungeon/run` - `POST`<br>`/dungeon/leave` - `POST`                       | Dungeon entry, combat, and cleanup operations            |     Yes     |
 
@@ -35,7 +35,6 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 - `PUT /api/characters/<int:character_id>` - update a character's stats.
 - `DELETE /api/characters/<int:character_id>` - delete a character.
 - `POST /api/characters/<int:character_id>/select` - issue a token scoped to the selected character.
-- `POST /api/characters/<int:character_id>/level_up` - level up a character.
 - `POST /api/characters/<int:character_id>/full_heal` - heal a character to full health.
 - `DELETE /api/characters/<int:character_id>/inventory/` - clear a character's unequipped inventory.
 

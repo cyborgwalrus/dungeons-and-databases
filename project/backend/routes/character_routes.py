@@ -106,21 +106,6 @@ def update_character(character_id):
     return jsonify(serialize_character(character, include_inventory=True))
 
 
-@character_bp.route('/characters/<int:character_id>/level_up', methods=['POST'])
-def level_up_character(character_id):
-    character, error_response = require_character_owner(character_id)
-    if error_response:
-        return error_response
-    assert character is not None
-
-    character.level += 1
-    character.damage += 5
-    character.health += 10
-
-    db.session.commit()
-    return jsonify(serialize_character(character, include_inventory=True))
-
-
 @character_bp.route('/characters/<int:character_id>/full_heal', methods=['POST'])
 def full_heal_character(character_id):
     character, error_response = require_character_owner(character_id)
@@ -128,7 +113,7 @@ def full_heal_character(character_id):
         return error_response
     assert character is not None
 
-    character.health = 100 + (max(0, character.level - 1) * 10) + character.bonus_health
+    character.health = character.max_health
     db.session.commit()
 
     return jsonify(serialize_character(character, include_inventory=True))

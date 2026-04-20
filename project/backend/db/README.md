@@ -18,7 +18,7 @@ The User table represents a player account. Each user has a unique username, a p
 
 ### Character
 
-The Character table represents a playable character. Each character belongs to a user and contains basic attributes such as level, health, and damage. Each character has an inventory, a list of Items the character has looted from the dungeon. One item of each type can be equipped to increase the character's stats.
+The Character table represents a playable character. Each character belongs to a user and contains basic attributes such as level, experience, health, and damage. Each character has an inventory, a list of Items the character has looted from the dungeon. One item of each type can be equipped to increase the character's stats.
 
 ### ItemType
 
@@ -31,7 +31,7 @@ A table of items that players have looted from the dungeon. Each Item is connect
 
 ### Encounter
 
-When the player enters a dungeon, an Encounter entry is created and connected to the player character using a foreign key. An EnemyType is chosen at random to face the player character, and the EnemyType entry's base_health and base_damage values are scaled to player level and stored in the Encounter's enemy_health and enemy_damage fields.
+When the player enters a dungeon, an Encounter entry is created and connected to the player character using a foreign key. An EnemyType is chosen at random to face the player character, and the EnemyType entry's base_health and base_damage values are scaled to the active dungeon enemy level and stored in the Encounter's enemy_health and enemy_damage fields. Defeating enemies awards experience based on the active enemy level, and each new monster in the same dungeon run starts one or more levels higher depending on the character's level.
 
 ### EnemyType
 
@@ -80,6 +80,7 @@ Encounter | Type | Description | Relations
 id | int | Encounter ID | PK
 character_id | int | Player character | FK Character.id
 enemy_type_id | int | Enemy type | FK EnemyType.id
+enemy_level | int | Active dungeon enemy level |  
 enemy_health | int | Current enemy health |  
 enemy_damage | int | Current enemy damage |  
 

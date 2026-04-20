@@ -46,10 +46,10 @@ class ItemTypeSeed(SeedRecord):
 
 ENEMY_TYPES = [
     EnemyTypeSeed('Goblin', 20, 5, 'A weak goblin'),
-    EnemyTypeSeed('Orc', 35, 8, 'A brutish orc'),
-    EnemyTypeSeed('Skeleton', 18, 6, 'A rattling skeleton'),
     EnemyTypeSeed('Slime', 14, 4, 'A sticky slime'),
+    EnemyTypeSeed('Skeleton', 18, 6, 'A rattling skeleton'),
     EnemyTypeSeed('Wolf', 22, 7, 'A hungry wolf'),
+    EnemyTypeSeed('Orc', 35, 8, 'A brutish orc'),
     EnemyTypeSeed('Bandit', 28, 9, 'A road bandit'),
     EnemyTypeSeed('Mage', 24, 11, 'A rogue mage'),
 ]

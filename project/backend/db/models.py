@@ -42,6 +42,7 @@ class Character(db.Model):
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     name: Mapped[str] = db.Column(db.String(80), nullable=False)
     level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
+    experience: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
     health: Mapped[int] = db.Column(db.Integer, nullable=False, default=100)
     damage: Mapped[int] = db.Column(db.Integer, nullable=False, default=10)
 
@@ -76,12 +77,49 @@ class Character(db.Model):
     def bonus_damage(self):
         return sum(item.damage_bonus or 0 for item in self.equipped_items)
 
+    @staticmethod
+    def _max_health_for_level(level: int) -> int:
+        return 100 + (max(0, level - 1) * 10)
+
+    @property
+    def max_health(self):
+        return self._max_health_for_level(self.level) + self.bonus_health
+
+    @property
+    def experience_to_next_level(self):
+        return 100 + (max(0, self.level - 1) * 50)
+
+    def gain_experience(self, amount: int) -> int:
+        if amount <= 0:
+            return 0
+        self.experience += amount
+        return amount
+
+    def can_level_up(self):
+        return self.experience >= self.experience_to_next_level
+
+    def level_up(self):
+        if not self.can_level_up():
+            return False
+
+        self.experience -= self.experience_to_next_level
+        next_level = self.level + 1
+        next_max_health = self._max_health_for_level(next_level) + self.bonus_health
+
+        self.level = next_level
+        self.damage += 5
+        self.health = min(self.health + 10, next_max_health)
+        return True
+
     def to_dict(self, include_inventory=False):
         data = {
             'id': self.id,
             'user_id': self.user_id,
             'name': self.name,
             'level': self.level,
+            'experience': self.experience,
+            'experience_to_next_level': self.experience_to_next_level,
+            'max_health': self.max_health,
             'health': self.health,
             'damage': self.damage,
             'bonus_health': self.bonus_health,
@@ -98,7 +136,6 @@ class EnemyType(db.Model):
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     name: Mapped[str] = db.Column(db.String(80), nullable=False)
-    level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
     description: Mapped[str | None] = db.Column(db.String(255))
     base_health: Mapped[int] = db.Column(db.Integer, nullable=False)
     base_damage: Mapped[int] = db.Column(db.Integer, nullable=False)
@@ -109,7 +146,6 @@ class EnemyType(db.Model):
         return {
             'id': self.id,
             'name': self.name,
-            'level': self.level,
             'description': self.description,
             'base_health': self.base_health,
             'base_damage': self.base_damage,
@@ -126,6 +162,7 @@ class Encounter(db.Model):
     
     enemy_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('enemy_type.id'), nullable=False)
     enemy_type: Mapped['EnemyType'] = relationship('EnemyType', back_populates='encounters')
+    enemy_level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
     enemy_max_health: Mapped[int] = db.Column(db.Integer, nullable=False)
     enemy_health: Mapped[int] = db.Column(db.Integer, nullable=False)
     enemy_damage: Mapped[int] = db.Column(db.Integer, nullable=False)
@@ -139,7 +176,7 @@ class Encounter(db.Model):
             'health': self.enemy_health,
             'max_health': self.enemy_max_health,
             'damage': self.enemy_damage,
-            'level': self.character.level,
+            'level': self.enemy_level,
             'description': self.enemy_type.description
         }
 

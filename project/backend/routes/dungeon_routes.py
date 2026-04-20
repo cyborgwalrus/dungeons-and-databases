@@ -39,12 +39,14 @@ def create_new_encounter(character: Character | None = None) -> Encounter | None
     if not enemy_type:
         return None
 
-    enemy_health = enemy_type['base_health'] + (character.level * 10)
-    enemy_damage = enemy_type['base_damage'] + (character.level * 2)
+    enemy_level = 1
+    enemy_health = enemy_type['base_health'] + (enemy_level * 10)
+    enemy_damage = enemy_type['base_damage'] + (enemy_level * 2)
 
     encounter = Encounter(
         character_id=character.id,
         enemy_type_id=enemy_type['id'],
+        enemy_level=enemy_level,
         enemy_max_health=enemy_health,
         enemy_health=enemy_health,
         enemy_damage=enemy_damage,
@@ -52,6 +54,55 @@ def create_new_encounter(character: Character | None = None) -> Encounter | None
     db.session.add(encounter)
     db.session.commit()
     return encounter
+
+
+def _experience_reward_for_enemy(encounter: Encounter) -> int:
+    enemy_level = encounter.enemy_level if encounter.enemy_level else 1
+    return 20 + (enemy_level * 10)
+
+
+def _enemy_level_step(character: Character) -> int:
+    return 1 + max(0, (character.level - 1) // 3)
+
+
+def _next_enemy_level(character: Character, encounter: Encounter) -> int:
+    return encounter.enemy_level + _enemy_level_step(character)
+
+
+def _apply_victory_experience(character: Character, encounter: Encounter, message_lines: list[str]) -> None:
+    experience_gained = _experience_reward_for_enemy(encounter)
+    character.gain_experience(experience_gained)
+    message_lines.append(f'You gained {experience_gained} XP!')
+
+    leveled_up = False
+    while character.level_up():
+        leveled_up = True
+        message_lines.append(f'You reached level {character.level}!')
+
+    if leveled_up:
+        message_lines.append(f'Next level at {character.experience_to_next_level} XP.')
+
+
+def _create_next_encounter(character: Character, encounter: Encounter) -> Encounter | None:
+    next_enemy_level = _next_enemy_level(character, encounter)
+    enemy_types = get_all_enemy_type_data()
+    enemy_type = random.choice(enemy_types) if enemy_types else None
+    if not enemy_type:
+        return None
+
+    enemy_health = enemy_type['base_health'] + (next_enemy_level * 10)
+    enemy_damage = enemy_type['base_damage'] + (next_enemy_level * 2)
+
+    next_encounter = Encounter(
+        character_id=character.id,
+        enemy_type_id=enemy_type['id'],
+        enemy_level=next_enemy_level,
+        enemy_max_health=enemy_health,
+        enemy_health=enemy_health,
+        enemy_damage=enemy_damage,
+    )
+    db.session.add(next_encounter)
+    return next_encounter
 
 
 def check_character_death(character: Character) -> bool:
@@ -158,15 +209,11 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
         for item in items_dropped:
             add_inventory_item(character, item['id'], is_loot=True)
 
-    if random.random() < 0.4:
-        character.level += 1
-        character.damage += 3
-        character.health = min(character.health + 20, 100 + (character.level * 10) + character.bonus_health)
-        message_lines.append('You leveled up!')
+    _apply_victory_experience(character, encounter, message_lines)
 
     _remove_active_encounter(character)
+    next_encounter = _create_next_encounter(character, encounter)
     db.session.commit()
-    next_encounter = create_new_encounter(character)
 
     return {
         'message': '\n'.join(message_lines),
