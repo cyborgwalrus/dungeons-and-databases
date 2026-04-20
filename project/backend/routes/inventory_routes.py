@@ -2,7 +2,7 @@ from typing import Any
 
 from flask import Blueprint, jsonify, request
 
-from ..utils.game_utils import add_inventory_item, clear_player_equipment, clear_player_inventory, remove_inventory_item
+from ..utils.game_utils import add_inventory_item, clear_player_inventory, remove_inventory_item
 from ..db.models import Character, Item, db
 from ..utils.serializers import serialize_character, serialize_item
 from .common import get_item, get_item_type, get_json_data, json_error, require_character_owner
@@ -149,9 +149,8 @@ def clear_inventory(character_id: int):
         return error_response
     assert character is not None
     clear_player_inventory(character)
-    clear_player_equipment(character)
     db.session.commit()
-    return jsonify({'message': 'Inventory cleared'})
+    return jsonify({'message': 'Unequipped items cleared'})
 
 
 @inventory_bp.route('/characters/<int:character_id>/inventory/<int:item_id>', methods=['GET'])

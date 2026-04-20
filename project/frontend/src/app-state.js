@@ -2,7 +2,6 @@ export const state = {
   currentUser: null,
   characters: [],
   player: null,
-  currentDrag: null,
   lastDungeonMessage: null,
   lootCounts: {},
   dungeonLoot: [],

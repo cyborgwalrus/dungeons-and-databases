@@ -1,10 +1,9 @@
 import { fetchJson, clearAuthToken, setAuthToken } from './api.js';
-import { makeIcon, getItemType, getItemDisplayName, formatDungeonMessage, formatStats, isSlotCompatible } from './helpers.js';
+import { makeIcon, getItemType, getItemDisplayName, formatDungeonMessage, formatStats } from './helpers.js';
 import { renderPlayerStatsInto } from './components/player.js';
 import { renderEquipPanel as renderEquipPanelImpl } from './components/equip.js';
 import { renderInventoryGrid as renderInventoryGridImpl } from './components/inventory.js';
 import { buildDungeonMarkup, applyDungeonCombatUpdate, showDungeonDefeatScreen } from './screens/dungeon-runtime.js';
-import { setupRubbishBin } from './page.js';
 import { state, getCharacterId, getCharacterInventoryPath, getFullHealthForPlayer } from './app-state.js';
 
 const root = document.getElementById('root');
@@ -63,16 +62,6 @@ async function bankDungeonLoot() {
   });
 }
 
-function updateSlotHighlights() {
-  document.querySelectorAll('.equip-slot').forEach(slotEl => {
-    slotEl.classList.remove('slot-allowed', 'slot-denied');
-    if (!state.currentDrag) return;
-    const slotType = slotEl.getAttribute('data-slot-type') || 'misc';
-    const itemType = state.currentDrag.itemType || 'misc';
-    if (isSlotCompatible(slotType, itemType)) slotEl.classList.add('slot-allowed'); else slotEl.classList.add('slot-denied');
-  });
-}
-
 function updatePlayerPanel(player) {
   if (!player) return;
   const ph = document.getElementById('player-health');
@@ -110,9 +99,6 @@ function renderEquipPanel() {
     inventory,
     allItems: [...inventory, ...equipped],
     getCharacterId,
-    getCurrentDrag: () => state.currentDrag,
-    setCurrentDrag: value => { state.currentDrag = value; },
-    updateSlotHighlights,
     fetchJson,
     loadStateAndRenderPartial,
     syncPlayerHealthToFull,
@@ -128,9 +114,6 @@ function renderInventoryGrid() {
   return renderInventoryGridImpl({
     inventory,
     getCharacterId,
-    getCurrentDrag: () => state.currentDrag,
-    setCurrentDrag: value => { state.currentDrag = value; },
-    updateSlotHighlights,
     fetchJson,
     loadStateAndRenderPartial,
     syncPlayerHealthToFull,
@@ -218,6 +201,15 @@ async function loadStateAndRenderPartial() {
   renderPlayerStatsInto(document.getElementById('player-stats'), state.player);
   renderEquipPanel();
   renderInventoryGrid();
+}
+
+async function clearUnequippedInventory() {
+  const characterId = getCharacterId();
+  if (!characterId) return;
+
+  await fetchJson(`/characters/${characterId}/inventory/`, { method: 'DELETE' });
+  await loadStateAndRenderPartial();
+  await syncPlayerHealthToFull();
 }
 
 async function renderLogin() {
@@ -309,6 +301,9 @@ async function renderCharacterSelect() {
   content.innerHTML = `
     <h1 style="text-align: center; margin-bottom: 30px;">Select or Create a Character</h1>
     <div id="character-list" style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;"></div>
+    <div style="margin-bottom: 10px;">
+      <input type="text" id="create-char-name" placeholder="Enter character name" style="width: 100%; padding: 12px; box-sizing: border-box;">
+    </div>
     <button id="create-char-btn" style="width: 100%; padding: 12px; cursor: pointer; font-size: 16px;">Create New Character</button>
     <button id="logout-btn" style="width: 100%; padding: 10px; cursor: pointer; margin-top: 10px; background-color: #666;">Logout</button>
   `;
@@ -338,8 +333,10 @@ async function renderCharacterSelect() {
     });
   }
 
+  const createCharNameInput = document.getElementById('create-char-name');
+
   document.getElementById('create-char-btn').addEventListener('click', async () => {
-    const charName = prompt('Enter character name:') || 'Hero';
+    const charName = createCharNameInput.value.trim() || 'Hero';
     const createRes = await fetchJson('/characters/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -365,20 +362,24 @@ async function renderHome() {
   root.innerHTML = `<div class="game-container"><div id="main-content"></div></div>`;
   const main = document.getElementById('main-content');
   main.innerHTML = `
-    <div style="display:flex;gap:20;align-items:stretch;">
-      <div id="player-stats-container" style="flex:1;min-width:260px;display:flex;flex-direction:column;box-sizing:border-box;height:100%;min-height:0">
-        <div id="player-stats" style=""></div>
+    <div class="home-layout">
+      <div id="player-stats-container" class="home-panel home-stats-panel">
+        <div id="player-stats"></div>
       </div>
-      <div id="equip-panel" style="flex:1;min-width:260px"></div>
-    </div>
-    <div class="inventory-scroll-box">
-      <div id="inventory-grid" class="inventory-grid"></div>
-    </div>
-    <div id="rubbish-bin" class="rubbish-bin">🗑️ Drop items here to destroy</div>
-    <div style="margin-top:20px;display:flex;justify-content:center;flex-wrap:wrap;gap:10px;">
-      <button class="dungeon-button" id="enter-dungeon">Enter the Dungeon</button>
-      <button class="dungeon-button" id="select-character-btn" style="background-color: #666;">Change Character</button>
-      <button class="dungeon-button" id="logout-btn" style="background-color: #333;">Logout</button>
+      <div id="equip-panel" class="home-panel home-equip-panel"></div>
+      <div class="inventory-panel-box home-panel home-inventory-panel">
+        <div class="inventory-scroll-box">
+          <div id="inventory-grid" class="inventory-grid"></div>
+        </div>
+      </div>
+      <div class="clear-inventory-row" style="display:flex;justify-content:center;">
+        <button class="dungeon-button clear-inventory-btn" id="clear-inventory-btn" style="background-color:#b23b3b;">Clear Inventory</button>
+      </div>
+      <div class="home-actions-row" style="display:flex;justify-content:center;flex-wrap:wrap;gap:10px;margin-top:56px;">
+        <button class="dungeon-button" id="enter-dungeon">Enter the Dungeon</button>
+        <button class="dungeon-button" id="select-character-btn" style="background-color: #666;">Change Character</button>
+        <button class="dungeon-button" id="logout-btn" style="background-color: #333;">Logout</button>
+      </div>
     </div>
   `;
 
@@ -404,16 +405,36 @@ async function renderHome() {
     console.warn('Heal on home failed', error);
   }
 
-  const bin = document.getElementById('rubbish-bin');
-  setupRubbishBin(bin, {
-    fetchJson,
-    loadStateAndRenderPartial,
-    getCurrentDrag: () => state.currentDrag,
-    setCurrentDrag: value => { state.currentDrag = value; },
-    updateSlotHighlights,
-    getCharacterId,
-    syncPlayerHealthToFull
+  document.getElementById('clear-inventory-btn').addEventListener('click', async () => {
+    const clearButton = document.getElementById('clear-inventory-btn');
+    if (!clearButton) return;
+
+    if (clearButton.dataset.confirmClear !== '1') {
+      clearButton.dataset.confirmClear = '1';
+      clearButton.textContent = 'Are you sure?';
+      return;
+    }
+
+    try {
+      clearButton.dataset.confirmClear = '0';
+      clearButton.textContent = 'Clear Inventory';
+      await clearUnequippedInventory();
+    } catch (error) {
+      console.error('Clear inventory failed', error);
+    }
   });
+
+  if (!document.documentElement.dataset.clearInventoryResetBound) {
+    document.documentElement.dataset.clearInventoryResetBound = '1';
+    document.addEventListener('click', event => {
+      const clearButton = document.getElementById('clear-inventory-btn');
+      if (!clearButton) return;
+      if (clearButton.dataset.confirmClear !== '1') return;
+      if (event.target.closest && event.target.closest('#clear-inventory-btn')) return;
+      clearButton.dataset.confirmClear = '0';
+      clearButton.textContent = 'Clear Inventory';
+    });
+  }
 }
 
 async function renderDungeon({ resetRunState = true } = {}) {

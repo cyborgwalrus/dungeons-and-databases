@@ -15,12 +15,107 @@
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
+.home-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "stats equip"
+    "inventory inventory"
+    "clear clear"
+    "actions actions";
+  gap: 0;
+  align-items: stretch;
+}
+
+.home-panel {
+  min-height: 0;
+}
+
+.home-stats-panel {
+  display: flex;
+  grid-area: stats;
+  margin-bottom: 8px;
+}
+
+.home-stats-panel > #player-stats {
+  display: flex;
+  flex: 1;
+  height: 100%;
+}
+
+.home-stats-panel,
+.home-equip-panel {
+  width: 100%;
+}
+
+.home-equip-panel {
+  grid-area: equip;
+}
+
+.home-stats-panel .player-stats {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.player-stat-lines {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.inventory-panel-box {
+  border: 2px solid #4ecdc4;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  padding: 4px;
+  box-sizing: border-box;
+  grid-area: inventory;
+  width: 100%;
+}
+
+.home-inventory-panel {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.inventory-panel-box .inventory-scroll-box {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  max-height: none;
+}
+
+.inventory-panel-box .clear-inventory-btn {
+  margin-top: 0;
+}
+
+.clear-inventory-row {
+  grid-area: clear;
+}
+
+.home-actions-row {
+  grid-area: actions;
+}
+
+.inventory-scroll-box.inventory-empty {
+  max-height: 88px;
+  height: auto;
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .player-stats {
   background: rgba(0, 0, 0, 0.3);
   border: 2px solid #ffd700;
   border-radius: 10px;
   padding: 8px;
-  margin-bottom: 6px;
+  margin-bottom: 0;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.18);
 }
 
@@ -163,20 +258,15 @@
 /* Inventory grid and equip slot styles for drag-and-drop */
 .inventory-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-top: 8px;
 }
 
 .inventory-scroll-box {
   margin-top: 0;
-  max-height: 280px;
   overflow-y: auto;
-  padding: 10px;
-  border: 1px solid rgba(255, 215, 0, 0.16);
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  padding: 4px;
 }
 
 .inventory-scroll-box .inventory-grid {
@@ -186,17 +276,17 @@
 .inventory-card {
   background: rgba(0,0,0,0.45);
   border: 1px solid rgba(255,255,255,0.06);
-  padding: 12px;
+  padding: 10px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   gap: 10px;
-  cursor: grab;
+  cursor: pointer;
 }
 
 .inventory-card.equipped-card { padding:6px; gap:6px; border-radius:10px; }
 
-.inventory-card:active { cursor: grabbing; }
+.inventory-card:active { cursor: pointer; }
 
 .inventory-card .item-icon { font-size: 1.6em; }
 .inventory-card .card-details { text-align: left; flex: 1; }
@@ -216,32 +306,6 @@
 }
 
 .equip-slot.empty { opacity: 0.6; }
-
-.drag-over { box-shadow: 0 0 0 3px rgba(78,205,196,0.18) inset; transform: scale(1.01); }
-
-/* Allowed/denied slot highlights */
-.slot-allowed { border: 2px solid #39d353 !important; box-shadow: 0 0 0 4px rgba(57,211,83,0.12) inset; }
-.slot-denied { border: 2px solid rgba(255,0,0,0.35) !important; box-shadow: 0 0 0 4px rgba(255,0,0,0.06) inset; }
-
-.available-item { background: rgba(0,0,0,0.4); padding: 8px; border-radius: 6px; cursor: grab; }
-
-.inventory-grid.drag-over { outline: 3px dashed rgba(255,215,0,0.15); }
-
-/* Rubbish bin styles */
-.rubbish-bin {
-  margin-top: 12px;
-  background: rgba(255,255,255,0.03);
-  border: 2px dashed rgba(255,99,71,0.18);
-  border-radius: 8px;
-  padding: 12px;
-  color: #ff6b6b;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-.rubbish-bin.drag-over { background: rgba(255,99,71,0.06); box-shadow: 0 0 0 6px rgba(255,99,71,0.06) inset; border-color: rgba(255,99,71,0.9); }
 
 /* Dungeon top area */
 #dungeon-top { box-sizing: border-box; }

@@ -1,8 +1,5 @@
-import { isSlotCompatible } from '../helpers.js';
-import { bindDragSource, bindDropZone } from '../drag-drop.js';
-
 async function unequipItemFromDoubleClick(opts, itemId) {
-  const { fetchJson, inventoryPath, loadStateAndRenderPartial, syncPlayerHealthToFull, setCurrentDrag, updateSlotHighlights } = opts;
+  const { fetchJson, inventoryPath, loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
   if (!inventoryPath || !itemId) return;
 
   await fetchJson(inventoryPath, {
@@ -13,12 +10,10 @@ async function unequipItemFromDoubleClick(opts, itemId) {
 
   await loadStateAndRenderPartial();
   if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
-  setCurrentDrag(null);
-  updateSlotHighlights();
 }
 
 export async function renderEquipPanel(opts) {
-  const { equipped, inventory, allItems, getCharacterId, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
+  const { equipped, getCharacterId, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, makeIcon, formatStats, getItemDisplayName } = opts;
   const equipPanel = document.getElementById('equip-panel');
   if (!equipPanel) return;
 
@@ -27,13 +22,13 @@ export async function renderEquipPanel(opts) {
 
   function inventoryCardHtml(i) {
     return `
-      <div class="inventory-card equipped-card" draggable="false" data-item-id="${i.id}">
+      <button type="button" class="inventory-card equipped-card" data-item-id="${i.id}">
         <div class="item-icon">${makeIcon(i)}</div>
         <div class="card-details">
           <div class="item-name">${getItemDisplayName(i)}</div>
           <div class="item-type">${formatStats(i)}</div>
         </div>
-      </div>`;
+      </button>`;
   }
 
   const SLOT_DEFS = [
@@ -46,7 +41,7 @@ export async function renderEquipPanel(opts) {
     const eq = (equipped || []).find(e => e.slot === slotDef.type);
     if (eq) {
       return `
-        <div class="equip-slot" data-slot="${slotNum}" data-slot-type="${slotDef.type}" draggable="true" data-from="equipped" data-item-id="${eq.id}" data-slot-index="${slotNum}">
+        <div class="equip-slot" data-slot="${slotNum}" data-slot-type="${slotDef.type}">
           <span class="slot-label">${slotDef.label}</span>
           ${inventoryCardHtml(eq)}
         </div>`;
@@ -69,57 +64,11 @@ export async function renderEquipPanel(opts) {
         event.stopPropagation();
         const itemId = equippedCard.getAttribute('data-item-id');
         try {
-          await unequipItemFromDoubleClick({ fetchJson, inventoryPath, loadStateAndRenderPartial, syncPlayerHealthToFull, setCurrentDrag, updateSlotHighlights }, itemId);
+          await unequipItemFromDoubleClick({ fetchJson, inventoryPath, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
         } catch (error) {
           console.error('Failed to unequip item from double click', error);
         }
       });
     }
-
-    bindDragSource(slotEl, {
-      createPayload: () => {
-      const itemId = slotEl.getAttribute('data-item-id');
-      const slotIndex = slotEl.getAttribute('data-slot-index');
-      const itemObj = (allItems || []).find(a => a.id == itemId) || (inventory || []).find(i => i.id == itemId) || null;
-      const itemType = itemObj ? getItemType(itemObj) : null;
-        return { itemId: itemId ? Number(itemId) : null, itemType, from: 'equipped', slot: slotIndex ? Number(slotIndex) : null, source_slot: slotIndex ? Number(slotIndex) : null };
-      },
-      onDragStart: (ev, payload) => {
-        setCurrentDrag(payload);
-        updateSlotHighlights();
-      },
-      onDragEnd: () => {
-        setCurrentDrag(null);
-        updateSlotHighlights();
-      }
-    });
-
-    bindDropZone(slotEl, {
-      onDrop: async ev => {
-        slotEl.classList.remove('slot-allowed'); slotEl.classList.remove('slot-denied');
-        const raw = ev.dataTransfer.getData('text/plain');
-        const payload = raw ? JSON.parse(raw) : getCurrentDrag();
-        if (!payload) return;
-        const slotType = slotEl.getAttribute('data-slot-type') || 'misc';
-        const itemId = Number(payload.itemId);
-
-        const itemObj = (allItems || []).find(a => a.id === itemId) || (inventory || []).find(i => i.id === itemId) || null;
-        const itemType = itemObj ? getItemType(itemObj) : 'misc';
-        if (!isSlotCompatible(slotType, itemType)) return;
-
-        if (!inventoryPath) return;
-
-        const payloadBody = { item_id: itemId };
-        if (payload.from === 'equipped') {
-          payloadBody.is_equipped = true;
-        }
-
-        await fetchJson(inventoryPath, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payloadBody) });
-        await loadStateAndRenderPartial();
-        if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
-        setCurrentDrag(null);
-        updateSlotHighlights();
-      }
-    });
   });
 }

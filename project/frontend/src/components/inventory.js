@@ -1,7 +1,5 @@
-import { bindDragSource, bindDropZone } from '../drag-drop.js';
-
 async function toggleInventoryItemFromDoubleClick(opts, itemId) {
-  const { fetchJson, getCharacterId, loadStateAndRenderPartial, syncPlayerHealthToFull, updateSlotHighlights, setCurrentDrag } = opts;
+  const { fetchJson, getCharacterId, loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
   const characterId = getCharacterId ? getCharacterId() : null;
   const inventoryPath = characterId ? `/characters/${characterId}/inventory/` : null;
   if (!inventoryPath || !itemId) return;
@@ -14,14 +12,18 @@ async function toggleInventoryItemFromDoubleClick(opts, itemId) {
 
   await loadStateAndRenderPartial();
   if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
-  setCurrentDrag(null);
-  updateSlotHighlights();
 }
 
 export function renderInventoryGrid(opts) {
-  const { inventory, getCharacterId, getCurrentDrag, setCurrentDrag, updateSlotHighlights, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
+  const { inventory, getCharacterId, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
   const invContainer = document.getElementById('inventory-grid');
   if (!invContainer) return;
+  const scrollBox = invContainer.closest('.inventory-scroll-box');
+  const itemCount = Array.isArray(inventory) ? inventory.length : 0;
+  if (scrollBox) {
+    scrollBox.classList.toggle('inventory-empty', itemCount === 0);
+    scrollBox.style.maxHeight = itemCount > 5 ? '390px' : 'none';
+  }
   if (!inventory || inventory.length === 0) {
     invContainer.innerHTML = '<p style="color:#999;font-style:italic">Your inventory is empty</p>';
     return;
@@ -39,15 +41,14 @@ export function renderInventoryGrid(opts) {
   sortedInventory.forEach(invItem => {
     const i = invItem;
     const itype = getItemType(i);
-    const instanceId = `card-${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
     cards.push(`
-      <div class="inventory-card" draggable="true" data-instance-id="${instanceId}" data-item-id="${i.id}" data-item-type="${itype}">
+      <button type="button" class="inventory-card" data-item-id="${i.id}" data-item-type="${itype}">
         <div class="item-icon">${makeIcon(i)}</div>
         <div class="card-details">
           <div class="item-name">${getItemDisplayName(i)}</div>
           <div class="item-type">${formatStats(i)}</div>
         </div>
-      </div>`);
+      </button>`);
   });
   invContainer.innerHTML = cards.join('');
 
@@ -57,48 +58,10 @@ export function renderInventoryGrid(opts) {
       event.stopPropagation();
       const itemId = card.getAttribute('data-item-id');
       try {
-        await toggleInventoryItemFromDoubleClick({ fetchJson, getCharacterId, loadStateAndRenderPartial, syncPlayerHealthToFull, updateSlotHighlights, setCurrentDrag }, itemId);
+        await toggleInventoryItemFromDoubleClick({ fetchJson, getCharacterId, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
       } catch (error) {
         console.error('Failed to equip item from double click', error);
       }
     });
-
-    bindDragSource(card, {
-      createPayload: () => {
-      const id = card.getAttribute('data-item-id');
-      const type = card.getAttribute('data-item-type');
-      const instance = card.getAttribute('data-instance-id');
-        return { itemId: Number(id), itemType: type, from: 'inventory', instance };
-      },
-      onDragStart: (ev, payload) => {
-        setCurrentDrag(payload);
-        updateSlotHighlights();
-      },
-      onDragEnd: () => {
-        setCurrentDrag(null);
-        updateSlotHighlights();
-      }
-    });
   });
-
-  if (!invContainer.dataset.dndBound) {
-    bindDropZone(invContainer, {
-      onDrop: async ev => {
-      const raw = ev.dataTransfer.getData('text/plain');
-      if (!raw) return;
-      const payload = JSON.parse(raw);
-      if (!payload) return;
-      const characterId = getCharacterId ? getCharacterId() : null;
-      const inventoryPath = characterId ? `/characters/${characterId}/inventory/` : null;
-      if (payload.from === 'equipped' && inventoryPath) {
-        const itemId = Number(payload.itemId);
-        await fetchJson(inventoryPath, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item_id: itemId, is_equipped: false }) });
-        await loadStateAndRenderPartial();
-      }
-      setCurrentDrag(null);
-      updateSlotHighlights();
-      }
-    });
-    invContainer.dataset.dndBound = '1';
-  }
 }
