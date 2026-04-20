@@ -156,7 +156,3 @@ def remove_inventory_item(player: Character, item_id: int) -> Item | None:
 
 def clear_player_inventory(player: Character) -> None:
     Item.query.filter_by(owner_id=player.id, is_equipped=False).delete()
-
-
-def clear_player_equipment(player: Character) -> None:
-    Item.query.filter_by(owner_id=player.id, is_equipped=True).delete()

@@ -3,23 +3,9 @@ from flask import Blueprint, jsonify, request
 from ..utils.game_utils import get_player as get_current_character, seed_character_loadout, issue_auth_token
 from ..db.models import Character, db
 from ..utils.serializers import serialize_character
-from .common import get_character as get_character_by_id, require_character_owner, require_current_user, json_error
+from .common import require_character_owner, require_current_user
 
 character_bp = Blueprint('character', __name__)
-
-
-def _get_character(character_id: int | None = None) -> tuple[Character | None, tuple[dict[str, str], int] | None]:
-    if character_id is not None:
-        character = get_character_by_id(character_id)
-        if character:
-            return character, None
-        return None, json_error('Character not found', 404)
-
-    character = get_current_character()
-    if character is not None:
-        return character, None
-
-    return None, json_error('No active character selected', 400)
 
 
 @character_bp.route('/characters/', methods=['GET'])
@@ -98,22 +84,13 @@ def select_character(character_id):
     assert character is not None
 
     token = issue_auth_token(character.user_id, character.id)
-    return jsonify({'message': 'Character selected', 'player': serialize_character(character, include_inventory=True), 'token': token})
+    return jsonify({'message': 'Character selected', 'character': serialize_character(character, include_inventory=True), 'token': token})
 
 
-@character_bp.route('/player', methods=['GET'])
-def get_player():
-    character, error_response = _get_character()
-    if error_response:
-        return error_response
-    assert character is not None
-    return jsonify(serialize_character(character))
-
-
-@character_bp.route('/player', methods=['PUT'])
-def update_player():
+@character_bp.route('/characters/<int:character_id>', methods=['PUT'])
+def update_character(character_id):
     data = request.get_json(silent=True) or {}
-    character, error_response = _get_character()
+    character, error_response = require_character_owner(character_id)
     if error_response:
         return error_response
     assert character is not None
@@ -126,12 +103,12 @@ def update_player():
         character.level = int(data['level'])
 
     db.session.commit()
-    return jsonify(serialize_character(character))
+    return jsonify(serialize_character(character, include_inventory=True))
 
 
-@character_bp.route('/player/level-up', methods=['POST'])
-def level_up():
-    character, error_response = _get_character()
+@character_bp.route('/characters/<int:character_id>/level_up', methods=['POST'])
+def level_up_character(character_id):
+    character, error_response = require_character_owner(character_id)
     if error_response:
         return error_response
     assert character is not None
@@ -141,28 +118,17 @@ def level_up():
     character.health += 10
 
     db.session.commit()
-    return jsonify(serialize_character(character))
+    return jsonify(serialize_character(character, include_inventory=True))
 
 
-@character_bp.route('/health', methods=['POST'])
-def take_damage():
-    data = request.get_json(silent=True) or {}
-    damage_amount = int(data.get('damage', 0))
-
-    character, error_response = _get_character()
+@character_bp.route('/characters/<int:character_id>/full_heal', methods=['POST'])
+def full_heal_character(character_id):
+    character, error_response = require_character_owner(character_id)
     if error_response:
         return error_response
     assert character is not None
-    character.health = max(0, character.health - damage_amount)
+
+    character.health = 100 + (max(0, character.level - 1) * 10) + character.bonus_health
     db.session.commit()
 
-    return jsonify(serialize_character(character))
-
-
-@character_bp.route('/player/full', methods=['GET'])
-def get_player_with_inventory():
-    character, error_response = _get_character()
-    if error_response:
-        return error_response
-    assert character is not None
     return jsonify(serialize_character(character, include_inventory=True))

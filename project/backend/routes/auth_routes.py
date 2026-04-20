@@ -53,5 +53,5 @@ def me():
     user = get_authenticated_user()
     if not user:
         return json_error('Unauthorized', 401)
-    player = get_player()
-    return jsonify({'user': serialize_user(user), 'player': None if not player else player.to_dict(include_inventory=True)})
+    character = get_player()
+    return jsonify({'user': serialize_user(user), 'character': None if not character else character.to_dict(include_inventory=True)})

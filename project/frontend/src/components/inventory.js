@@ -1,13 +1,11 @@
 async function toggleInventoryItemFromDoubleClick(opts, itemId) {
-  const { fetchJson, getCharacterId, loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
-  const characterId = getCharacterId ? getCharacterId() : null;
-  const inventoryPath = characterId ? `/characters/${characterId}/inventory/` : null;
-  if (!inventoryPath || !itemId) return;
+  const { fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
+  if (!itemId) return;
 
-  await fetchJson(inventoryPath, {
+  await fetchJson(`/items/${itemId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ item_id: Number(itemId) })
+    body: JSON.stringify({ is_equipped: true })
   });
 
   await loadStateAndRenderPartial();
@@ -15,7 +13,7 @@ async function toggleInventoryItemFromDoubleClick(opts, itemId) {
 }
 
 export function renderInventoryGrid(opts) {
-  const { inventory, getCharacterId, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
+  const { inventory, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
   const invContainer = document.getElementById('inventory-grid');
   if (!invContainer) return;
   const scrollBox = invContainer.closest('.inventory-scroll-box');
@@ -58,7 +56,7 @@ export function renderInventoryGrid(opts) {
       event.stopPropagation();
       const itemId = card.getAttribute('data-item-id');
       try {
-        await toggleInventoryItemFromDoubleClick({ fetchJson, getCharacterId, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
+        await toggleInventoryItemFromDoubleClick({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
       } catch (error) {
         console.error('Failed to equip item from double click', error);
       }

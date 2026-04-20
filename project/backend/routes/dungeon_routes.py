@@ -7,7 +7,7 @@ from ..utils.cache_helpers import get_all_enemy_type_data, get_all_item_type_dat
 from ..utils.game_utils import get_player
 from ..db.models import Character, Encounter, db
 from ..utils.serializers import serialize_character, serialize_encounter
-from .common import get_character, json_error, require_character_owner, require_encounter_owner
+from .common import get_character, json_error
 
 dungeon_bp = Blueprint('dungeon', __name__)
 
@@ -21,6 +21,10 @@ def _get_or_create_encounter(character: Character) -> Encounter | None:
     if encounter:
         return encounter
     return create_new_encounter(character)
+
+
+def _get_active_encounter(character: Character) -> Encounter | None:
+    return Encounter.query.filter_by(character_id=character.id).first()
 
 
 def create_new_encounter(character: Character | None = None) -> Encounter | None:
@@ -83,7 +87,7 @@ def build_combat_response(
     dice_roll: int | None = None,
 ) -> Any:
     payload: dict[str, Any] = {
-        'player': serialize_character(character),
+        'character': serialize_character(character),
         'enemy': None if player_died or success else serialize_encounter(encounter),
         'message': message,
         'victory': victory,
@@ -211,52 +215,14 @@ def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, A
     }
 
 
-@dungeon_bp.route('/dungeon/encounters/', methods=['GET'])
-def get_encounter(character_id: int | None = None):
-    character = get_character(character_id)
+@dungeon_bp.route('/dungeon/enter', methods=['POST'])
+def enter_dungeon() -> Any:
+    character = get_character()
     if not character:
         return json_error('No active character selected', 400)
     encounter = _get_or_create_encounter(character)
-    if not encounter:
-        return jsonify({'error': 'No encounters available'}), 404
-    return jsonify(serialize_encounter(encounter))
-
-
-@dungeon_bp.route('/dungeon/encounters/', methods=['POST'])
-def create_encounter(character_id: int | None = None):
-    character = get_character(character_id)
-    if not character:
-        return json_error('No active character selected', 400)
-    encounter = create_new_encounter(character)
     if not encounter:
         return jsonify({'error': 'No enemy types available'}), 404
-    return jsonify(serialize_encounter(encounter)), 201
-
-
-@dungeon_bp.route('/dungeon/encounters/<int:encounter_id>', methods=['GET'])
-def get_encounter_by_id(encounter_id: int):
-    encounter, error_response = require_encounter_owner(encounter_id)
-    if error_response:
-        return error_response
-    return jsonify(serialize_encounter(encounter))
-
-
-@dungeon_bp.route('/dungeon/encounters/<int:encounter_id>', methods=['DELETE'])
-def delete_encounter(encounter_id: int):
-    encounter, error_response = require_encounter_owner(encounter_id)
-    if error_response:
-        return error_response
-    db.session.delete(encounter)
-    db.session.commit()
-    return jsonify({'message': 'Encounter deleted'})
-
-
-@dungeon_bp.route('/dungeon/encounters/<int:character_id>/current', methods=['GET'])
-def get_current_character_encounter(character_id: int):
-    character, error_response = require_character_owner(character_id)
-    if error_response:
-        return error_response
-    encounter = _get_or_create_encounter(character)
     return jsonify(serialize_encounter(encounter))
 
 
@@ -265,9 +231,9 @@ def attack_monster() -> Any:
     character = get_character()
     if not character:
         return json_error('No active character selected', 400)
-    encounter = _get_or_create_encounter(character)
+    encounter = _get_active_encounter(character)
     if not encounter:
-        return jsonify({'error': 'No enemy available'}), 404
+        return json_error('No active encounter. Enter the dungeon first', 400)
     outcome = _resolve_attack_turn(character, encounter)
     db.session.commit()
 
@@ -286,9 +252,9 @@ def run_away() -> Any:
     character = get_character()
     if not character:
         return json_error('No active character selected', 400)
-    encounter = _get_or_create_encounter(character)
+    encounter = _get_active_encounter(character)
     if not encounter:
-        return jsonify({'error': 'No enemy available'}), 404
+        return json_error('No active encounter. Enter the dungeon first', 400)
     outcome = _resolve_run_turn(character, encounter)
     db.session.commit()
     return build_combat_response(

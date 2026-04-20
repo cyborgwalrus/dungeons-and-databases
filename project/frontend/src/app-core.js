@@ -4,7 +4,7 @@ import { renderPlayerStatsInto } from './components/player.js';
 import { renderEquipPanel as renderEquipPanelImpl } from './components/equip.js';
 import { renderInventoryGrid as renderInventoryGridImpl } from './components/inventory.js';
 import { buildDungeonMarkup, applyDungeonCombatUpdate, showDungeonDefeatScreen } from './screens/dungeon-runtime.js';
-import { state, getCharacterId, getCharacterInventoryPath, getFullHealthForPlayer } from './app-state.js';
+import { state, getCharacterId, getCharacterInventoryPath } from './app-state.js';
 
 const root = document.getElementById('root');
 
@@ -13,16 +13,12 @@ function syncPlayerSnapshot(playerData) {
 }
 
 async function syncPlayerHealthToFull() {
-  const fullHealth = getFullHealthForPlayer(state.player);
-  if (fullHealth === null) return;
+  const characterId = getCharacterId();
+  if (!characterId) return;
 
-  await fetchJson('/player', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ health: fullHealth })
+  const refreshedPlayer = await fetchJson(`/characters/${characterId}/full_heal`, {
+    method: 'POST'
   });
-
-  const refreshedPlayer = await fetchJson('/player/full');
   if (refreshedPlayer.ok && refreshedPlayer.data) {
     syncPlayerSnapshot(refreshedPlayer.data);
     const statsContainer = document.getElementById('player-stats');
@@ -98,7 +94,6 @@ function renderEquipPanel() {
     equipped,
     inventory,
     allItems: [...inventory, ...equipped],
-    getCharacterId,
     fetchJson,
     loadStateAndRenderPartial,
     syncPlayerHealthToFull,
@@ -113,7 +108,6 @@ function renderInventoryGrid() {
   const inventory = Array.isArray(state.player?.inventory) ? state.player.inventory : [];
   return renderInventoryGridImpl({
     inventory,
-    getCharacterId,
     fetchJson,
     loadStateAndRenderPartial,
     syncPlayerHealthToFull,
@@ -150,7 +144,7 @@ async function handleDungeonAttack() {
   }
 
   await loadStateAndRenderPartial();
-  if (dungeonState.player) updatePlayerPanel(dungeonState.player);
+  if (dungeonState.character) updatePlayerPanel(dungeonState.character);
   if (dungeonState.enemy) updateEnemyPanel(dungeonState.enemy);
 }
 
@@ -191,7 +185,10 @@ async function handleDungeonRun() {
 }
 
 async function loadStateAndRenderPartial() {
-  const playerResponse = await fetchJson('/player/full');
+  const characterId = getCharacterId();
+  if (!characterId) return;
+
+  const playerResponse = await fetchJson(`/characters/${characterId}`);
   if (playerResponse.ok && playerResponse.data) {
     syncPlayerSnapshot(playerResponse.data);
   }
@@ -204,10 +201,10 @@ async function loadStateAndRenderPartial() {
 }
 
 async function clearUnequippedInventory() {
-  const characterId = getCharacterId();
-  if (!characterId) return;
+  const inventoryPath = getCharacterInventoryPath();
+  if (!inventoryPath) return;
 
-  await fetchJson(`/characters/${characterId}/inventory/`, { method: 'DELETE' });
+  await fetchJson(inventoryPath, { method: 'DELETE' });
   await loadStateAndRenderPartial();
   await syncPlayerHealthToFull();
 }
@@ -323,9 +320,9 @@ async function renderCharacterSelect() {
         const selectRes = await fetchJson(`/characters/${character.id}/select`, {
           method: 'POST'
         });
-        if (selectRes.ok && selectRes.data.player) {
+        if (selectRes.ok && selectRes.data.character) {
           if (selectRes.data.token) setAuthToken(selectRes.data.token);
-          state.player = selectRes.data.player;
+          state.player = selectRes.data.character;
           navigateTo('/');
         }
       });
@@ -443,14 +440,18 @@ async function renderDungeon({ resetRunState = true } = {}) {
   root.innerHTML = `<div class="game-container"><div id="dungeon-content">Loading...</div></div>`;
   const content = document.getElementById('dungeon-content');
 
-  const playerResponse = await fetchJson('/player/full');
+  const characterId = getCharacterId();
+  if (!characterId) {
+    navigateTo('/character-select');
+    return;
+  }
+
+  const playerResponse = await fetchJson(`/characters/${characterId}`);
   if (playerResponse.ok && playerResponse.data) {
     syncPlayerSnapshot(playerResponse.data);
   }
 
-  const playerId = getCharacterId();
-  const encounterPath = playerId ? `/dungeon/encounters/${playerId}/current` : '/dungeon/encounters/';
-  const encounterResponse = await fetchJson(encounterPath);
+  const encounterResponse = await fetchJson('/dungeon/enter', { method: 'POST' });
   const enemy = encounterResponse.ok ? encounterResponse.data : { name: '', health: 0, max_health: 0, damage: 0, description: '' };
 
   const preface = `A wild ${enemy.name || 'creature'} appears! ${enemy.description || ''}`;
@@ -480,7 +481,7 @@ async function route() {
     const res = await fetchJson('/login/me');
     if (res.ok && res.data && res.data.user) {
       state.currentUser = res.data.user;
-      if (res.data.player) syncPlayerSnapshot(res.data.player);
+      if (res.data.character) syncPlayerSnapshot(res.data.character);
     } else {
       if (res.status === 401) clearAuthToken();
       location.hash = '#/login';

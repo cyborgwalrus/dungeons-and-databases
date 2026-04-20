@@ -1,11 +1,11 @@
 async function unequipItemFromDoubleClick(opts, itemId) {
-  const { fetchJson, inventoryPath, loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
-  if (!inventoryPath || !itemId) return;
+  const { fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
+  if (!itemId) return;
 
-  await fetchJson(inventoryPath, {
+  await fetchJson(`/items/${itemId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ item_id: Number(itemId), is_equipped: false })
+    body: JSON.stringify({ is_equipped: false })
   });
 
   await loadStateAndRenderPartial();
@@ -13,12 +13,9 @@ async function unequipItemFromDoubleClick(opts, itemId) {
 }
 
 export async function renderEquipPanel(opts) {
-  const { equipped, getCharacterId, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, makeIcon, formatStats, getItemDisplayName } = opts;
+  const { equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, makeIcon, formatStats, getItemDisplayName } = opts;
   const equipPanel = document.getElementById('equip-panel');
   if (!equipPanel) return;
-
-  const characterId = getCharacterId ? getCharacterId() : null;
-  const inventoryPath = characterId ? `/characters/${characterId}/inventory/` : null;
 
   function inventoryCardHtml(i) {
     return `
@@ -64,7 +61,7 @@ export async function renderEquipPanel(opts) {
         event.stopPropagation();
         const itemId = equippedCard.getAttribute('data-item-id');
         try {
-          await unequipItemFromDoubleClick({ fetchJson, inventoryPath, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
+          await unequipItemFromDoubleClick({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
         } catch (error) {
           console.error('Failed to unequip item from double click', error);
         }

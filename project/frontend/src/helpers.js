@@ -41,21 +41,6 @@ export function getItemType(i) {
   return 'misc';
 }
 
-export function isSlotCompatible(slotType, itemType) {
-  const normalizedSlotType = slotType || 'misc';
-  const normalizedItemType = itemType || 'misc';
-  return normalizedSlotType === 'misc'
-    ? !['weapon', 'armor', 'shield'].includes(normalizedItemType)
-    : normalizedSlotType === normalizedItemType;
-}
-
-export function getEquipScore(item, slotType) {
-  if (!item) return -Infinity;
-  const attack = item.damage_bonus ?? item.bonus_attack ?? 0;
-  const health = item.health_bonus ?? item.bonus_health ?? 0;
-  return slotType === 'weapon' ? (attack * 10 + health) : (health * 10 + attack);
-}
-
 export function getItemDisplayName(item) {
   if (!item) return '';
   const name = String(item.name || 'Item').replace(/\s+\+\d+$/, '').trim() || 'Item';
