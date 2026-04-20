@@ -10,7 +10,7 @@ The backend exposes its routes under the `/api` prefix.
 |     Users      | `/users/` - `GET`<br>`/users/<int:user_id>` - `GET` `PUT` `DELETE`                                                                     | User account management                                  |     Yes     |
 |   Characters   | `/characters/` - `GET` `POST`<br>`/characters/<int:character_id>` - `GET` `DELETE`                                                     | Character management                                     |     Yes     |
 |     Player     | `/player` - `GET` `PUT`<br>`/player/full` - `GET`<br>`/player/level-up` - `POST`<br>`/player/health` - `POST`                         | Alias for managing the currently active player character |     Yes     |
-|   Inventory    | `/characters/<int:character_id>/inventory/` - `GET` `POST` `PUT` `DELETE`<br>`/characters/<int:character_id>/inventory/equipped` - `GET`<br>`/characters/<int:character_id>/inventory/items` - `GET` | Character inventory operations                           |     Yes     |
+|   Inventory    | `/characters/<int:character_id>/inventory/` - `POST` `PUT` `DELETE`                                                                 | Character inventory operations                           |     Yes     |
 |      Item      | `/characters/<int:character_id>/inventory/<int:item_id>` - `GET` `POST` `PUT` `DELETE`                                                 | Individual inventory item operations                     |     Yes     |
 |    Dungeon     | `/dungeon/encounters/` - `GET` `POST`<br>`/dungeon/encounters/<int:encounter_id>` - `GET` `DELETE`<br>`/dungeon/encounters/<int:character_id>/current` - `GET`<br>`/dungeon/attack` - `POST`<br>`/dungeon/run` - `POST` | Dungeon encounter and combat operations                  |     Yes     |
 
@@ -42,13 +42,12 @@ The backend exposes its routes under the `/api` prefix.
 
 ## Inventory
 
-- `GET /api/characters/<int:character_id>/inventory/` - list unequipped items.
-- `GET /api/characters/<int:character_id>/inventory/equipped` - list equipped items.
-- `GET /api/characters/<int:character_id>/inventory/items` - list all inventory items.
-- `POST /api/characters/<int:character_id>/inventory/` - add an item to inventory.
+- `POST /api/characters/<int:character_id>/inventory/` - add one or more items to inventory.
 - `DELETE /api/characters/<int:character_id>/inventory/` - clear inventory.
 - `GET /api/characters/<int:character_id>/inventory/<int:item_id>` - fetch one inventory item.
 - `POST /api/characters/<int:character_id>/inventory/<int:item_id>` - equip or unequip an item.
+
+Character and player payloads returned by `/api/characters/<int:character_id>` and `/api/player/full` include separate `inventory` and `equipped` arrays.
 
 ## Setup
 

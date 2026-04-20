@@ -11,9 +11,6 @@ const root = document.getElementById('root');
 
 function syncPlayerSnapshot(playerData) {
   state.player = playerData;
-  state.inventory = Array.isArray(playerData?.inventory) ? playerData.inventory : state.inventory;
-  state.equipped = Array.isArray(playerData?.equipped) ? playerData.equipped : state.equipped;
-  state.allItems = [...state.inventory, ...state.equipped];
 }
 
 async function syncPlayerHealthToFull() {
@@ -53,23 +50,17 @@ async function bankDungeonLoot() {
   const inventoryPath = getCharacterInventoryPath();
   if (!inventoryPath) return;
 
-  const countsById = new Map();
-  state.dungeonLoot.forEach(item => {
-    if (!item || item.id === undefined || item.id === null) return;
-    const current = countsById.get(item.id) || { item, quantity: 0 };
-    current.quantity += 1;
-    countsById.set(item.id, current);
-  });
+  const itemTypeIds = state.dungeonLoot
+    .map(item => item && (item.item_type_id || item.id))
+    .filter(itemTypeId => itemTypeId !== undefined && itemTypeId !== null);
 
-  for (const { item, quantity } of countsById.values()) {
-    for (let i = 0; i < quantity; i += 1) {
-      await fetchJson(inventoryPath, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ item_type_id: item.item_type_id || item.id })
-      });
-    }
-  }
+  if (!itemTypeIds.length) return;
+
+  await fetchJson(inventoryPath, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(itemTypeIds)
+  });
 }
 
 function updateSlotHighlights() {
@@ -112,10 +103,12 @@ function updateEnemyPanel(enemy) {
 }
 
 function renderEquipPanel() {
+  const equipped = Array.isArray(state.player?.equipped) ? state.player.equipped : [];
+  const inventory = Array.isArray(state.player?.inventory) ? state.player.inventory : [];
   return renderEquipPanelImpl({
-    equipped: state.equipped,
-    inventory: state.inventory,
-    allItems: state.allItems,
+    equipped,
+    inventory,
+    allItems: [...inventory, ...equipped],
     getCharacterId,
     getCurrentDrag: () => state.currentDrag,
     setCurrentDrag: value => { state.currentDrag = value; },
@@ -131,8 +124,9 @@ function renderEquipPanel() {
 }
 
 function renderInventoryGrid() {
+  const inventory = Array.isArray(state.player?.inventory) ? state.player.inventory : [];
   return renderInventoryGridImpl({
-    inventory: state.inventory,
+    inventory,
     getCharacterId,
     getCurrentDrag: () => state.currentDrag,
     setCurrentDrag: value => { state.currentDrag = value; },
@@ -333,9 +327,6 @@ async function renderCharacterSelect() {
         });
         if (selectRes.ok && selectRes.data.player) {
           state.player = selectRes.data.player;
-          state.inventory = [];
-          state.equipped = [];
-          state.allItems = [];
           navigateTo('/');
         }
       });

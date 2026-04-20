@@ -82,51 +82,39 @@ def _get_item_or_error(character: Character, item_id: int, message: str = 'Item 
     return item, None
 
 
-@inventory_bp.route('/characters/<int:character_id>/inventory/', methods=['GET'])
-def get_inventory(character_id: int):
-    character, error_response = require_character_owner(character_id)
-    if error_response:
-        return error_response
-    assert character is not None
-    return jsonify([serialize_item(item) for item in character.inventory if not item.is_equipped])
-
-
-@inventory_bp.route('/characters/<int:character_id>/inventory/equipped', methods=['GET'])
-def get_equipped(character_id: int):
-    character, error_response = require_character_owner(character_id)
-    if error_response:
-        return error_response
-    assert character is not None
-    return jsonify([serialize_item(item) for item in _equipped_items(character)])
-
-
-@inventory_bp.route('/characters/<int:character_id>/inventory/items', methods=['GET'])
-def get_all_items(character_id: int):
-    character, error_response = require_character_owner(character_id)
-    if error_response:
-        return error_response
-    assert character is not None
-    return jsonify([serialize_item(item) for item in character.inventory])
-
-
 @inventory_bp.route('/characters/<int:character_id>/inventory/', methods=['POST'])
-def add_item_to_inventory(character_id: int, item_id: int | None = None):
+def add_items_to_inventory(character_id: int, item_id: int | None = None):
     character, error_response = require_character_owner(character_id)
     if error_response:
         return error_response
     assert character is not None
     data = get_json_data(request)
-    source_id = data.get('item_type_id', data.get('item_id', item_id))
 
-    if source_id is None:
+    if isinstance(data, list):
+        source_ids = data
+    else:
+        source_id = data.get('item_type_id', data.get('item_id', item_id))
+        source_ids = [source_id] if source_id is not None else []
+
+    if not source_ids:
         return json_error('item_type_id is required')
 
-    item = add_inventory_item(character, int(source_id), copy_from_item=False)
-    if not item:
-        return json_error('Item not found', 404)
+    try:
+        source_ids = [int(source_id) for source_id in source_ids]
+    except (TypeError, ValueError):
+        return json_error('item_type_id must be an integer')
+
+    for source_id in source_ids:
+        if not get_item_type(source_id):
+            return json_error('Item not found', 404)
+
+    created_items: list[Item] = []
+    for source_id in source_ids:
+        item = add_inventory_item(character, source_id, copy_from_item=False)
+        created_items.append(item)
 
     db.session.commit()
-    return _item_response(item, 201)
+    return jsonify([serialize_item(item) for item in created_items]), 201
 
 
 @inventory_bp.route('/characters/<int:character_id>/inventory/', methods=['PUT'])
