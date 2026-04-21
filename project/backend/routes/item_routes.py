@@ -13,14 +13,17 @@ item_bp = Blueprint('item', __name__)
 
 
 def _item_response(item: Item | None, status: int = 200) -> tuple[Any, int]:
+    """Wrap a serialized item in a JSON response."""
     return jsonify(serialize_item(item)), status
 
 
 def _message_response(message: str, status: int = 200) -> tuple[Any, int]:
+    """Return a JSON message response with the given status code."""
     return jsonify({'message': message}), status
 
 
 def _get_item_or_error(character: Character, item_id: int, message: str = 'Item not found') -> tuple[Item | None, tuple[Any, int] | None]:
+    """Fetch an inventory item or return a standard not-found response."""
     item = get_item(character, item_id)
     if not item:
         return None, json_error(message, 404)
@@ -29,6 +32,7 @@ def _get_item_or_error(character: Character, item_id: int, message: str = 'Item 
 
 @item_bp.route('/items', methods=['POST'])
 def create_item():
+    """Create one or more inventory items for the current character."""
     character, error_response = require_current_character()
     if error_response:
         return error_response
@@ -62,6 +66,7 @@ def create_item():
 
 @item_bp.route('/items/<int:item_id>', methods=['GET'])
 def get_item_route(item_id: int):
+    """Return a single inventory item owned by the current character."""
     character, error_response = require_current_character()
     if error_response:
         return error_response
@@ -74,6 +79,7 @@ def get_item_route(item_id: int):
 
 @item_bp.route('/items/<int:item_id>', methods=['DELETE'])
 def remove_item(item_id: int):
+    """Remove an item from the current character's inventory."""
     character, error_response = require_current_character()
     if error_response:
         return error_response

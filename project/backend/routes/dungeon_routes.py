@@ -13,10 +13,12 @@ dungeon_bp = Blueprint('dungeon', __name__)
 
 
 def _combat_damage_roll(max_damage: int) -> int:
+    """Roll a bounded combat damage value for one turn."""
     return random.randint(max(1, max_damage // 2), max(1, max_damage))
 
 
 def _get_or_create_encounter(character: Character) -> Encounter | None:
+    """Return the active encounter for a character or create a new one."""
     encounter = Encounter.query.filter_by(character_id=character.id).first()
     if encounter:
         return encounter
@@ -24,10 +26,12 @@ def _get_or_create_encounter(character: Character) -> Encounter | None:
 
 
 def _get_active_encounter(character: Character) -> Encounter | None:
+    """Return the current active encounter for a character, if present."""
     return Encounter.query.filter_by(character_id=character.id).first()
 
 
 def create_new_encounter(character: Character | None = None) -> Encounter | None:
+    """Create a fresh encounter for the current player."""
     character = character or get_player()
     if character is None:
         return None
@@ -57,19 +61,23 @@ def create_new_encounter(character: Character | None = None) -> Encounter | None
 
 
 def _experience_reward_for_enemy(encounter: Encounter) -> int:
+    """Calculate the XP reward for defeating the current enemy."""
     enemy_level = encounter.enemy_level if encounter.enemy_level else 1
     return 20 + (enemy_level * 10)
 
 
 def _enemy_level_step(character: Character) -> int:
+    """Return the enemy level increment based on the character's level."""
     return 1 + max(0, (character.level - 1) // 3)
 
 
 def _next_enemy_level(character: Character, encounter: Encounter) -> int:
+    """Calculate the next encounter's enemy level."""
     return encounter.enemy_level + _enemy_level_step(character)
 
 
 def _apply_victory_experience(character: Character, encounter: Encounter, message_lines: list[str]) -> None:
+    """Grant XP for a victory and append any level-up messages."""
     experience_gained = _experience_reward_for_enemy(encounter)
     character.gain_experience(experience_gained)
     message_lines.append(f'You gained {experience_gained} XP!')
@@ -84,6 +92,8 @@ def _apply_victory_experience(character: Character, encounter: Encounter, messag
 
 
 def _create_next_encounter(character: Character, encounter: Encounter) -> Encounter | None:
+    """Generate the next encounter after a win using the scaled enemy level."""
+    # New encounters inherit the character's progress so dungeon runs ramp up over time.
     next_enemy_level = _next_enemy_level(character, encounter)
     enemy_types = get_all_enemy_type_data()
     enemy_type = random.choice(enemy_types) if enemy_types else None
@@ -106,32 +116,39 @@ def _create_next_encounter(character: Character, encounter: Encounter) -> Encoun
 
 
 def check_character_death(character: Character) -> bool:
+    """Return whether the character has died."""
     return character.health <= 0
 
 
 def _remove_active_encounter(character: Character) -> None:
+    """Delete the active encounter for the character."""
     Encounter.query.filter_by(character_id=character.id).delete()
 
 
 def _finalize_loot(character: Character) -> None:
+    """Mark remaining loot as safe to keep after a successful escape."""
     clear_loot_flags(character)
 
 
 def _destroy_active_loot_and_encounter(character: Character) -> None:
+    """Delete active loot and the encounter after defeat or retreat."""
     destroy_loot_items(character)
     _remove_active_encounter(character)
 
 
 def _loot_item_level(monster_level: int) -> int:
+    """Roll the item level for dropped loot around the monster's level."""
     return max(1, monster_level + random.choice([-1, 0, 0, 1]))
 
 
 def drop_loot(encounter: Encounter) -> list[dict[str, Any]]:
+    """Create loot drops for a defeated encounter."""
     items_dropped: list[dict[str, Any]] = []
     all_items = get_all_item_type_data()
     if not all_items:
         return items_dropped
 
+    # Loot scales from the enemy's level, not the enemy type, so harder fights pay out better gear.
     monster_level = max(1, encounter.enemy_level or 1)
     num_items = min(3, 1 + max(0, (monster_level - 1) // 4))
     for _ in range(num_items):
@@ -158,6 +175,7 @@ def build_combat_response(
     damage: int = 0,
     dice_roll: int | None = None,
 ) -> Any:
+    """Build the JSON payload returned by dungeon combat endpoints."""
     payload: dict[str, Any] = {
         'character': serialize_character(character),
         'enemy': None if player_died or success else serialize_encounter(encounter),
@@ -177,6 +195,7 @@ def build_combat_response(
 
 
 def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str, Any]:
+    """Resolve a single attack turn and return the resulting combat state."""
     enemy_name = encounter.enemy_type.name
     effective_damage = character.damage + character.bonus_damage
     player_hits = _combat_damage_roll(effective_damage)
@@ -236,6 +255,7 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
 
 
 def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, Any]:
+    """Resolve a run attempt and return the resulting combat state."""
     enemy_name = encounter.enemy_type.name
     dice_roll = random.randint(1, 6)
 
@@ -287,6 +307,7 @@ def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, A
 
 @dungeon_bp.route('/dungeon/enter', methods=['POST'])
 def enter_dungeon() -> Any:
+    """Enter the dungeon and return the active encounter."""
     character = get_character()
     if not character:
         return json_error('No active character selected', 400)
@@ -298,6 +319,7 @@ def enter_dungeon() -> Any:
 
 @dungeon_bp.route('/dungeon/attack', methods=['POST'])
 def attack_monster() -> Any:
+    """Attack the current dungeon enemy."""
     character = get_character()
     if not character:
         return json_error('No active character selected', 400)
@@ -321,6 +343,7 @@ def attack_monster() -> Any:
 
 @dungeon_bp.route('/dungeon/run', methods=['POST'])
 def run_away() -> Any:
+    """Attempt to flee from the current dungeon encounter."""
     character = get_character()
     if not character:
         return json_error('No active character selected', 400)
@@ -348,6 +371,7 @@ def run_away() -> Any:
 
 @dungeon_bp.route('/dungeon/leave', methods=['POST'])
 def leave_dungeon() -> Any:
+    """Leave the dungeon and clean up the active encounter state."""
     character = get_character()
     if not character:
         return json_error('No active character selected', 400)

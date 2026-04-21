@@ -4,12 +4,14 @@ from ..db.models import Character, Encounter, Item, ItemType, User
 
 
 def _slot_value(item: Any) -> str | None:
+    """Return the string slot for a nested item type, if present."""
     if not item or not item.item_type or not item.item_type.slot:
         return None
     return item.item_type.slot.value
 
 
 def serialize_item_type(item_type: ItemType | None) -> dict[str, Any] | None:
+    """Convert an item type model into the API shape used by the client."""
     if not item_type:
         return None
     return {
@@ -22,6 +24,7 @@ def serialize_item_type(item_type: ItemType | None) -> dict[str, Any] | None:
 
 
 def serialize_item(item: Item | None) -> dict[str, Any] | None:
+    """Convert an item model into a JSON-safe payload for the API."""
     if not item:
         return None
     return {
@@ -40,6 +43,7 @@ def serialize_item(item: Item | None) -> dict[str, Any] | None:
 
 
 def serialize_character(character: Character | None, include_inventory: bool = False) -> dict[str, Any] | None:
+    """Serialize a character and optionally include inventory and equipment."""
     if not character:
         return None
 
@@ -66,6 +70,7 @@ def serialize_character(character: Character | None, include_inventory: bool = F
 
 
 def serialize_user(user: User | None) -> dict[str, Any] | None:
+    """Serialize a user together with their characters and inventory."""
     if not user:
         return None
     return {
@@ -77,6 +82,7 @@ def serialize_user(user: User | None) -> dict[str, Any] | None:
 
 
 def serialize_encounter(encounter: Encounter | None) -> dict[str, Any] | None:
+    """Serialize the active dungeon encounter for the combat UI."""
     if not encounter:
         return None
     return {

@@ -103,6 +103,7 @@ def _load_existing_rows(output_file):
 
 
 def export_chat_logs_to_csv(input_directory, output_file):
+    """Export prompt text from JSON chat logs into a sorted CSV file."""
     input_directory = Path(input_directory)
     output_file = Path(output_file)
     json_files = sorted(input_directory.glob('*.json'))

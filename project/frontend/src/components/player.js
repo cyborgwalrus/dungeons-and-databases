@@ -1,5 +1,6 @@
 import { escapeHtml } from '../helpers.js';
 
+/** Render the current player stats into the provided container. */
 export function renderPlayerStatsInto(container, player) {
   if (!container) return;
   if (!player) {

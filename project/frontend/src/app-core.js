@@ -8,10 +8,12 @@ import { state, getCharacterId } from './app-state.js';
 
 const root = document.getElementById('root');
 
+/** Store the latest player payload in local app state. */
 function syncPlayerSnapshot(playerData) {
   state.player = playerData;
 }
 
+/** Request a full heal for the active character and refresh the HUD. */
 async function syncPlayerHealthToFull() {
   const characterId = getCharacterId();
   if (!characterId) return;
@@ -28,10 +30,12 @@ async function syncPlayerHealthToFull() {
   }
 }
 
+/** Clear the in-memory record of loot collected during the current run. */
 function resetDungeonLoot() {
   state.lootCounts = {};
 }
 
+/** Delete unequipped inventory items and refresh the player view. */
 async function clearUnequippedInventory() {
   const userId = state.currentUser?.id || state.player?.user_id;
   if (!userId) return;
@@ -41,6 +45,7 @@ async function clearUnequippedInventory() {
   await syncPlayerHealthToFull();
 }
 
+/** Update the home HUD with the current player stats. */
 function updatePlayerPanel(player) {
   if (!player) return;
   const ph = document.getElementById('player-health');
@@ -62,6 +67,7 @@ function updatePlayerPanel(player) {
   if (pbd) pbd.textContent = `+${player.bonus_damage}`;
 }
 
+/** Update the dungeon HUD with the current enemy stats. */
 function updateEnemyPanel(enemy) {
   if (!enemy) return;
   const enName = document.getElementById('enemy-name');
@@ -74,6 +80,7 @@ function updateEnemyPanel(enemy) {
   if (enDamage) enDamage.textContent = `${enemy.damage}`;
 }
 
+/** Render the equipment panel using the current inventory snapshot. */
 function renderEquipPanel() {
   const equipped = Array.isArray(state.player?.equipped) ? state.player.equipped : [];
   const inventory = Array.isArray(state.player?.inventory) ? state.player.inventory : [];
@@ -91,6 +98,7 @@ function renderEquipPanel() {
   });
 }
 
+/** Render the inventory grid using the current player snapshot. */
 function renderInventoryGrid() {
   const inventory = Array.isArray(state.player?.inventory) ? state.player.inventory : [];
   const equipped = Array.isArray(state.player?.equipped) ? state.player.equipped : [];
@@ -107,6 +115,7 @@ function renderInventoryGrid() {
   });
 }
 
+/** Send an attack request and mirror the resulting combat state. */
 async function handleDungeonAttack() {
   const res = await fetchJson('/dungeon/attack', { method: 'POST' });
   if (!res.ok || !res.data) return;
@@ -136,6 +145,7 @@ async function handleDungeonAttack() {
   if (dungeonState.enemy) updateEnemyPanel(dungeonState.enemy);
 }
 
+/** Send a run request and update the dungeon screen based on the result. */
 async function handleDungeonRun() {
   const res = await fetchJson('/dungeon/run', { method: 'POST' });
   if (!res.ok || !res.data) return;
@@ -166,10 +176,12 @@ async function handleDungeonRun() {
   }
 }
 
+/** Refresh the active character and re-render the shared HUD sections. */
 async function loadStateAndRenderPartial() {
   const characterId = getCharacterId();
   if (!characterId) return;
 
+  // Refresh the cached player snapshot before repainting the HUD panels.
   const playerResponse = await fetchJson(`/characters/${characterId}`);
   if (playerResponse.ok && playerResponse.data) {
     syncPlayerSnapshot(playerResponse.data);
@@ -182,6 +194,7 @@ async function loadStateAndRenderPartial() {
   renderInventoryGrid();
 }
 
+/** Render the login screen and wire up sign-in and sign-up actions. */
 async function renderLogin() {
   root.innerHTML = `
     <div class="game-container" style="display: flex; justify-content: center; align-items: center; min-height: 100vh;">
@@ -257,6 +270,7 @@ async function renderLogin() {
   });
 }
 
+/** Render the character picker and allow the user to create or select one. */
 async function renderCharacterSelect() {
   root.innerHTML = `<div class="game-container" style="display: flex; justify-content: center; align-items: center; min-height: 100vh;"><div style="width: 100%; max-width: 600px; padding: 20px;" id="char-select-content">Loading...</div></div>`;
   const content = document.getElementById('char-select-content');
@@ -328,6 +342,7 @@ async function renderCharacterSelect() {
   });
 }
 
+/** Render the home screen with inventory, equipment, and navigation actions. */
 async function renderHome() {
   root.innerHTML = `<div class="game-container"><div id="main-content"></div></div>`;
   const main = document.getElementById('main-content');
@@ -411,6 +426,7 @@ async function renderHome() {
 
 }
 
+/** Render the dungeon screen and bind combat controls to live actions. */
 async function renderDungeon({ resetRunState = true } = {}) {
   if (resetRunState) resetDungeonLoot();
   state.lastDungeonMessage = null;
@@ -428,6 +444,7 @@ async function renderDungeon({ resetRunState = true } = {}) {
     syncPlayerSnapshot(playerResponse.data);
   }
 
+  // The dungeon view always starts from the server-authoritative encounter state.
   const encounterResponse = await fetchJson('/dungeon/enter', { method: 'POST' });
   const enemy = encounterResponse.ok ? encounterResponse.data : { name: '', health: 0, max_health: 0, damage: 0, description: '' };
 
@@ -449,10 +466,12 @@ async function renderDungeon({ resetRunState = true } = {}) {
   });
 }
 
+/** Navigate by updating the hash-based client router. */
 function navigateTo(path) {
   if (path === '/') location.hash = '#/'; else location.hash = `#${path}`;
 }
 
+/** Resolve the current hash route and render the matching screen. */
 async function route() {
   const hash = location.hash.replace('#', '') || '/';
 

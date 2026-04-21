@@ -7,19 +7,24 @@ from .models import EnemyType, ItemSlot, ItemType, db
 
 @dataclass(frozen=True, slots=True)
 class SeedRecord(ABC):
+    """Base type for database seed definitions."""
+
     @abstractmethod
     def model_kwargs(self) -> dict[str, object]:
+        """Return keyword arguments for constructing a model instance."""
         raise NotImplementedError
 
 
 @dataclass(frozen=True, slots=True)
 class EnemyTypeSeed(SeedRecord):
+    """Seed data for an enemy type row."""
     name: str
     health: int
     damage: int
     description: str
 
     def model_kwargs(self) -> dict[str, object]:
+        """Return keyword arguments for the enemy type model."""
         return {
             'name': self.name,
             'health': self.health,
@@ -30,12 +35,14 @@ class EnemyTypeSeed(SeedRecord):
 
 @dataclass(frozen=True, slots=True)
 class ItemTypeSeed(SeedRecord):
+    """Seed data for an item type row."""
     name: str
     slot: ItemSlot
     health: int
     damage: int
 
     def model_kwargs(self) -> dict[str, object]:
+        """Return keyword arguments for the item type model."""
         return {
             'name': self.name,
             'slot': self.slot.value,
@@ -65,6 +72,7 @@ ITEM_TYPES = [
 
 
 def _seed_table(model_cls, seeds: Sequence[SeedRecord]) -> None:
+    """Insert seed rows only when the target table is empty."""
     if model_cls.query.count() != 0:
         return
 
@@ -73,5 +81,6 @@ def _seed_table(model_cls, seeds: Sequence[SeedRecord]) -> None:
 
 
 def seed_initial_data():
+    """Seed the database with the default enemy and item reference data."""
     _seed_table(EnemyType, ENEMY_TYPES)
     _seed_table(ItemType, ITEM_TYPES)

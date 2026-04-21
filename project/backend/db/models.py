@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship, Mapped
 db = SQLAlchemy()
 
 class User(db.Model):
+    """Authenticated account that owns characters and a shared inventory."""
     __tablename__ = 'user'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
@@ -16,20 +17,25 @@ class User(db.Model):
 
     @property
     def is_authenticated(self):
+        """Report that persisted users are always authenticated once loaded."""
         return True
 
     @property
     def is_active(self):
+        """Report that loaded users are active accounts."""
         return True
 
     @property
     def is_anonymous(self):
+        """Report that persisted users are never anonymous."""
         return False
 
     def get_id(self):
+        """Return the string identifier expected by Flask-Login-style helpers."""
         return str(self.id)
 
     def to_dict(self):
+        """Serialize the user together with their owned characters."""
         return {
             'id': self.id,
             'username': self.username,
@@ -38,6 +44,7 @@ class User(db.Model):
 
 
 class UserInventory(db.Model):
+    """Shared inventory container attached one-to-one to a user."""
     __tablename__ = 'user_inventory'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
@@ -46,6 +53,7 @@ class UserInventory(db.Model):
     items: Mapped[list['Item']] = relationship('Item', back_populates='inventory', cascade='all, delete-orphan')
 
     def to_dict(self):
+        """Serialize the inventory and its items."""
         return {
             'id': self.id,
             'user_id': self.user_id,
@@ -54,6 +62,7 @@ class UserInventory(db.Model):
 
 
 class Character(db.Model):
+    """Playable character tied to a user and combat progression state."""
     __tablename__ = 'character'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
@@ -70,22 +79,27 @@ class Character(db.Model):
 
     @property
     def inventory_items(self):
+        """Return the items stored in the owning user's inventory."""
         if not self.user or not self.user.inventory:
             return []
         return list(self.user.inventory.items)
 
     @property
     def equipped_items(self):
+        """Return the items currently equipped by this character."""
         return [equipment.item for equipment in self.equipment if equipment.item]
 
     @property
     def inventory(self):
+        """Provide a compatibility alias for the inventory item list."""
         return self.inventory_items
 
     def inventory_to_dict(self):
+        """Serialize inventory items for API responses."""
         return [item.to_dict() for item in self.inventory_items]
 
     def equipment_to_dict(self):
+        """Serialize equipped items in slot order for API responses."""
         equipped_items = sorted(
             [equipment for equipment in self.equipment if equipment.item],
             key=lambda equipment: (_slot_sort_key(equipment.slot), equipment.item.id or 0)
@@ -94,34 +108,42 @@ class Character(db.Model):
 
     @property
     def bonus_health(self):
+        """Return the total health bonus from equipped items."""
         return sum(item.health or 0 for item in self.equipped_items)
 
     @property
     def bonus_damage(self):
+        """Return the total damage bonus from equipped items."""
         return sum(item.damage or 0 for item in self.equipped_items)
 
     @staticmethod
     def _max_health_for_level(level: int) -> int:
+        """Return the base max health value for a given character level."""
         return 100 + (max(0, level - 1) * 10)
 
     @property
     def max_health(self):
+        """Return the current max health including gear bonuses."""
         return self._max_health_for_level(self.level) + self.bonus_health
 
     @property
     def experience_to_next_level(self):
+        """Return the XP threshold for the next level."""
         return 100 + (max(0, self.level - 1) * 50)
 
     def gain_experience(self, amount: int) -> int:
+        """Add positive XP to the character and return the applied amount."""
         if amount <= 0:
             return 0
         self.experience += amount
         return amount
 
     def can_level_up(self):
+        """Return whether the character has enough XP to level up."""
         return self.experience >= self.experience_to_next_level
 
     def level_up(self):
+        """Spend XP to raise the character level and improve core stats."""
         if not self.can_level_up():
             return False
 
@@ -137,6 +159,7 @@ class Character(db.Model):
         return True
 
     def to_dict(self, include_inventory=False):
+        """Serialize the character and optionally include inventory data."""
         data = {
             'id': self.id,
             'user_id': self.user_id,
@@ -157,6 +180,7 @@ class Character(db.Model):
 
 
 class EnemyType(db.Model):
+    """Enemy template used to seed dungeon encounters."""
     __tablename__ = 'enemy_type'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
@@ -168,6 +192,7 @@ class EnemyType(db.Model):
     encounters: Mapped[list['Encounter']] = relationship('Encounter', back_populates='enemy_type')
 
     def to_dict(self):
+        """Serialize the enemy template."""
         return {
             'id': self.id,
             'name': self.name,
@@ -178,6 +203,7 @@ class EnemyType(db.Model):
 
 
 class Encounter(db.Model):
+    """Active dungeon encounter tied to a character and enemy template."""
     __tablename__ = 'encounter'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
@@ -193,6 +219,7 @@ class Encounter(db.Model):
     damage: Mapped[int] = db.Column(db.Integer, nullable=False)
 
     def to_dict(self):
+        """Serialize the current encounter state for the client."""
         return {
             'id': self.id,
             'character_id': self.character_id,
@@ -207,6 +234,7 @@ class Encounter(db.Model):
 
 
 class ItemSlot(Enum):
+    """Equipment slot categories used by items and character gear."""
     WEAPON = 'weapon'
     SHIELD = 'shield'
     ARMOR = 'armor'
@@ -225,11 +253,13 @@ ITEM_SLOT_ORDER = {
 }
 
 def _slot_sort_key(slot):
+    """Order slots in the layout used by inventory and equipment views."""
     if slot is None:
         return 999
     return ITEM_SLOT_ORDER[slot]
 
 class ItemType(db.Model):
+    """Item template defining the base stats for generated items."""
     __tablename__ = 'item_type'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
@@ -249,6 +279,7 @@ class ItemType(db.Model):
     items: Mapped[list['Item']] = relationship('Item', back_populates='item_type')
 
     def to_dict(self):
+        """Serialize the item template."""
         return {
             'id': self.id,
             'name': self.name,
@@ -259,6 +290,7 @@ class ItemType(db.Model):
 
 
 class Item(db.Model):
+    """Concrete item instance held in inventory or equipped by a character."""
     __tablename__ = 'item'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
@@ -277,10 +309,12 @@ class Item(db.Model):
 
     @property
     def slot(self):
+        """Return the item's equipment slot, if it has one."""
         return self.item_type.slot if self.item_type else None
 
     @property
     def owner_id(self):
+        """Return the owning user's ID, whether equipped or stored in inventory."""
         if self.inventory:
             return self.inventory.user_id
         if self.equipment and self.equipment.character:
@@ -289,13 +323,16 @@ class Item(db.Model):
 
     @property
     def equipped_slot(self):
+        """Return the slot the item currently occupies, if equipped."""
         return self.equipment.slot if self.equipment else None
 
     @property
     def is_equipped(self):
+        """Return whether the item is currently equipped."""
         return self.equipment is not None
 
     def to_dict(self):
+        """Serialize the item and its nested template data."""
         return {
             'id': self.id,
             'item_type_id': self.item_type_id,
@@ -312,6 +349,7 @@ class Item(db.Model):
 
 
 class CharacterEquipment(db.Model):
+    """Join model linking a character to a single equipped item slot."""
     __tablename__ = 'character_equipment'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
@@ -331,6 +369,7 @@ class CharacterEquipment(db.Model):
     item: Mapped['Item'] = relationship('Item', back_populates='equipment', uselist=False)
 
     def to_dict(self):
+        """Serialize a character equipment entry with its item."""
         return {
             'id': self.id,
             'character_id': self.character_id,

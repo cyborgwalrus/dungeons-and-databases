@@ -11,6 +11,7 @@ character_bp = Blueprint('character', __name__)
 
 @character_bp.route('/characters', methods=['GET'])
 def list_characters():
+    """List the current user's characters with inventory data."""
     user, error_response = require_current_user()
     if error_response:
         return error_response
@@ -23,6 +24,7 @@ def list_characters():
 
 @character_bp.route('/characters', methods=['POST'])
 def create_character():
+    """Create a new character for the current user and seed starter gear."""
     data = request.get_json(silent=True) or {}
     user, error_response = require_current_user()
     if error_response:
@@ -49,6 +51,7 @@ def create_character():
 
 @character_bp.route('/characters/<int:character_id>', methods=['GET'])
 def get_character(character_id):
+    """Return a single character owned by the current user."""
     character, error_response = require_character_owner(character_id)
     if error_response:
         return error_response
@@ -58,6 +61,7 @@ def get_character(character_id):
 
 @character_bp.route('/characters/<int:character_id>', methods=['DELETE'])
 def delete_character(character_id):
+    """Delete a character and clear the active token if needed."""
     user, error_response = require_current_user()
     if error_response:
         return error_response
@@ -79,6 +83,7 @@ def delete_character(character_id):
 
 @character_bp.route('/characters/<int:character_id>/select', methods=['POST'])
 def select_character(character_id):
+    """Set the requested character as the active player character."""
     character, error_response = require_character_owner(character_id)
     if error_response:
         return error_response
@@ -90,6 +95,7 @@ def select_character(character_id):
 
 @character_bp.route('/characters/<int:character_id>', methods=['PUT'])
 def update_character(character_id):
+    """Update basic character stats from the request payload."""
     data = request.get_json(silent=True) or {}
     character, error_response = require_character_owner(character_id)
     if error_response:
@@ -109,6 +115,7 @@ def update_character(character_id):
 
 @character_bp.route('/characters/<int:character_id>/full_heal', methods=['POST'])
 def full_heal_character(character_id):
+    """Restore the character to full health."""
     character, error_response = require_character_owner(character_id)
     if error_response:
         return error_response
@@ -122,6 +129,7 @@ def full_heal_character(character_id):
 
 @character_bp.route('/characters/<int:character_id>/equipment', methods=['GET'])
 def list_character_equipment(character_id):
+    """List the equipment currently worn by the character."""
     character, error_response = require_character_owner(character_id)
     if error_response:
         return error_response
@@ -131,6 +139,7 @@ def list_character_equipment(character_id):
 
 @character_bp.route('/characters/<int:character_id>/equipment', methods=['POST'])
 def equip_character_item(character_id):
+    """Equip an item from the character's inventory."""
     data = request.get_json(silent=True) or {}
     item_id = data.get('item_id')
     if item_id is None:
@@ -158,6 +167,7 @@ def equip_character_item(character_id):
 
 @character_bp.route('/characters/<int:character_id>/equipment/<int:item_id>', methods=['DELETE'])
 def unequip_character_item(character_id, item_id):
+    """Unequip a worn item and return it to the inventory."""
     character, error_response = require_character_owner(character_id)
     if error_response:
         return error_response

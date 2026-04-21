@@ -1,5 +1,6 @@
 import { discardInventoryItem, equipInventoryItem, getItemDragData, setItemDragData, unequipInventoryItem } from './item-actions.js';
 
+/** Render the inventory grid and wire up drag/drop interactions. */
 export function renderInventoryGrid(opts) {
   const { inventory, equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
   const invContainer = document.getElementById('inventory-grid');

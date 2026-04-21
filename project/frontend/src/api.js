@@ -1,6 +1,7 @@
 export const API_BASE = window.__API_BASE__ || '/api';
 const AUTH_TOKEN_KEY = 'dnd.auth.token';
 
+/** Return the stored auth token, or null when none exists. */
 export function getAuthToken() {
   try {
     return window.localStorage.getItem(AUTH_TOKEN_KEY);
@@ -9,6 +10,7 @@ export function getAuthToken() {
   }
 }
 
+/** Persist or clear the auth token in local storage. */
 export function setAuthToken(token) {
   try {
     if (!token) {
@@ -21,10 +23,12 @@ export function setAuthToken(token) {
   }
 }
 
+/** Remove any cached auth token. */
 export function clearAuthToken() {
   setAuthToken(null);
 }
 
+/** Fetch JSON from the API while attaching auth headers when available. */
 export async function fetchJson(path, options) {
   try {
     const authToken = getAuthToken();

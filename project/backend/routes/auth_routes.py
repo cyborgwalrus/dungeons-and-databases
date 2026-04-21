@@ -11,6 +11,7 @@ auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/login/signup', methods=['POST'])
 def signup():
+    """Create a new user account and return an auth token."""
     data = get_json_data(request)
     username = (data.get('username') or '').strip()
     password = data.get('password') or ''
@@ -36,6 +37,7 @@ def signup():
 
 @auth_bp.route('/login/signin', methods=['POST'])
 def signin():
+    """Authenticate a user and return an auth token."""
     data = get_json_data(request)
     username = (data.get('username') or '').strip()
     password = data.get('password') or ''
@@ -59,11 +61,13 @@ def signin():
 
 @auth_bp.route('/login/signout', methods=['POST'])
 def signout():
+    """Return a sign-out response for the client to clear local auth state."""
     return jsonify({'message': 'signed out'})
 
 
 @auth_bp.route('/login/me', methods=['GET'])
 def me():
+    """Return the current authenticated user and active character, if any."""
     user = get_authenticated_user()
     if not user:
         return json_error('Unauthorized', 401)

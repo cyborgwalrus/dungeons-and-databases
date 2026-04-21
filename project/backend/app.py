@@ -38,7 +38,7 @@ app.register_blueprint(dungeon_bp, url_prefix='/api')
 
 @app.cli.command('init-db')
 def init_db():
-    """Create DB tables and seed initial data (enemies + items)."""
+    # Create DB tables, seed reference data, and clear cached lookups.
     with app.app_context():
         db.create_all()
         seed_initial_data()
@@ -48,7 +48,7 @@ def init_db():
 
 @app.cli.command('delete-db')
 def delete_db():
-    """Drop all tables and remove the SQLite DB file."""
+    # Drop all tables, clear cache state, and remove the SQLite database file.
     with app.app_context():
         try:
             # remove active session and drop tables

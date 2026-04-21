@@ -9,6 +9,7 @@ user_bp = Blueprint('user', __name__)
 
 @user_bp.route('/users/<int:user_id>', methods=['GET'])
 def get_user(user_id):
+    """Return the requested user if the authenticated user owns it."""
     user, error_response = require_current_user_id(user_id)
     if error_response:
         return error_response
@@ -18,6 +19,7 @@ def get_user(user_id):
 
 @user_bp.route('/users/<int:user_id>', methods=['PUT'])
 def update_user(user_id):
+    """Update a user's profile fields."""
     user, error_response = require_current_user_id(user_id)
     if error_response:
         return error_response
@@ -35,6 +37,7 @@ def update_user(user_id):
 
 @user_bp.route('/users/<int:user_id>', methods=['DELETE'])
 def delete_user(user_id):
+    """Delete the authenticated user's account."""
     user, error_response = require_current_user_id(user_id)
     if error_response:
         return error_response
@@ -47,6 +50,7 @@ def delete_user(user_id):
 
 @user_bp.route('/users/<int:user_id>/inventory', methods=['GET'])
 def list_user_inventory(user_id):
+    """List the contents of the user's shared inventory."""
     user, error_response = require_current_user_id(user_id)
     if error_response:
         return error_response
@@ -60,6 +64,7 @@ def list_user_inventory(user_id):
 
 @user_bp.route('/users/<int:user_id>/inventory', methods=['DELETE'])
 def clear_user_inventory(user_id):
+    """Remove all items from the user's shared inventory."""
     user, error_response = require_current_user_id(user_id)
     if error_response:
         return error_response

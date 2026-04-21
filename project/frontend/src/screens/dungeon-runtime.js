@@ -1,6 +1,7 @@
 import { escapeHtml, formatDungeonMessage, formatLootLines } from '../helpers.js';
 import { showDefeat } from './defeat.js';
 
+/** Build the static dungeon layout used by the live combat screen. */
 export function buildDungeonMarkup(enemy, messageToShow) {
   // Keep the dungeon shell in one place so the combat handlers can update it in place.
   return `
@@ -32,12 +33,14 @@ export function buildDungeonMarkup(enemy, messageToShow) {
   `;
 }
 
+/** Render the loot summary panel inside the dungeon screen. */
 export function renderLootPanel(lootEl, lootCounts) {
   if (!lootEl) return;
   const lines = formatLootLines(lootCounts);
   lootEl.innerHTML = `<div style="margin-top:10px;padding:10px;background:#2d3436;border-left:4px solid #fdcb6e;border-radius:4px"><strong style="color:#fdcb6e">🎁 Loot obtained:</strong><p>${escapeHtml(lines.join(', '))}</p></div>`;
 }
 
+/** Apply the latest combat response to the active dungeon UI. */
 export function applyDungeonCombatUpdate(d, { lootCounts, onLootDropped, setLastDungeonMessage, lootEl }) {
   // The server returns the latest enemy/player state after each attack; mirror it into the live panel.
   const nextMessage = d.message || 'You attacked the monster!';
@@ -55,6 +58,7 @@ export function applyDungeonCombatUpdate(d, { lootCounts, onLootDropped, setLast
   }
 }
 
+/** Show the defeat overlay and let the caller restore navigation state. */
 export async function showDungeonDefeatScreen({ message, lootCounts, onExit }) {
   await showDefeat({
     message: message || 'You were defeated and lost the loot from this dungeon run.',

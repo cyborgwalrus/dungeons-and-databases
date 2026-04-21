@@ -1,5 +1,6 @@
 import { equipInventoryItem, getItemDragData, setItemDragData, unequipInventoryItem } from './item-actions.js';
 
+/** Render the equipped-item panel and attach drag/drop handlers. */
 export async function renderEquipPanel(opts) {
   const { equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, makeIcon, formatStats, getItemDisplayName } = opts;
   const equipPanel = document.getElementById('equip-panel');

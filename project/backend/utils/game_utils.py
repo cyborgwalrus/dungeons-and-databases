@@ -20,6 +20,7 @@ DEFAULT_LOADOUT_ITEM_NAMES = [
 
 
 def _get_auth_serializer() -> URLSafeTimedSerializer:
+    """Build the serializer used to sign and validate auth tokens."""
     secret_key = current_app.config.get('SECRET_KEY')
     if not secret_key:
         raise RuntimeError('SECRET_KEY is required for token auth')
@@ -27,12 +28,14 @@ def _get_auth_serializer() -> URLSafeTimedSerializer:
 
 
 def issue_auth_token(user_id: int, character_id: int | None = None) -> str:
+    """Create a signed auth token for the current user and optional character."""
     serializer = _get_auth_serializer()
     payload = {'user_id': int(user_id), 'character_id': int(character_id) if character_id is not None else None}
     return serializer.dumps(payload)
 
 
 def get_request_auth_payload() -> dict[str, Any] | None:
+    """Parse and validate the bearer token from the incoming request."""
     authorization = request.headers.get('Authorization', '').strip()
     if not authorization:
         return None
@@ -74,6 +77,7 @@ def get_request_auth_payload() -> dict[str, Any] | None:
 
 
 def get_current_user() -> User | None:
+    """Return the authenticated user associated with the request token."""
     payload = get_request_auth_payload()
     if not payload:
         return None
@@ -83,6 +87,7 @@ def get_current_user() -> User | None:
 
 
 def get_player() -> Character | None:
+    """Return the active character referenced by the request token, if any."""
     payload = get_request_auth_payload()
     if not payload:
         return None
@@ -102,6 +107,7 @@ def get_player() -> Character | None:
 
 
 def seed_character_loadout(character: Character) -> None:
+    """Populate a new character with the default starter equipment."""
     item_types_by_name = {item_type['name']: item_type for item_type in get_all_item_type_data()}
     for item_name in DEFAULT_LOADOUT_ITEM_NAMES:
         item_type = item_types_by_name.get(item_name)
@@ -110,6 +116,7 @@ def seed_character_loadout(character: Character) -> None:
 
 
 def _get_or_create_user_inventory(character: Character) -> UserInventory:
+    """Return the user's inventory, creating one when the character lacks it."""
     if character.user and character.user.inventory:
         return character.user.inventory
 
@@ -122,6 +129,7 @@ def _get_or_create_user_inventory(character: Character) -> UserInventory:
 
 
 def _scaled_bonus(base_bonus: int, level: int) -> int:
+    """Scale item bonuses by level while preserving zero-value stats."""
     if base_bonus <= 0:
         return 0
     bonus_multiplier = 1.10 ** max(0, level - 1)
@@ -129,6 +137,7 @@ def _scaled_bonus(base_bonus: int, level: int) -> int:
 
 
 def add_inventory_item(player: Character, item_id: int, *, level: int = 1, is_loot: bool | None = None) -> Item | None:
+    """Create an inventory item from item type data and attach it to a player."""
     item_type = get_item_type_data(item_id)
     if not item_type:
         return None
@@ -151,6 +160,7 @@ def add_inventory_item(player: Character, item_id: int, *, level: int = 1, is_lo
 
 
 def remove_inventory_item(player: Character, item_id: int) -> Item | None:
+    """Remove an item from the player's inventory by item or type ID."""
     if not player.user or not player.user.inventory:
         return None
 
@@ -167,6 +177,7 @@ def remove_inventory_item(player: Character, item_id: int) -> Item | None:
 
 
 def clear_loot_flags(player: Character) -> None:
+    """Clear the loot marker from any items currently held by the player."""
     if not player.user or not player.user.inventory:
         return
     for item in player.user.inventory.items:
@@ -175,6 +186,7 @@ def clear_loot_flags(player: Character) -> None:
 
 
 def destroy_loot_items(player: Character) -> None:
+    """Delete all loot items from the player's inventory."""
     if not player.user or not player.user.inventory:
         return
     loot_items = [item for item in player.user.inventory.items if item.is_loot]

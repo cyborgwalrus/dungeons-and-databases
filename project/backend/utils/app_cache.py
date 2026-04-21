@@ -7,6 +7,7 @@ cache = Cache()
 
 
 def init_cache(app) -> None:
+    """Configure and attach the shared Flask cache instance."""
     cache_type = os.environ.get('CACHE_TYPE', 'SimpleCache')
     cache_config = {
         'CACHE_TYPE': cache_type,
