@@ -15,7 +15,7 @@ export async function showDefeat({ message = 'You were defeated and lost the loo
         <strong class="dungeon-loot-title">🎁 Loot obtained:</strong>
         <p class="dungeon-loot-list">${lines.length ? lines.join(', ') : 'No loot obtained.'}</p>
       </div>
-      <div style="margin-top:8px"><button id="exit-dungeon" class="dungeon-button">Exit dungeon</button></div>
+      <div class="dungeon-exit-section"><button id="exit-dungeon" class="dungeon-button">Exit dungeon</button></div>
     </div>
   `;
   const exitBtn = document.getElementById('exit-dungeon');

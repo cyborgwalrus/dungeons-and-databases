@@ -1,6 +1,11 @@
 import { discardInventoryItem, equipInventoryItem, getItemDragData, setItemDragData, unequipInventoryItem } from './item-actions.js';
+import { setupDragDropZone } from '../utils/drag-drop.js';
+import { scoreItem, buildEquippedSlotMap } from '../utils/inventory-utils.js';
 
-/** Render the inventory grid and wire up drag/drop interactions. */
+/**
+ * Render the inventory grid and wire up drag/drop interactions.
+ * Uses standardized drag/drop utilities to reduce code duplication.
+ */
 export function renderInventoryGrid(opts) {
   const { inventory, equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
   const invContainer = document.getElementById('inventory-grid');
@@ -13,24 +18,18 @@ export function renderInventoryGrid(opts) {
     scrollBox.style.maxHeight = itemCount > 5 ? '390px' : 'none';
   }
 
-  const equippedBySlot = new Map(
-    (Array.isArray(equipped) ? equipped : [])
-      .filter(Boolean)
-      .map(item => [String(item.slot || '').toLowerCase(), item])
-  );
+  // Build efficient slot → item lookup for equipped items
+  const equippedBySlot = buildEquippedSlotMap(equipped);
 
-  function getItemScore(item) {
-    return (Number(item?.health) || 0) + (Number(item?.damage) || 0);
-  }
-
-  // Keep the strongest upgraded items near the top so equip scans are easier to follow.
-  const sortedInventory = [...inventory].filter(Boolean).sort((a, b) => {
+  // Sort inventory by level and name for consistent display
+  const sortedInventory = [...(inventory || [])].filter(Boolean).sort((a, b) => {
     const la = a.level || 1;
     const lb = b.level || 1;
     if (la !== lb) return lb - la;
     return (getItemDisplayName(a) || '').localeCompare(getItemDisplayName(b) || '');
   });
 
+  // Track best item per slot for upgrade highlighting
   const bestBySlot = new Map();
   sortedInventory.forEach(item => {
     const slot = String(item?.slot || '').toLowerCase();
@@ -42,8 +41,8 @@ export function renderInventoryGrid(opts) {
       return;
     }
 
-    const currentScore = getItemScore(currentBest);
-    const nextScore = getItemScore(item);
+    const currentScore = scoreItem(currentBest);
+    const nextScore = scoreItem(item);
     if (nextScore > currentScore) {
       bestBySlot.set(slot, item);
       return;
@@ -58,17 +57,21 @@ export function renderInventoryGrid(opts) {
     }
   });
 
+  /**
+   * Determine if an item is better than what's currently equipped.
+   * Used to highlight upgrades in the inventory grid.
+   */
   function isBetterThanEquipped(item) {
     const slot = String(item?.slot || '').toLowerCase();
     if (!slot) return false;
     const bestItem = bestBySlot.get(slot);
     if (!bestItem || bestItem.id !== item.id) return false;
-    const equippedItem = equippedBySlot.get(slot);
-    return getItemScore(item) > getItemScore(equippedItem || { health: 0, damage: 0 });
+    const equippedItem = equippedBySlot[slot];
+    return scoreItem(item) > scoreItem(equippedItem || { health: 0, damage: 0 });
   }
 
   if (!inventory || inventory.length === 0) {
-    invContainer.innerHTML = '<div style="grid-column:1 / -1"><p style="color:#999;font-style:italic;margin:0">Your inventory is empty.</p><p style="color:#999;font-style:italic;margin:4px 0 0">Note: the inventory is shared between characters.</p></div>';
+    invContainer.innerHTML = '<div class="inventory-empty-container"><p class="inventory-empty-message">Your inventory is empty.</p><p class="inventory-empty-note">Note: the inventory is shared between characters.</p></div>';
   } else {
     const cards = [];
     sortedInventory.forEach(invItem => {
@@ -87,57 +90,42 @@ export function renderInventoryGrid(opts) {
     invContainer.innerHTML = cards.join('');
   }
 
-  dropZone.ondragover = event => {
-    const payload = getItemDragData(event);
-    if (!payload || payload.source !== 'equipped') return;
-    event.preventDefault();
-    dropZone.classList.add('inventory-dropzone--active');
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-  };
+  // Setup inventory area as drop zone for unequipping items
+  setupDragDropZone(dropZone, {
+    validatePayload: (event) => {
+      const payload = getItemDragData(event);
+      return payload && payload.source === 'equipped' ? payload : null;
+    },
+    onDrop: async (payload) => {
+      try {
+        await unequipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, payload.itemId);
+      } catch (error) {
+        console.error('Failed to unequip item from drag and drop', error);
+      }
+    },
+    activeClass: 'inventory-dropzone--active'
+  });
 
-  dropZone.ondragleave = () => {
-    dropZone.classList.remove('inventory-dropzone--active');
-  };
-
-  dropZone.ondrop = async event => {
-    dropZone.classList.remove('inventory-dropzone--active');
-    const payload = getItemDragData(event);
-    if (!payload || payload.source !== 'equipped') return;
-    event.preventDefault();
-    try {
-      await unequipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, payload.itemId);
-    } catch (error) {
-      console.error('Failed to unequip item from drag and drop', error);
-    }
-  };
-
+  // Setup trash zone as drop zone for discarding items
   const trashDropzone = document.getElementById('inventory-trash-dropzone');
   if (trashDropzone) {
-    trashDropzone.ondragover = event => {
-      const payload = getItemDragData(event);
-      if (!payload || payload.source !== 'inventory') return;
-      event.preventDefault();
-      trashDropzone.classList.add('trash-dropzone--active');
-      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-    };
-
-    trashDropzone.ondragleave = () => {
-      trashDropzone.classList.remove('trash-dropzone--active');
-    };
-
-    trashDropzone.ondrop = async event => {
-      trashDropzone.classList.remove('trash-dropzone--active');
-      const payload = getItemDragData(event);
-      if (!payload || payload.source !== 'inventory') return;
-      event.preventDefault();
-      try {
-        await discardInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, payload.itemId);
-      } catch (error) {
-        console.error('Failed to discard item from drag and drop', error);
-      }
-    };
+    setupDragDropZone(trashDropzone, {
+      validatePayload: (event) => {
+        const payload = getItemDragData(event);
+        return payload && payload.source === 'inventory' ? payload : null;
+      },
+      onDrop: async (payload) => {
+        try {
+          await discardInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, payload.itemId);
+        } catch (error) {
+          console.error('Failed to discard item from drag and drop', error);
+        }
+      },
+      activeClass: 'trash-dropzone--active'
+    });
   }
 
+  // Setup inventory cards as draggable items
   document.querySelectorAll('.inventory-card').forEach(card => {
     card.addEventListener('dragstart', event => {
       setItemDragData(event, {
@@ -163,3 +151,4 @@ export function renderInventoryGrid(opts) {
     });
   });
 }
+

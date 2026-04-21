@@ -1,4 +1,9 @@
-/** Pick a display icon for an item based on slot, name, or stats. */
+/**
+ * Pick a display icon for an item based on slot, name, or stats.
+ *
+ * @param {Object} item - Item data from the API.
+ * @returns {string} Emoji icon representing the item.
+ */
 export function makeIcon(i) {
   const slot = (i.slot || '').toLowerCase();
   if (slot === 'helmet') return '🪖';
@@ -21,7 +26,12 @@ export function makeIcon(i) {
   return '💰';
 }
 
-/** Infer the item category from its slot, name, or stat profile. */
+/**
+ * Infer the item category from its slot, name, or stat profile.
+ *
+ * @param {Object} item - Item data from the API.
+ * @returns {string} Canonical item type string.
+ */
 export function getItemType(i) {
   const slot = (i.slot || '').toLowerCase();
   if (slot === 'shield') return 'shield';
@@ -43,7 +53,12 @@ export function getItemType(i) {
   return 'misc';
 }
 
-/** Format an item name with its level suffix when needed. */
+/**
+ * Format an item name with its level suffix when needed.
+ *
+ * @param {Object} item - Item data from the API.
+ * @returns {string} Display name for the item.
+ */
 export function getItemDisplayName(item) {
   if (!item) return '';
   const name = String(item.name || 'Item').replace(/\s+\+\d+$/, '').trim() || 'Item';
@@ -51,12 +66,22 @@ export function getItemDisplayName(item) {
   return level > 1 ? `${name} +${level}` : name;
 }
 
-/** Convert loot counts into short human-readable summary lines. */
+/**
+ * Convert loot counts into short human-readable summary lines.
+ *
+ * @param {Object<string, number>} lootCounts - Loot summary keyed by item name.
+ * @returns {string[]} Human-readable loot summary lines.
+ */
 export function formatLootLines(lootCounts) {
   return Object.keys(lootCounts || {}).map(name => `${name}${lootCounts[name] > 1 ? ' x' + lootCounts[name] : ''}`);
 }
 
-/** Escape text so it can be inserted into HTML safely. */
+/**
+ * Escape text so it can be inserted into HTML safely.
+ *
+ * @param {*} value - Any value that should be rendered as text.
+ * @returns {string} Escaped HTML string.
+ */
 export function escapeHtml(value) {
   return String(value ?? '')
     .replaceAll('&', '&amp;')
@@ -66,7 +91,12 @@ export function escapeHtml(value) {
     .replaceAll("'", '&#39;');
 }
 
-/** Render a combat log message into the styled dungeon message markup. */
+/**
+ * Render a combat log message into the styled dungeon message markup.
+ *
+ * @param {string} message - Raw combat log text from the API.
+ * @returns {string} HTML markup for the formatted combat message.
+ */
 export function formatDungeonMessage(message) {
   const lines = String(message ?? '')
     .split(/\r?\n/)
@@ -103,7 +133,12 @@ export function formatDungeonMessage(message) {
   `;
 }
 
-/** Format a concise stat summary for inventory and equipment items. */
+/**
+ * Format a concise stat summary for inventory and equipment items.
+ *
+ * @param {Object} item - Item data from the API.
+ * @returns {string} Short stat summary string.
+ */
 export function formatStats(i) {
   if (!i) return '';
   const ha = i.health ?? 0;

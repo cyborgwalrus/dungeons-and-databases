@@ -1,6 +1,10 @@
 import { equipInventoryItem, getItemDragData, setItemDragData, unequipInventoryItem } from './item-actions.js';
+import { setupDragDropZone } from '../utils/drag-drop.js';
 
-/** Render the equipped-item panel and attach drag/drop handlers. */
+/**
+ * Render the equipped-item panel and attach drag/drop handlers.
+ * Uses standardized drag/drop utilities to reduce code duplication.
+ */
 export async function renderEquipPanel(opts) {
   const { equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, makeIcon, formatStats, getItemDisplayName } = opts;
   const equipPanel = document.getElementById('equip-panel');
@@ -36,37 +40,30 @@ export async function renderEquipPanel(opts) {
   }).join('');
 
   equipPanel.innerHTML = `
-    <div style="background:rgba(0,0,0,0.3);border:2px solid #4ecdc4;border-radius:10px;padding:0;margin-bottom:8px">
-      <div style="margin:0">
-        <div id="slots-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:0;border-radius:10px;overflow:hidden">${slotsHtml}</div>
+    <div class="equipment-panel">
+      <div class="equipment-panel-inner">
+        <div id="slots-grid" class="slots-grid">${slotsHtml}</div>
       </div>
     </div>`;
 
+  // Setup each equipment slot as a drop zone for inventory items
   document.querySelectorAll('.equip-slot').forEach(slotEl => {
-    slotEl.ondragover = event => {
-      const payload = getItemDragData(event);
-      if (!payload || payload.source !== 'inventory') return;
-      event.preventDefault();
-      slotEl.classList.add('equip-slot--drop-active');
-      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
-    };
+    setupDragDropZone(slotEl, {
+      validatePayload: (event) => {
+        const payload = getItemDragData(event);
+        return payload && payload.source === 'inventory' ? payload : null;
+      },
+      onDrop: async (payload) => {
+        try {
+          await equipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, payload.itemId);
+        } catch (error) {
+          console.error('Failed to equip item from drag and drop', error);
+        }
+      },
+      activeClass: 'equip-slot--drop-active'
+    });
 
-    slotEl.ondragleave = () => {
-      slotEl.classList.remove('equip-slot--drop-active');
-    };
-
-    slotEl.ondrop = async event => {
-      slotEl.classList.remove('equip-slot--drop-active');
-      const payload = getItemDragData(event);
-      if (!payload || payload.source !== 'inventory') return;
-      event.preventDefault();
-      try {
-        await equipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, payload.itemId);
-      } catch (error) {
-        console.error('Failed to equip item from drag and drop', error);
-      }
-    };
-
+    // Setup equipped item cards as draggable and unequippable
     const equippedCard = slotEl.querySelector('.equipped-card');
     if (equippedCard) {
       equippedCard.addEventListener('dragstart', event => {
@@ -94,3 +91,4 @@ export async function renderEquipPanel(opts) {
     }
   });
 }
+
