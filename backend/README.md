@@ -67,8 +67,6 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 - `POST /api/characters/<int:character_id>/equipment` - equip an item from the user's shared inventory.
 - `DELETE /api/characters/<int:character_id>/equipment/<int:item_id>` - unequip an item and return it to the user's shared inventory.
 
-Character payloads returned by `GET /api/characters/<int:character_id>` include separate `inventory` and `equipped` arrays.
-Selecting a character via `POST /api/characters/<int:character_id>/select` returns a new token scoped to that character.
 
 ### Inventory
 

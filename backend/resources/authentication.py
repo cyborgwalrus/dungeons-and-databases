@@ -5,7 +5,6 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from backend.db.models import User, db
 from backend.utils.game_utils import get_current_user as get_authenticated_user, get_player, issue_auth_token
 from backend.utils.route_helpers import get_json_data, json_error
-from backend.utils.serializers import serialize_user
 
 
 class SignupResource(Resource):
@@ -29,7 +28,7 @@ class SignupResource(Resource):
         user.ensure_inventory()
         db.session.commit()
         token = issue_auth_token(user.id)
-        return {'message': 'signup complete', 'user': serialize_user(user), 'token': token}, 201
+        return {'message': 'signup complete', 'user': user.to_dict(), 'token': token}, 201
 
 
 class SigninResource(Resource):
@@ -53,7 +52,7 @@ class SigninResource(Resource):
             return json_error('invalid username or password', 401)
 
         token = issue_auth_token(user.id)
-        return {'message': 'signin complete', 'user': serialize_user(user), 'token': token}
+        return {'message': 'signin complete', 'user': user.to_dict(), 'token': token}
 
 
 class SignoutResource(Resource):
@@ -70,7 +69,7 @@ class MeResource(Resource):
         if not user:
             return json_error('Unauthorized', 401)
         character = get_player()
-        return {'user': serialize_user(user), 'character': None if not character else character.to_dict(include_inventory=True)}
+        return {'user': user.to_dict(), 'character': None if not character else character.to_dict()}
 
 
 def register_auth_resources(api):

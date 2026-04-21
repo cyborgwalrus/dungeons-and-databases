@@ -1,11 +1,15 @@
 from flask import request
 from flask_restful import Resource
-from sqlalchemy.orm import selectinload
 
 from backend.db.models import Character, db
 from backend.utils.game_utils import get_player as get_current_character, seed_character_loadout, issue_auth_token
 from backend.utils.route_helpers import equip_item, get_item, json_error, require_character_owner, require_current_user, unequip_item
-from backend.utils.serializers import serialize_character, serialize_item
+from backend.utils.api_response_cache import (
+    get_cached_character_data,
+    get_cached_character_equipment_data,
+    get_cached_user_characters_data,
+    invalidate_user_state_cache,
+)
 
 
 class CharacterListResource(Resource):
@@ -16,16 +20,10 @@ class CharacterListResource(Resource):
             return error_response
         assert user is not None
 
-        # Validate that the current user owns these characters
         if user.id != user_id:
             return json_error('Unauthorized', 401)
 
-        # Use eager loading to avoid N+1 queries when accessing inventory
-        characters = Character.query.filter_by(user_id=user.id).options(
-            selectinload(Character.equipment),
-        ).all()
-
-        return [serialize_character(character, include_inventory=True) for character in characters]
+        return get_cached_user_characters_data(user.id)
 
     def post(self, user_id):
         """Create a new character for the specified user and seed starter gear."""
@@ -35,7 +33,6 @@ class CharacterListResource(Resource):
             return error_response
         assert user is not None
 
-        # Validate that the current user owns these characters
         if user.id != user_id:
             return json_error('Unauthorized', 401)
 
@@ -61,7 +58,8 @@ class CharacterListResource(Resource):
         db.session.flush()
         seed_character_loadout(character)
         db.session.commit()
-        return serialize_character(character, include_inventory=True), 201
+        invalidate_user_state_cache(user.id)
+        return character.to_dict(), 201
 
 
 class CharacterResource(Resource):
@@ -71,7 +69,7 @@ class CharacterResource(Resource):
         if error_response:
             return error_response
         assert character is not None
-        return serialize_character(character, include_inventory=True)
+        return get_cached_character_data(character_id, character.user_id)
 
     def delete(self, character_id):
         """Delete a character and clear the active token if needed."""
@@ -88,6 +86,7 @@ class CharacterResource(Resource):
 
         db.session.delete(character)
         db.session.commit()
+        invalidate_user_state_cache(user.id, [character.id])
         response: dict[str, object] = {'message': 'Character deleted'}
         if active_character and active_character.id == character.id:
             response['token'] = issue_auth_token(user.id)
@@ -121,7 +120,8 @@ class CharacterResource(Resource):
             return json_error('health, damage, and level must be valid integers')
 
         db.session.commit()
-        return serialize_character(character, include_inventory=True)
+        invalidate_user_state_cache(character.user_id, [character.id])
+        return character.to_dict()
 
 
 class CharacterSelectResource(Resource):
@@ -133,7 +133,7 @@ class CharacterSelectResource(Resource):
         assert character is not None
 
         token = issue_auth_token(character.user_id, character.id)
-        return {'message': 'Character selected', 'character': serialize_character(character, include_inventory=True), 'token': token}
+        return {'message': 'Character selected', 'character': character.to_dict(), 'token': token}
 
 
 class CharacterFullHealResource(Resource):
@@ -146,8 +146,9 @@ class CharacterFullHealResource(Resource):
 
         character.health = character.max_health
         db.session.commit()
+        invalidate_user_state_cache(character.user_id, [character.id])
 
-        return serialize_character(character, include_inventory=True)
+        return character.to_dict()
 
 
 class CharacterEquipmentResource(Resource):
@@ -157,7 +158,7 @@ class CharacterEquipmentResource(Resource):
         if error_response:
             return error_response
         assert character is not None
-        return [equipment.to_dict() for equipment in character.equipment]
+        return get_cached_character_equipment_data(character_id, character.user_id)
 
     def post(self, character_id):
         """Equip an item from the character's inventory."""
@@ -190,7 +191,8 @@ class CharacterEquipmentResource(Resource):
 
         db.session.commit()
         db.session.expire(character)
-        return {'message': 'Item equipped', 'item': serialize_item(item), 'character': serialize_character(character, include_inventory=True)}
+        invalidate_user_state_cache(character.user_id)
+        return {'message': 'Item equipped', 'item': item.to_dict(), 'character': character.to_dict()}
 
 
 class CharacterEquipmentItemResource(Resource):
@@ -206,7 +208,8 @@ class CharacterEquipmentItemResource(Resource):
 
         db.session.commit()
         db.session.expire(character)
-        return {'message': 'Item unequipped', 'character': serialize_character(character, include_inventory=True)}
+        invalidate_user_state_cache(character.user_id)
+        return {'message': 'Item unequipped', 'character': character.to_dict()}
 
 
 def register_character_resources(api):

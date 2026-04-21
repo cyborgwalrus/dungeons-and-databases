@@ -85,6 +85,8 @@ export function clearAuthState(state) {
   state.currentUser = null;
   state.player = null;
   state.characters = [];
+  state.inventory = [];
+  state.equipped = [];
 }
 
 /**

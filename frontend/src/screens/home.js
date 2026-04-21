@@ -28,16 +28,29 @@ import { buildScreenShell } from '../ui.js';
 export async function renderHome(root, deps) {
   const { fetchJson, navigateTo, state } = deps;
 
-  /** Refresh the active character and re-render the shared HUD sections. */
-  async function loadStateAndRenderPartial() {
+  /** Fetch the current character, shared inventory, and equipped items separately. */
+  async function loadCharacterViewModel() {
     const characterId = state.player?.id;
+    const userId = state.currentUser?.id || state.player?.user_id;
     if (!characterId) return;
 
-    // Refresh the cached player snapshot before repainting the HUD panels.
-    const playerResponse = await fetchJson(`/characters/${characterId}`);
-    if (playerResponse.ok && playerResponse.data) {
-      syncPlayerSnapshot(state, playerResponse.data);
+    const [characterResponse, inventoryResponse, equipmentResponse] = await Promise.all([
+      fetchJson(`/characters/${characterId}`),
+      userId ? fetchJson(`/users/${userId}/inventory`) : Promise.resolve({ ok: false, data: [] }),
+      fetchJson(`/characters/${characterId}/equipment`),
+    ]);
+
+    if (characterResponse.ok && characterResponse.data) {
+      syncPlayerSnapshot(state, characterResponse.data);
     }
+
+    state.inventory = inventoryResponse.ok && Array.isArray(inventoryResponse.data) ? inventoryResponse.data : [];
+    state.equipped = equipmentResponse.ok && Array.isArray(equipmentResponse.data) ? equipmentResponse.data : [];
+  }
+
+  /** Refresh the active character and re-render the shared HUD sections. */
+  async function loadStateAndRenderPartial() {
+    await loadCharacterViewModel();
 
     syncPlayerStatsInDom(state.player);
     renderEquipPanel();
@@ -46,9 +59,8 @@ export async function renderHome(root, deps) {
 
   /** Render the equipment panel using the current inventory snapshot. */
   function renderEquipPanel() {
-    const equipped = Array.isArray(state.player?.equipped) ? state.player.equipped : [];
     return renderEquipPanelImpl({
-      equipped,
+      equipped: Array.isArray(state.equipped) ? state.equipped : [],
       fetchJson,
       loadStateAndRenderPartial,
       syncPlayerHealthToFull: () => syncPlayerHealthToFull(state),
@@ -60,11 +72,9 @@ export async function renderHome(root, deps) {
 
   /** Render the inventory grid using the current player snapshot. */
   function renderInventoryGrid() {
-    const inventory = Array.isArray(state.player?.inventory) ? state.player.inventory : [];
-    const equipped = Array.isArray(state.player?.equipped) ? state.player.equipped : [];
     return renderInventoryGridImpl({
-      inventory,
-      equipped,
+      inventory: Array.isArray(state.inventory) ? state.inventory : [],
+      equipped: Array.isArray(state.equipped) ? state.equipped : [],
       fetchJson,
       loadStateAndRenderPartial,
       syncPlayerHealthToFull: () => syncPlayerHealthToFull(state),

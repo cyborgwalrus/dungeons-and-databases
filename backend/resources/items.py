@@ -6,7 +6,7 @@ from flask_restful import Resource
 from backend.db.models import Item, db
 from backend.utils.game_utils import add_inventory_item, remove_inventory_item
 from backend.utils.route_helpers import get_item, get_json_data, json_error, require_current_character
-from backend.utils.serializers import serialize_item
+from backend.utils.api_response_cache import invalidate_user_state_cache
 
 
 class ItemListResource(Resource):
@@ -42,7 +42,8 @@ class ItemListResource(Resource):
             created_items.append(item)
 
         db.session.commit()
-        return [serialize_item(item) for item in created_items], 201
+        invalidate_user_state_cache(character.user_id)
+        return [item.to_dict() for item in created_items], 201
 
 
 class ItemResource(Resource):
@@ -55,7 +56,7 @@ class ItemResource(Resource):
         item = get_item(character, item_id)
         if not item:
             return json_error('Item not found', 404)
-        return serialize_item(item)
+        return item.to_dict()
 
     def delete(self, item_id: int):
         """Remove an item from the current character's inventory."""
@@ -69,6 +70,7 @@ class ItemResource(Resource):
             return json_error('Item not in inventory', 404)
 
         db.session.commit()
+        invalidate_user_state_cache(character.user_id)
         return {'message': 'Item removed from inventory'}
 
 

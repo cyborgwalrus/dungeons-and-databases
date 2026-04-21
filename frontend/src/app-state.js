@@ -2,6 +2,8 @@ export const state = {
   currentUser: null,
   characters: [],
   player: null,
+  inventory: [],
+  equipped: [],
   lastDungeonMessage: null,
   lootCounts: {},
 };

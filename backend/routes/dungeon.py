@@ -7,7 +7,7 @@ from backend.db.cache_helpers import get_all_enemy_type_data, get_all_item_type_
 from backend.db.models import Character, Encounter, db
 from backend.utils.game_utils import add_inventory_item, clear_loot_flags, destroy_loot_items, get_player
 from backend.utils.route_helpers import get_character, json_error
-from backend.utils.serializers import serialize_character, serialize_encounter
+from backend.utils.api_response_cache import invalidate_user_state_cache
 
 dungeon_bp = Blueprint('dungeon', __name__)
 
@@ -152,8 +152,8 @@ def build_combat_response(
 ) -> Any:
     """Build the JSON payload returned by dungeon combat endpoints."""
     payload: dict[str, Any] = {
-        'character': serialize_character(character),
-        'enemy': None if player_died or success else serialize_encounter(encounter),
+        'character': character.to_dict(),
+        'enemy': None if player_died or success else encounter.to_dict(),
         'message': message,
         'victory': victory,
         'items_dropped': items_dropped,
@@ -290,7 +290,7 @@ def enter_dungeon() -> Any:
     encounter = _get_or_create_encounter(character)
     if not encounter:
         return jsonify({'error': 'No enemy types available'}), 404
-    return jsonify(serialize_encounter(encounter))
+    return jsonify(encounter.to_dict())
 
 
 @dungeon_bp.route('/dungeon/attack', methods=['POST'])
@@ -306,6 +306,7 @@ def attack_monster() -> Any:
     if outcome['player_died']:
         _destroy_active_loot_and_encounter(character)
     db.session.commit()
+    invalidate_user_state_cache(character.user_id)
 
     return build_combat_response(
         character,
@@ -332,6 +333,7 @@ def run_away() -> Any:
     elif outcome['success']:
         clear_loot_flags(character)
     db.session.commit()
+    invalidate_user_state_cache(character.user_id)
     return build_combat_response(
         character,
         outcome['encounter'],

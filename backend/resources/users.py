@@ -3,7 +3,7 @@ from flask_restful import Resource
 
 from backend.db.models import db
 from backend.utils.route_helpers import get_json_data, require_current_user_id
-from backend.utils.serializers import serialize_item, serialize_user
+from backend.utils.api_response_cache import get_cached_user_data, get_cached_user_inventory_data, invalidate_user_state_cache
 
 
 class UserResource(Resource):
@@ -13,7 +13,7 @@ class UserResource(Resource):
         if error_response:
             return error_response
         assert user is not None
-        return serialize_user(user)
+        return get_cached_user_data(user_id)
 
     def put(self, user_id):
         """Update a user's profile fields."""
@@ -29,7 +29,8 @@ class UserResource(Resource):
             user.password = data['password']
 
         db.session.commit()
-        return serialize_user(user)
+        invalidate_user_state_cache(user.id)
+        return user.to_dict()
 
     def delete(self, user_id):
         """Delete the authenticated user's account."""
@@ -38,8 +39,10 @@ class UserResource(Resource):
             return error_response
         assert user is not None
 
+        character_ids = [character.id for character in user.characters]
         db.session.delete(user)
         db.session.commit()
+        invalidate_user_state_cache(user_id, character_ids)
         return {'message': 'User deleted'}
 
 
@@ -50,11 +53,7 @@ class UserInventoryResource(Resource):
         if error_response:
             return error_response
         assert user is not None
-
-        if not user.inventory:
-            return []
-
-        return [serialize_item(item) for item in user.inventory.items]
+        return get_cached_user_inventory_data(user_id)
 
     def delete(self, user_id):
         """Remove all items from the user's shared inventory."""
@@ -69,6 +68,7 @@ class UserInventoryResource(Resource):
                 user.inventory.items.remove(item)
                 db.session.delete(item)
             db.session.commit()
+            invalidate_user_state_cache(user_id)
 
         return {'message': 'Inventory cleared'}
 

@@ -46,7 +46,6 @@ class User(db.Model):
         return {
             'id': self.id,
             'username': self.username,
-            'characters': [character.to_dict() for character in self.characters],
         }
 
 
@@ -165,8 +164,8 @@ class Character(db.Model):
         self.health = min(self.health + health_gain, next_max_health)
         return True
 
-    def to_dict(self, include_inventory=False):
-        """Serialize the character and optionally include inventory data."""
+    def to_dict(self):
+        """Serialize the character into a lean API payload."""
         data = {
             'id': self.id,
             'user_id': self.user_id,
@@ -180,9 +179,6 @@ class Character(db.Model):
             'bonus_health': self.bonus_health,
             'bonus_damage': self.bonus_damage,
         }
-        if include_inventory:
-            data['inventory'] = self.inventory_to_dict()
-            data['equipped'] = self.equipment_to_dict()
         return data
 
 
@@ -351,7 +347,6 @@ class Item(db.Model):
             'is_loot': self.is_loot,
             'health': self.health,
             'damage': self.damage,
-            'item_type': self.item_type.to_dict() if self.item_type else None,
         }
 
 
