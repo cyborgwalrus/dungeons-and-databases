@@ -5,20 +5,29 @@ from typing import Any
 
 from sqlalchemy.orm import selectinload
 
-from backend.db.models import Character, CharacterEquipment, Item, User, UserInventory
+from backend.db.models import Character, CharacterEquipment, Item, User
 from backend.utils.app_cache import cache
 
 
 def _load_user_state(user_id: int) -> User | None:
+    return User.query.get(user_id)
+
+
+def _load_user_characters_state(user_id: int) -> User | None:
     return User.query.options(
         selectinload(User.characters).selectinload(Character.equipment).selectinload(CharacterEquipment.item).selectinload(Item.item_type),
-        selectinload(User.inventory).selectinload(UserInventory.items).selectinload(Item.item_type),
+    ).get(user_id)
+
+
+def _load_user_inventory_state(user_id: int) -> User | None:
+    return User.query.options(
+        selectinload(User.items).selectinload(Item.item_type),
+        selectinload(User.items).selectinload(Item.equipment),
     ).get(user_id)
 
 
 def _load_character_state(character_id: int, user_id: int) -> Character | None:
     return Character.query.options(
-        selectinload(Character.user).selectinload(User.inventory).selectinload(UserInventory.items).selectinload(Item.item_type),
         selectinload(Character.equipment).selectinload(CharacterEquipment.item).selectinload(Item.item_type),
     ).filter_by(id=character_id, user_id=user_id).first()
 
@@ -33,7 +42,7 @@ def get_cached_user_data(user_id: int) -> dict[str, Any] | None:
 @cache.memoize(timeout=600)
 def get_cached_user_characters_data(user_id: int) -> list[dict[str, Any]]:
     """Return a cached list of serialized characters for the user."""
-    user = _load_user_state(user_id)
+    user = _load_user_characters_state(user_id)
     if not user:
         return []
     return [character.to_dict() for character in user.characters]
@@ -42,10 +51,10 @@ def get_cached_user_characters_data(user_id: int) -> list[dict[str, Any]]:
 @cache.memoize(timeout=600)
 def get_cached_user_inventory_data(user_id: int) -> list[dict[str, Any]]:
     """Return a cached list of serialized inventory items for the user."""
-    user = _load_user_state(user_id)
-    if not user or not user.inventory:
+    user = _load_user_inventory_state(user_id)
+    if not user:
         return []
-    return [item.to_dict() for item in user.inventory.items]
+    return [item.to_dict() for item in user.items if not item.is_equipped]
 
 
 @cache.memoize(timeout=300)

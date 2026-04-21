@@ -178,8 +178,6 @@ class CharacterEquipmentResource(Resource):
         if error_response:
             return error_response
         assert character is not None
-        if not character.user or not character.user.inventory:
-            return json_error('No inventory found', 404)
 
         item = get_item(character, item_id)
         if not item:

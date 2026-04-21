@@ -25,7 +25,6 @@ class SignupResource(Resource):
         user.password = generate_password_hash(password)
         db.session.add(user)
         db.session.flush()
-        user.ensure_inventory()
         db.session.commit()
         token = issue_auth_token(user.id)
         return {'message': 'signup complete', 'user': user.to_dict(), 'token': token}, 201

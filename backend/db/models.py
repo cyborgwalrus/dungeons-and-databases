@@ -1,11 +1,12 @@
 from enum import Enum
+
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy.orm import relationship, Mapped
+from sqlalchemy.orm import Mapped, relationship
 
 db = SQLAlchemy()
 
 class User(db.Model):
-    """Authenticated account that owns characters and a shared inventory."""
+    """Authenticated account that owns characters and items."""
     __tablename__ = 'user'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
@@ -13,57 +14,13 @@ class User(db.Model):
     password: Mapped[str] = db.Column(db.String(255), nullable=False)
 
     characters: Mapped[list['Character']] = relationship('Character', back_populates='user', cascade='all, delete-orphan')
-    inventory: Mapped['UserInventory'] = relationship('UserInventory', back_populates='user', uselist=False, cascade='all, delete-orphan')
-
-    @property
-    def is_authenticated(self):
-        """Report that persisted users are always authenticated once loaded."""
-        return True
-
-    @property
-    def is_active(self):
-        """Report that loaded users are active accounts."""
-        return True
-
-    @property
-    def is_anonymous(self):
-        """Report that persisted users are never anonymous."""
-        return False
-
-    def get_id(self):
-        """Return the string identifier expected by Flask-Login-style helpers."""
-        return str(self.id)
-
-    def ensure_inventory(self):
-        """Create or return the user's inventory, ensuring it always exists."""
-        if not self.inventory:
-            self.inventory = UserInventory(user_id=self.id)
-            db.session.add(self.inventory)
-        return self.inventory
+    items: Mapped[list['Item']] = relationship('Item', back_populates='user', cascade='all, delete-orphan')
 
     def to_dict(self):
         """Serialize the user together with their owned characters."""
         return {
             'id': self.id,
             'username': self.username,
-        }
-
-
-class UserInventory(db.Model):
-    """Shared inventory container attached one-to-one to a user."""
-    __tablename__ = 'user_inventory'
-
-    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
-    user_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
-    user: Mapped['User'] = relationship('User', back_populates='inventory')
-    items: Mapped[list['Item']] = relationship('Item', back_populates='inventory', cascade='all, delete-orphan')
-
-    def to_dict(self):
-        """Serialize the inventory and its items."""
-        return {
-            'id': self.id,
-            'user_id': self.user_id,
-            'items': [item.to_dict() for item in self.items],
         }
 
 
@@ -84,33 +41,9 @@ class Character(db.Model):
     encounters: Mapped[list['Encounter']] = relationship('Encounter', back_populates='character', cascade='all, delete-orphan')
 
     @property
-    def inventory_items(self):
-        """Return the items stored in the owning user's inventory."""
-        if not self.user or not self.user.inventory:
-            return []
-        return list(self.user.inventory.items)
-
-    @property
     def equipped_items(self):
         """Return the items currently equipped by this character."""
         return [equipment.item for equipment in self.equipment if equipment.item]
-
-    @property
-    def inventory(self):
-        """Provide a compatibility alias for the inventory item list."""
-        return self.inventory_items
-
-    def inventory_to_dict(self):
-        """Serialize inventory items for API responses."""
-        return [item.to_dict() for item in self.inventory_items]
-
-    def equipment_to_dict(self):
-        """Serialize equipped items in slot order for API responses."""
-        equipped_items = sorted(
-            [equipment for equipment in self.equipment if equipment.item],
-            key=lambda equipment: (_slot_sort_key(equipment.slot), equipment.item.id or 0)
-        )
-        return [equipment.item.to_dict() for equipment in equipped_items if equipment.item]
 
     @property
     def bonus_health(self):
@@ -192,8 +125,6 @@ class EnemyType(db.Model):
     health: Mapped[int] = db.Column(db.Integer, nullable=False)
     damage: Mapped[int] = db.Column(db.Integer, nullable=False)
 
-    encounters: Mapped[list['Encounter']] = relationship('Encounter', back_populates='enemy_type')
-
     def to_dict(self):
         """Serialize the enemy template."""
         return {
@@ -210,12 +141,12 @@ class Encounter(db.Model):
     __tablename__ = 'encounter'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
-    
+
     character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False, index=True)
     character: Mapped['Character'] = relationship('Character', back_populates='encounters')
-    
+
     enemy_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('enemy_type.id'), nullable=False)
-    enemy_type: Mapped['EnemyType'] = relationship('EnemyType', back_populates='encounters')
+    enemy_type: Mapped['EnemyType'] = relationship('EnemyType')
     enemy_level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
     max_health: Mapped[int] = db.Column(db.Integer, nullable=False)
     health: Mapped[int] = db.Column(db.Integer, nullable=False)
@@ -245,22 +176,6 @@ class ItemSlot(Enum):
     RING = 'ring'
     NECKLACE = 'necklace'
 
-
-ITEM_SLOT_ORDER = {
-    ItemSlot.HELMET: 0,
-    ItemSlot.ARMOR: 1,
-    ItemSlot.WEAPON: 2,
-    ItemSlot.SHIELD: 3,
-    ItemSlot.RING: 4,
-    ItemSlot.NECKLACE: 5,
-}
-
-def _slot_sort_key(slot):
-    """Order slots in the layout used by inventory and equipment views."""
-    if slot is None:
-        return 999
-    return ITEM_SLOT_ORDER[slot]
-
 class ItemType(db.Model):
     """Item template defining the base stats for generated items."""
     __tablename__ = 'item_type'
@@ -278,8 +193,6 @@ class ItemType(db.Model):
     )
     health: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
     damage: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
-
-    items: Mapped[list['Item']] = relationship('Item', back_populates='item_type')
 
     def to_dict(self):
         """Serialize the item template."""
@@ -302,13 +215,13 @@ class Item(db.Model):
     health: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
     damage: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
     is_loot: Mapped[bool] = db.Column(db.Boolean, nullable=False, default=True)
-    
-    inventory_id: Mapped[int | None] = db.Column(db.Integer, db.ForeignKey('user_inventory.id'), index=True)
-    inventory: Mapped['UserInventory'] = relationship('UserInventory', back_populates='items')
-    
+
+    user_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    user: Mapped['User'] = relationship('User', back_populates='items')
+
     item_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('item_type.id'), nullable=False, index=True)
-    item_type: Mapped['ItemType'] = relationship('ItemType', back_populates='items')
-    equipment: Mapped['CharacterEquipment'] = relationship('CharacterEquipment', back_populates='item', uselist=False)
+    item_type: Mapped['ItemType'] = relationship('ItemType')
+    equipment: Mapped['CharacterEquipment'] = relationship('CharacterEquipment', back_populates='item', uselist=False, cascade='all, delete-orphan', single_parent=True)
 
     @property
     def slot(self):
@@ -316,33 +229,16 @@ class Item(db.Model):
         return self.item_type.slot if self.item_type else None
 
     @property
-    def owner_id(self):
-        """Return the owning user's ID, whether equipped or stored in inventory."""
-        if self.inventory:
-            return self.inventory.user_id
-        if self.equipment and self.equipment.character:
-            return self.equipment.character.user_id
-        return None
-
-    @property
-    def equipped_slot(self):
-        """Return the slot the item currently occupies, if equipped."""
-        return self.equipment.slot if self.equipment else None
-
-    @property
     def is_equipped(self):
         """Return whether the item is currently equipped."""
         return self.equipment is not None
 
     def to_dict(self):
-        """Serialize the item and its nested template data."""
+        """Serialize the item for API responses."""
         return {
             'id': self.id,
-            'item_type_id': self.item_type_id,
-            'owner_id': self.owner_id,
             'name': self.name,
             'level': self.level,
-            'is_equipped': self.is_equipped,
             'slot': self.slot.value if self.slot else None,
             'is_loot': self.is_loot,
             'health': self.health,
@@ -369,13 +265,3 @@ class CharacterEquipment(db.Model):
 
     character: Mapped['Character'] = relationship('Character', back_populates='equipment')
     item: Mapped['Item'] = relationship('Item', back_populates='equipment', uselist=False)
-
-    def to_dict(self):
-        """Serialize a character equipment entry with its item."""
-        return {
-            'id': self.id,
-            'character_id': self.character_id,
-            'item_id': self.item_id,
-            'slot': self.slot.value if self.slot else None,
-            'item': self.item.to_dict() if self.item else None,
-        }

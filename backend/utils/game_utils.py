@@ -4,7 +4,7 @@ from flask import current_app, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from backend.db.cache_helpers import get_all_item_type_data, get_item_type_data
-from backend.db.models import Character, Item, User, db
+from backend.db.models import Character, Item, User as UserModel, db
 
 
 AUTH_TOKEN_SALT = 'dungeons-and-databases-auth-token'
@@ -76,13 +76,13 @@ def get_request_auth_payload() -> dict[str, Any] | None:
     return payload
 
 
-def get_current_user() -> User | None:
+def get_current_user() -> UserModel | None:
     """Return the authenticated user associated with the request token."""
     payload = get_request_auth_payload()
     if not payload:
         return None
 
-    user = User.query.get(payload['user_id'])
+    user = UserModel.query.get(payload['user_id'])
     return user
 
 
@@ -131,15 +131,10 @@ def add_inventory_item(player: Character, item_id: int, *, level: int = 1, is_lo
 
     loot_flag = False if is_loot is None else is_loot
 
-    # Ensure the player has an inventory before adding items
-    if not player.user:
-        return None
-    user_inventory = player.user.ensure_inventory()
-
     inventory_item = Item(
         name=item_type['name'],
         item_type_id=item_type['id'],
-        inventory_id=user_inventory.id,
+        user_id=player.user_id,
         level=max(1, int(level)),
         health=_scaled_bonus(item_type['health'] or 0, level),
         damage=_scaled_bonus(item_type['damage'] or 0, level),
@@ -151,36 +146,34 @@ def add_inventory_item(player: Character, item_id: int, *, level: int = 1, is_lo
 
 def remove_inventory_item(player: Character, item_id: int) -> Item | None:
     """Remove an item from the player's inventory by item or type ID."""
-    if not player.user or not player.user.inventory:
+    if not player.user:
         return None
 
-    inventory_item = Item.query.filter_by(inventory_id=player.user.inventory.id, id=item_id).first()
-    if not inventory_item:
-        inventory_item = Item.query.filter_by(inventory_id=player.user.inventory.id, item_type_id=item_id).first()
-    if not inventory_item:
+    inventory_item = Item.query.filter_by(user_id=player.user_id, id=item_id).first()
+    if inventory_item and inventory_item.is_equipped:
         return None
+    if not inventory_item:
+        inventory_item = Item.query.filter_by(user_id=player.user_id, item_type_id=item_id).first()
+        if not inventory_item or inventory_item.is_equipped:
+            return None
 
-    if inventory_item in player.user.inventory.items:
-        player.user.inventory.items.remove(inventory_item)
     db.session.delete(inventory_item)
     return inventory_item
 
 
 def clear_loot_flags(player: Character) -> None:
     """Clear the loot marker from any items currently held by the player."""
-    if not player.user or not player.user.inventory:
+    if not player.user:
         return
-    for item in player.user.inventory.items:
+    for item in player.user.items:
         if item.is_loot:
             item.is_loot = False
 
 
 def destroy_loot_items(player: Character) -> None:
     """Delete all loot items from the player's inventory."""
-    if not player.user or not player.user.inventory:
+    if not player.user:
         return
-    loot_items = [item for item in player.user.inventory.items if item.is_loot]
+    loot_items = [item for item in player.user.items if item.is_loot and not item.is_equipped]
     for item in loot_items:
-        if item in player.user.inventory.items:
-            player.user.inventory.items.remove(item)
         db.session.delete(item)

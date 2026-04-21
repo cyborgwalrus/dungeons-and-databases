@@ -46,7 +46,7 @@ class UserResource(Resource):
         return {'message': 'User deleted'}
 
 
-class UserInventoryResource(Resource):
+class UserItemsResource(Resource):
     def get(self, user_id):
         """List the contents of the user's shared inventory."""
         user, error_response = require_current_user_id(user_id)
@@ -62,10 +62,9 @@ class UserInventoryResource(Resource):
             return error_response
         assert user is not None
 
-        if user.inventory:
-            removable_items = list(user.inventory.items)
+        removable_items = [item for item in user.items if not item.is_equipped]
+        if removable_items:
             for item in removable_items:
-                user.inventory.items.remove(item)
                 db.session.delete(item)
             db.session.commit()
             invalidate_user_state_cache(user_id)
@@ -75,4 +74,4 @@ class UserInventoryResource(Resource):
 
 def register_user_resources(api):
     api.add_resource(UserResource, '/api/users/<int:user_id>')
-    api.add_resource(UserInventoryResource, '/api/users/<int:user_id>/inventory')
+    api.add_resource(UserItemsResource, '/api/users/<int:user_id>/inventory')
