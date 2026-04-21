@@ -38,6 +38,37 @@ def _extract_source_file(entry, input_file):
     return Path(input_file).name
 
 
+def _extract_model(entry) -> str:
+    """Extract the model name from the entry, defaulting to Copilot."""
+    model_id = entry.get('modelId')
+    if model_id:
+        return str(model_id).strip()
+    
+    # Fallback to checking other fields
+    model = entry.get('model')
+    if model:
+        return str(model).strip()
+    
+    # Check in requests or response items
+    for item in entry.get('requests') or []:
+        model_id = item.get('modelId')
+        if model_id:
+            return str(model_id).strip()
+        model = item.get('model')
+        if model:
+            return str(model).strip()
+    
+    for item in entry.get('response') or []:
+        model_id = item.get('modelId')
+        if model_id:
+            return str(model_id).strip()
+        model = item.get('model')
+        if model:
+            return str(model).strip()
+    
+    return 'Copilot'
+
+
 def _extract_prompt_rows(input_file):
     with open(input_file, 'r', encoding='utf-8') as file_handle:
         data = json.load(file_handle)
@@ -65,10 +96,13 @@ def _extract_prompt_rows(input_file):
                     prompt_text = str(text_content).strip()
 
             if prompt_text:
+                # Extract model from the request item (modelId), falling back to entry-level model extraction
+                model = item.get('modelId') or _extract_model(entry)
                 rows.append({
                     'timestamp': timestamp,
                     'user': user,
                     'source_file': source_file,
+                    'model': model,
                     'prompt_text': prompt_text,
                 })
 
@@ -130,7 +164,18 @@ def export_chat_logs_to_csv(input_directory, output_file):
     }
     rows_to_write = [row for row in prompt_rows if (row['timestamp'], row['user'], row['source_file'], row['prompt_text']) not in existing_keys]
 
-    all_rows = existing_rows + rows_to_write
+    # Create a map of existing rows by their key for merging with newly extracted data
+    existing_by_key = {
+        (row['timestamp'], row['user'], row['source_file'], row['prompt_text']): row
+        for row in existing_rows
+    }
+    
+    # Update existing rows with newly extracted model data where available
+    for new_row in rows_to_write:
+        key = (new_row['timestamp'], new_row['user'], new_row['source_file'], new_row['prompt_text'])
+        existing_by_key[key] = new_row
+    
+    all_rows = list(existing_by_key.values())
     if not all_rows:
         print('No text messages found.')
         return
@@ -138,13 +183,14 @@ def export_chat_logs_to_csv(input_directory, output_file):
     all_rows.sort(key=lambda row: (row['timestamp'], row['user'], row['source_file'], row['prompt_text']))
 
     with open(output_file, 'w', encoding='utf-8', newline='') as file_handle:
-        writer = csv.DictWriter(file_handle, fieldnames=['timestamp', 'user', 'source_file', 'prompt_text'])
+        writer = csv.DictWriter(file_handle, fieldnames=['timestamp', 'user', 'source_file', 'model', 'prompt_text'])
         writer.writeheader()
         for row in all_rows:
             writer.writerow({
                 'timestamp': row['timestamp'],
                 'user': row['user'],
                 'source_file': row['source_file'],
+                'model': row.get('model', 'Copilot'),
                 'prompt_text': row['prompt_text'],
             })
 
@@ -156,4 +202,5 @@ def export_chat_logs_to_csv(input_directory, output_file):
 
 if __name__ == '__main__':
     script_directory = Path(__file__).resolve().parent
-    export_chat_logs_to_csv(script_directory, script_directory / 'copilot_chat_prompts.csv')
+    chat_exports_dir = script_directory / 'chat_exports'
+    export_chat_logs_to_csv(chat_exports_dir, script_directory / 'copilot_chat_prompts.csv')
