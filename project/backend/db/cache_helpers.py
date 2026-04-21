@@ -1,7 +1,7 @@
 from typing import Any
 
-from ..utils.app_cache import cache
-from .models import EnemyType, ItemType
+from backend.db.models import EnemyType, ItemType
+from backend.utils.app_cache import cache
 
 
 @cache.memoize(timeout=3600)

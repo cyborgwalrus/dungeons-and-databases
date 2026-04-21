@@ -2,10 +2,10 @@ from flask import request
 from flask_restful import Resource
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from ..db.models import User, db
-from ..utils.game_utils import get_current_user as get_authenticated_user, get_player, issue_auth_token
-from ..utils.serializers import serialize_user
-from .common import get_json_data, json_error
+from backend.db.models import User, db
+from backend.utils.game_utils import get_current_user as get_authenticated_user, get_player, issue_auth_token
+from backend.utils.route_helpers import get_json_data, json_error
+from backend.utils.serializers import serialize_user
 
 
 class SignupResource(Resource):

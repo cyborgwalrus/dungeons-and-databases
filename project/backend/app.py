@@ -5,12 +5,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from backend.db.init_db import seed_initial_data
 from backend.db.models import db
-from backend.routes.auth_routes import register_auth_resources
-from backend.routes.character_routes import register_character_resources
-from backend.routes.item_routes import register_item_resources
-from backend.routes.user_routes import register_user_resources
-from backend.routes.dungeon_routes import dungeon_bp
-from .utils import cache, init_cache
+from project.backend.resources.authentication import register_auth_resources
+from project.backend.resources.characters import register_character_resources
+from project.backend.resources.items import register_item_resources
+from project.backend.resources.users import register_user_resources
+from project.backend.routes.dungeon import dungeon_bp
+from backend.utils import cache, init_cache
 
 
 app = Flask(__name__)

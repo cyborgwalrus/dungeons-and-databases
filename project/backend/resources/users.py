@@ -1,9 +1,9 @@
 from flask import request
 from flask_restful import Resource
 
-from ..db.models import db
-from ..utils.serializers import serialize_item, serialize_user
-from .common import get_json_data, require_current_user_id
+from backend.db.models import db
+from backend.utils.route_helpers import get_json_data, require_current_user_id
+from backend.utils.serializers import serialize_item, serialize_user
 
 
 class UserResource(Resource):

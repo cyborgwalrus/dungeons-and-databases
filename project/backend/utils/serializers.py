@@ -1,6 +1,6 @@
 from typing import Any
 
-from ..db.models import Character, Encounter, Item, ItemType, User
+from backend.db.models import Character, Encounter, Item, ItemType, User
 
 
 def serialize_item_type(item_type: ItemType | None) -> dict[str, Any] | None:

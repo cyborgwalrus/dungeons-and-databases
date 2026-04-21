@@ -3,11 +3,11 @@ from typing import Any
 
 from flask import Blueprint, jsonify
 
-from ..db.cache_helpers import get_all_enemy_type_data, get_all_item_type_data
-from ..utils.serializers import serialize_character, serialize_encounter
-from ..utils.game_utils import add_inventory_item, clear_loot_flags, destroy_loot_items, get_player
-from ..db.models import Character, Encounter, db
-from .common import get_character, json_error
+from backend.db.cache_helpers import get_all_enemy_type_data, get_all_item_type_data
+from backend.db.models import Character, Encounter, db
+from backend.utils.game_utils import add_inventory_item, clear_loot_flags, destroy_loot_items, get_player
+from backend.utils.route_helpers import get_character, json_error
+from backend.utils.serializers import serialize_character, serialize_encounter
 
 dungeon_bp = Blueprint('dungeon', __name__)
 

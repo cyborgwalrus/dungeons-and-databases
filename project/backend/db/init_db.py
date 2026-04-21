@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 
-from .models import EnemyType, ItemSlot, ItemType, db
+from backend.db.models import EnemyType, ItemSlot, ItemType, db
 
 
 @dataclass(frozen=True, slots=True)

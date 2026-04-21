@@ -2,20 +2,23 @@ from flask import request
 from flask_restful import Resource
 from sqlalchemy.orm import selectinload
 
-from ..utils.game_utils import get_player as get_current_character, seed_character_loadout, issue_auth_token
-from ..db.models import Character, db
-from ..utils.serializers import serialize_character
-from ..utils.serializers import serialize_item
-from .common import equip_item, get_item, json_error, require_character_owner, require_current_user, unequip_item
+from backend.db.models import Character, db
+from backend.utils.game_utils import get_player as get_current_character, seed_character_loadout, issue_auth_token
+from backend.utils.route_helpers import equip_item, get_item, json_error, require_character_owner, require_current_user, unequip_item
+from backend.utils.serializers import serialize_character, serialize_item
 
 
 class CharacterListResource(Resource):
-    def get(self):
-        """List the current user's characters with inventory data."""
+    def get(self, user_id):
+        """List characters for the specified user."""
         user, error_response = require_current_user()
         if error_response:
             return error_response
         assert user is not None
+
+        # Validate that the current user owns these characters
+        if user.id != user_id:
+            return json_error('Unauthorized', 401)
 
         # Use eager loading to avoid N+1 queries when accessing inventory
         characters = Character.query.filter_by(user_id=user.id).options(
@@ -24,13 +27,17 @@ class CharacterListResource(Resource):
 
         return [serialize_character(character, include_inventory=True) for character in characters]
 
-    def post(self):
-        """Create a new character for the current user and seed starter gear."""
+    def post(self, user_id):
+        """Create a new character for the specified user and seed starter gear."""
         data = request.get_json(silent=True) or {}
         user, error_response = require_current_user()
         if error_response:
             return error_response
         assert user is not None
+
+        # Validate that the current user owns these characters
+        if user.id != user_id:
+            return json_error('Unauthorized', 401)
 
         name = data.get('name', '').strip()
         if not name:
@@ -203,10 +210,9 @@ class CharacterEquipmentItemResource(Resource):
 
 
 def register_character_resources(api):
-    api.add_resource(CharacterListResource, '/api/characters')
+    api.add_resource(CharacterListResource, '/api/users/<int:user_id>/characters')
     api.add_resource(CharacterResource, '/api/characters/<int:character_id>')
     api.add_resource(CharacterSelectResource, '/api/characters/<int:character_id>/select')
     api.add_resource(CharacterFullHealResource, '/api/characters/<int:character_id>/full_heal')
     api.add_resource(CharacterEquipmentResource, '/api/characters/<int:character_id>/equipment')
     api.add_resource(CharacterEquipmentItemResource, '/api/characters/<int:character_id>/equipment/<int:item_id>')
-

@@ -3,8 +3,8 @@ from typing import Any
 from flask import current_app, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from ..db.cache_helpers import get_all_item_type_data, get_item_type_data
-from ..db.models import Character, Item, User, db
+from backend.db.cache_helpers import get_all_item_type_data, get_item_type_data
+from backend.db.models import Character, Item, User, db
 
 
 AUTH_TOKEN_SALT = 'dungeons-and-databases-auth-token'

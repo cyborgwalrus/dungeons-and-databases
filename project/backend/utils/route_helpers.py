@@ -1,7 +1,7 @@
 from typing import Any
 
-from ..db.models import Character, CharacterEquipment, Item, User, db
-from ..utils.game_utils import get_current_user as get_authenticated_user, get_player
+from backend.db.models import Character, CharacterEquipment, Item, User, db
+from backend.utils.game_utils import get_current_user as get_authenticated_user, get_player
 
 
 def get_current_user() -> User | None:

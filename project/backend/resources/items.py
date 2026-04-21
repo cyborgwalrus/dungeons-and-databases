@@ -1,17 +1,12 @@
 from __future__ import annotations
 
-from typing import Any
-
 from flask import request
 from flask_restful import Resource
 
-from ..db.models import Character, Item, db
-from ..utils.game_utils import add_inventory_item, remove_inventory_item
-from ..utils.serializers import serialize_item
-from .common import get_item, get_json_data, json_error, require_current_character
-
-
-
+from backend.db.models import Item, db
+from backend.utils.game_utils import add_inventory_item, remove_inventory_item
+from backend.utils.route_helpers import get_item, get_json_data, json_error, require_current_character
+from backend.utils.serializers import serialize_item
 
 
 class ItemListResource(Resource):
