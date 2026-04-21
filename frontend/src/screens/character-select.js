@@ -4,7 +4,7 @@
  */
 
 import { escapeHtml } from '../helpers.js';
-import { clearAuthToken } from '../api.js';
+import { signOutAndClearSession } from '../utils/state-updater.js';
 
 /**
  * Render the character picker and allow the user to create or select one.
@@ -34,8 +34,8 @@ export async function renderCharacterSelect(root, deps) {
     <h1>Select or Create a Character</h1>
     <div id="character-list" class="character-list"></div>
     <input type="text" id="create-char-name" placeholder="Enter character name" class="character-create-input">
-    <button id="create-char-btn" class="character-create-button">Create New Character</button>
-    <button id="logout-btn" class="character-logout-button">Logout</button>
+    <button id="create-char-btn" class="dungeon-button dungeon-button-primary character-action-button">Create New Character</button>
+    <button id="logout-btn" class="dungeon-button dungeon-button-secondary character-action-button">Logout</button>
   `;
 
   const charList = document.getElementById('character-list');
@@ -79,11 +79,7 @@ export async function renderCharacterSelect(root, deps) {
   });
 
   document.getElementById('logout-btn').addEventListener('click', async () => {
-    await fetchJson('/login/signout', { method: 'POST' });
-    clearAuthToken();
-    state.currentUser = null;
-    state.player = null;
-    state.characters = [];
+    await signOutAndClearSession(fetchJson, state);
     navigateTo('/login');
   });
 }

@@ -31,8 +31,8 @@ export async function renderLogin(root, deps) {
           </div>
           <div id="login-message" class="auth-message"></div>
           <div class="auth-button-group">
-            <button id="signin-btn">Sign In</button>
-            <button id="signup-btn">Sign Up</button>
+              <button id="signin-btn" class="dungeon-button auth-button">Sign In</button>
+              <button id="signup-btn" class="dungeon-button auth-button">Sign Up</button>
           </div>
         </div>
       </div>
@@ -43,7 +43,7 @@ export async function renderLogin(root, deps) {
   const passwordInput = document.getElementById('password');
   const messageEl = document.getElementById('login-message');
 
-  document.getElementById('signin-btn').addEventListener('click', async () => {
+  async function submitAuth(actionPath, fallbackMessage) {
     const username = usernameInput.value.trim();
     const password = passwordInput.value;
     if (!username || !password) {
@@ -51,7 +51,7 @@ export async function renderLogin(root, deps) {
       return;
     }
 
-    const res = await fetchJson('/login/signin', {
+    const res = await fetchJson(actionPath, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -62,30 +62,10 @@ export async function renderLogin(root, deps) {
       state.currentUser = res.data.user;
       navigateTo('/character-select');
     } else {
-      messageEl.textContent = res.data?.message || 'Sign in failed';
+      messageEl.textContent = res.data?.message || fallbackMessage;
     }
-  });
+  }
 
-  document.getElementById('signup-btn').addEventListener('click', async () => {
-    const username = usernameInput.value.trim();
-    const password = passwordInput.value;
-    if (!username || !password) {
-      messageEl.textContent = 'Username and password required';
-      return;
-    }
-
-    const res = await fetchJson('/login/signup', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-
-    if (res.ok && res.data.user) {
-      if (res.data.token) setAuthToken(res.data.token);
-      state.currentUser = res.data.user;
-      navigateTo('/character-select');
-    } else {
-      messageEl.textContent = res.data?.message || 'Sign up failed';
-    }
-  });
+  document.getElementById('signin-btn').addEventListener('click', () => submitAuth('/login/signin', 'Sign in failed'));
+  document.getElementById('signup-btn').addEventListener('click', () => submitAuth('/login/signup', 'Sign up failed'));
 }

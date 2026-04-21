@@ -457,16 +457,18 @@
   min-height: 100vh;
 }
 
-.auth-form-wrapper {
+.auth-form-wrapper,
+.character-select-wrapper {
   width: 100%;
-  max-width: 400px;
   padding: 20px;
 }
 
+.auth-form-wrapper {
+  max-width: 400px;
+}
+
 .character-select-wrapper {
-  width: 100%;
   max-width: 600px;
-  padding: 20px;
 }
 
 .auth-form-group {
@@ -479,7 +481,7 @@
 }
 
 .auth-form-input,
-.auth-form-button {
+.character-create-input {
   width: 100%;
   padding: 8px;
   box-sizing: border-box;
@@ -489,15 +491,15 @@
   padding: 12px;
 }
 
+.auth-button-group .dungeon-button {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 1em;
+}
+
 .auth-button-group {
   display: flex;
   gap: 10px;
-}
-
-.auth-button-group button {
-  flex: 1;
-  padding: 10px;
-  cursor: pointer;
 }
 
 .auth-message {
@@ -535,25 +537,16 @@
 }
 
 .character-create-input {
-  width: 100%;
   padding: 12px;
-  box-sizing: border-box;
   margin-bottom: 10px;
 }
 
-.character-create-button {
+.character-action-button {
   width: 100%;
-  padding: 12px;
-  cursor: pointer;
+  box-sizing: border-box;
+  padding: 12px 16px;
   font-size: 16px;
-}
-
-.character-logout-button {
-  width: 100%;
-  padding: 10px;
-  cursor: pointer;
   margin-top: 10px;
-  background-color: #666;
 }
 
 .character-empty-message {

@@ -1,13 +1,14 @@
-import { discardInventoryItem, equipInventoryItem, getItemDragData, setItemDragData, unequipInventoryItem } from './item-actions.js';
-import { setupDragDropZone } from '../utils/drag-drop.js';
+import { discardInventoryItem, equipInventoryItem, getItemDragData, unequipInventoryItem } from './item-actions.js';
+import { setupDragDropZone, setupDraggableItem } from '../utils/drag-drop.js';
 import { scoreItem, buildEquippedSlotMap } from '../utils/inventory-utils.js';
+import { renderItemCardHtml } from './item-card.js';
 
 /**
  * Render the inventory grid and wire up drag/drop interactions.
  * Uses standardized drag/drop utilities to reduce code duplication.
  */
 export function renderInventoryGrid(opts) {
-  const { inventory, equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, getItemType, makeIcon, formatStats, getItemDisplayName } = opts;
+  const { inventory, equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, makeIcon, formatStats, getItemDisplayName } = opts;
   const invContainer = document.getElementById('inventory-grid');
   if (!invContainer) return;
   const scrollBox = invContainer.closest('.inventory-scroll-box');
@@ -73,21 +74,16 @@ export function renderInventoryGrid(opts) {
   if (!inventory || inventory.length === 0) {
     invContainer.innerHTML = '<div class="inventory-empty-container"><p class="inventory-empty-message">Your inventory is empty.</p><p class="inventory-empty-note">Note: the inventory is shared between characters.</p></div>';
   } else {
-    const cards = [];
-    sortedInventory.forEach(invItem => {
-      const i = invItem;
-      const itype = getItemType(i);
-      const isBetter = isBetterThanEquipped(i);
-      cards.push(`
-        <button type="button" draggable="true" class="inventory-card${isBetter ? ' inventory-card--better' : ''}" data-item-id="${i.id}" data-item-type="${itype}" data-item-source="inventory">
-          <div class="item-icon">${makeIcon(i)}</div>
-          <div class="card-details">
-            <div class="item-name">${getItemDisplayName(i)}</div>
-            <div class="item-type${isBetter ? ' item-type--better' : ''}">${formatStats(i)}</div>
-          </div>
-        </button>`);
-    });
-    invContainer.innerHTML = cards.join('');
+    invContainer.innerHTML = sortedInventory.map(invItem => {
+      const isBetter = isBetterThanEquipped(invItem);
+      return renderItemCardHtml(invItem, {
+        source: 'inventory',
+        icon: makeIcon(invItem),
+        name: getItemDisplayName(invItem),
+        stats: formatStats(invItem),
+        better: isBetter,
+      });
+    }).join('');
   }
 
   // Setup inventory area as drop zone for unequipping items
@@ -127,16 +123,11 @@ export function renderInventoryGrid(opts) {
 
   // Setup inventory cards as draggable items
   document.querySelectorAll('.inventory-card').forEach(card => {
-    card.addEventListener('dragstart', event => {
-      setItemDragData(event, {
+    setupDraggableItem(card, {
+      dragData: {
         itemId: Number(card.getAttribute('data-item-id')),
         source: card.getAttribute('data-item-source') || 'inventory',
-      });
-      card.classList.add('dragging');
-    });
-
-    card.addEventListener('dragend', () => {
-      card.classList.remove('dragging');
+      }
     });
 
     card.addEventListener('dblclick', async event => {

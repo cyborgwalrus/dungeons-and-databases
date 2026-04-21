@@ -4,7 +4,7 @@
  * All mutations happen through this module for better testability and maintainability.
  */
 
-import { fetchJson } from '../api.js';
+import { fetchJson, clearAuthToken } from '../api.js';
 import { getCharacterId } from '../app-state.js';
 
 /**
@@ -85,4 +85,24 @@ export function clearAuthState(state) {
   state.currentUser = null;
   state.player = null;
   state.characters = [];
+}
+
+/**
+ * Clear both cached auth and in-memory session state.
+ * Shared by logout handlers across screens.
+ */
+export function clearSessionState(state) {
+  clearAuthToken();
+  clearAuthState(state);
+}
+
+/**
+ * Sign out through the API and then clear the cached session state.
+ * Shared by logout buttons on the auth and home screens.
+ */
+export async function signOutAndClearSession(fetchClient, state) {
+  if (typeof fetchClient === 'function') {
+    await fetchClient('/login/signout', { method: 'POST' });
+  }
+  clearSessionState(state);
 }

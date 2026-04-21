@@ -1,5 +1,6 @@
-import { equipInventoryItem, getItemDragData, setItemDragData, unequipInventoryItem } from './item-actions.js';
-import { setupDragDropZone } from '../utils/drag-drop.js';
+import { equipInventoryItem, getItemDragData, unequipInventoryItem } from './item-actions.js';
+import { setupDragDropZone, setupDraggableItem } from '../utils/drag-drop.js';
+import { renderItemCardHtml } from './item-card.js';
 
 /**
  * Render the equipped-item panel and attach drag/drop handlers.
@@ -9,17 +10,6 @@ export async function renderEquipPanel(opts) {
   const { equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, makeIcon, formatStats, getItemDisplayName } = opts;
   const equipPanel = document.getElementById('equip-panel');
   if (!equipPanel) return;
-
-  function inventoryCardHtml(i) {
-    return `
-      <button type="button" draggable="true" class="inventory-card equipped-card" data-item-id="${i.id}" data-item-source="equipped">
-        <div class="item-icon">${makeIcon(i)}</div>
-        <div class="card-details">
-          <div class="item-name">${getItemDisplayName(i)}</div>
-          <div class="item-type">${formatStats(i)}</div>
-        </div>
-      </button>`;
-  }
 
   const SLOT_DEFS = [
     { type: 'helmet', label: 'Helmet' }, { type: 'armor', label: 'Armor' },
@@ -33,7 +23,13 @@ export async function renderEquipPanel(opts) {
       return `
         <div class="equip-slot" data-slot="${slotNum}" data-slot-type="${slotDef.type}">
           <span class="slot-label">${slotDef.label}</span>
-          ${inventoryCardHtml(eq)}
+          ${renderItemCardHtml(eq, {
+            className: 'equipped-card',
+            source: 'equipped',
+            icon: makeIcon(eq),
+            name: getItemDisplayName(eq),
+            stats: formatStats(eq),
+          })}
         </div>`;
     }
     return `<div class="equip-slot empty" data-slot="${slotNum}" data-slot-type="${slotDef.type}"><span class="slot-label">${slotDef.label}</span><div class="empty-label">Empty</div></div>`;
@@ -66,16 +62,11 @@ export async function renderEquipPanel(opts) {
     // Setup equipped item cards as draggable and unequippable
     const equippedCard = slotEl.querySelector('.equipped-card');
     if (equippedCard) {
-      equippedCard.addEventListener('dragstart', event => {
-        setItemDragData(event, {
+      setupDraggableItem(equippedCard, {
+        dragData: {
           itemId: Number(equippedCard.getAttribute('data-item-id')),
           source: equippedCard.getAttribute('data-item-source') || 'equipped',
-        });
-        equippedCard.classList.add('dragging');
-      });
-
-      equippedCard.addEventListener('dragend', () => {
-        equippedCard.classList.remove('dragging');
+        }
       });
 
       equippedCard.addEventListener('dblclick', async event => {
