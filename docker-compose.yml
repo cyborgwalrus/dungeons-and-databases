@@ -18,12 +18,14 @@ services:
       - SECRET_KEY=supersecretdevkey
       - FLASK_APP=app.py
       - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - WIPE_DB_ON_RESTART=true
       - CACHE_TYPE=RedisCache
       - CACHE_REDIS_URL=redis://redis:6379/0
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - ./backend:/app/backend
-    # command removed so container will use the image default (runs start-backend.sh)
+      - dnd_db:/app/instance
     depends_on:
       - redis
     networks:
@@ -36,6 +38,8 @@ services:
     container_name: dnd_frontend
     ports:
       - "8080:8080"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
     depends_on:
       - backend
     networks:
@@ -44,3 +48,7 @@ services:
 networks:
   dnd_network:
     driver: bridge
+
+volumes:
+  dnd_db:
+    driver: local
