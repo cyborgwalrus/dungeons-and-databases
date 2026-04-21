@@ -5,11 +5,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from backend.db.init_db import seed_initial_data
 from backend.db.models import db
-from project.backend.resources.authentication import register_auth_resources
-from project.backend.resources.characters import register_character_resources
-from project.backend.resources.items import register_item_resources
-from project.backend.resources.users import register_user_resources
-from project.backend.routes.dungeon import dungeon_bp
+from backend.resources.authentication import register_auth_resources
+from backend.resources.characters import register_character_resources
+from backend.resources.items import register_item_resources
+from backend.resources.users import register_user_resources
+from backend.routes.dungeon import dungeon_bp
 from backend.utils import cache, init_cache
 
 
