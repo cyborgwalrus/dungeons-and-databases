@@ -11,13 +11,7 @@ export function renderInventoryGrid(opts) {
   const { inventory, equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, makeIcon, formatStats, getItemDisplayName } = opts;
   const invContainer = document.getElementById('inventory-grid');
   if (!invContainer) return;
-  const scrollBox = invContainer.closest('.inventory-scroll-box');
-  const dropZone = scrollBox || invContainer;
-  const itemCount = Array.isArray(inventory) ? inventory.length : 0;
-  if (scrollBox) {
-    scrollBox.classList.toggle('inventory-empty', itemCount === 0);
-    scrollBox.style.maxHeight = itemCount > 5 ? '390px' : 'none';
-  }
+  const dropZone = invContainer;
 
   // Build efficient slot → item lookup for equipped items
   const equippedBySlot = buildEquippedSlotMap(equipped);
@@ -103,9 +97,9 @@ export function renderInventoryGrid(opts) {
   });
 
   // Setup trash zone as drop zone for discarding items
-  const trashDropzone = document.getElementById('inventory-trash-dropzone');
-  if (trashDropzone) {
-    setupDragDropZone(trashDropzone, {
+  const sellAreaDropzone = document.getElementById('inventory-sell-area-dropzone');
+  if (sellAreaDropzone) {
+    setupDragDropZone(sellAreaDropzone, {
       validatePayload: (event) => {
         const payload = getItemDragData(event);
         return payload && payload.source === 'inventory' ? payload : null;
@@ -117,7 +111,7 @@ export function renderInventoryGrid(opts) {
           console.error('Failed to discard item from drag and drop', error);
         }
       },
-      activeClass: 'trash-dropzone--active'
+      activeClass: 'sell-area-dropzone--active'
     });
   }
 
@@ -127,6 +121,7 @@ export function renderInventoryGrid(opts) {
       dragData: {
         itemId: Number(card.getAttribute('data-item-id')),
         source: card.getAttribute('data-item-source') || 'inventory',
+        slot: card.getAttribute('data-item-slot') || '',
       }
     });
 

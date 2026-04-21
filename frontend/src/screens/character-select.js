@@ -1,3 +1,5 @@
+import { buildScreenShell } from '../ui.js';
+
 /**
  * Character select screen module.
  * Renders the character list, creation form, and character selection.
@@ -20,7 +22,12 @@ import { signOutAndClearSession } from '../utils/state-updater.js';
 export async function renderCharacterSelect(root, deps) {
   const { fetchJson, setAuthToken, navigateTo, state } = deps;
 
-  root.innerHTML = `<div class="game-container auth-container"><div class="character-select-wrapper" id="char-select-content">Loading...</div></div>`;
+  root.innerHTML = buildScreenShell({
+    className: 'screen-shell--auth',
+    title: 'Dungeons & Databases',
+    subtitle: 'Choose your hero',
+    sections: [{ id: 'char-select-content', body: 'Loading...' }],
+  });
   const content = document.getElementById('char-select-content');
   if (!state.currentUser) {
     navigateTo('/login');
@@ -31,11 +38,22 @@ export async function renderCharacterSelect(root, deps) {
   state.characters = res.ok ? res.data : [];
 
   content.innerHTML = `
-    <h1>Select or Create a Character</h1>
-    <div id="character-list" class="character-list"></div>
-    <input type="text" id="create-char-name" placeholder="Enter character name" class="character-create-input">
-    <button id="create-char-btn" class="dungeon-button dungeon-button-primary character-action-button">Create New Character</button>
-    <button id="logout-btn" class="dungeon-button dungeon-button-secondary character-action-button">Logout</button>
+    <div class="screen-stack">
+      <div class="screen-panel screen-panel--dark">
+        <h2 class="character-select-title">Select or Create a Character</h2>
+        <div id="character-list" class="character-list"></div>
+      </div>
+      <div class="screen-panel screen-panel--nested">
+        <div class="auth-form-group">
+          <label for="create-char-name" class="auth-form-label">Character name</label>
+          <input type="text" id="create-char-name" placeholder="Enter character name" class="character-create-input">
+        </div>
+        <div class="screen-button-stack">
+          <button id="create-char-btn" class="dungeon-button dungeon-button-primary character-action-button">Create New Character</button>
+          <button id="logout-btn" class="dungeon-button dungeon-button-secondary character-action-button">Logout</button>
+        </div>
+      </div>
+    </div>
   `;
 
   const charList = document.getElementById('character-list');

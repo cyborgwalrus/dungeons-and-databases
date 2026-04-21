@@ -1,3 +1,5 @@
+import { buildScreenShell } from '../ui.js';
+
 /**
  * Login screen module.
  * Renders the sign-in/sign-up forms and handles authentication.
@@ -16,23 +18,30 @@
 export async function renderLogin(root, deps) {
   const { fetchJson, setAuthToken, navigateTo, state } = deps;
 
-  root.innerHTML = `
-    <div class="game-container auth-container">
-      <div class="auth-form-wrapper">
-        <h1>Dungeons & Databases</h1>
-        <div id="login-container">
+  root.innerHTML = buildScreenShell({
+    className: 'screen-shell--auth',
+    title: 'Dungeons & Databases',
+    subtitle: 'Sign in or create an account',
+    sections: [{ id: 'login-content', body: 'Loading...' }],
+  });
+
+  const content = document.getElementById('login-content');
+  content.innerHTML = `
+    <div class="screen-stack">
+      <div class="screen-panel screen-panel--dark">
+        <div id="login-container" class="auth-form-wrapper">
           <div class="auth-form-group">
-            <label for="username" class="auth-form-label">Username:</label>
+            <label for="username" class="auth-form-label">Username</label>
             <input type="text" id="username" placeholder="Enter username" class="auth-form-input">
           </div>
           <div class="auth-form-group">
-            <label for="password" class="auth-form-label">Password:</label>
+            <label for="password" class="auth-form-label">Password</label>
             <input type="password" id="password" placeholder="Enter password" class="auth-form-input">
           </div>
           <div id="login-message" class="auth-message"></div>
-          <div class="auth-button-group">
-              <button id="signin-btn" class="dungeon-button auth-button">Sign In</button>
-              <button id="signup-btn" class="dungeon-button auth-button">Sign Up</button>
+          <div class="screen-button-stack auth-button-group">
+            <button id="signin-btn" class="dungeon-button auth-button">Sign In</button>
+            <button id="signup-btn" class="dungeon-button dungeon-button-secondary auth-button">Sign Up</button>
           </div>
         </div>
       </div>

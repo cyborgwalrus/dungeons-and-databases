@@ -63,10 +63,10 @@ ENEMY_TYPES = [
 
 ITEM_TYPES = [
     ItemTypeSeed('Steel Sword', ItemSlot.WEAPON, 0, 10),
-    ItemTypeSeed('Steel Armor', ItemSlot.ARMOR, 10, 0),
+    ItemTypeSeed('Linen Armor', ItemSlot.ARMOR, 10, 0),
     ItemTypeSeed('Iron Helmet', ItemSlot.HELMET, 8, 0),
-    ItemTypeSeed('Silver Necklace', ItemSlot.NECKLACE, 5, 4),
-    ItemTypeSeed('Enchanted Ring', ItemSlot.RING, 4, 5),
+    ItemTypeSeed('Ruby Necklace', ItemSlot.NECKLACE, 5, 4),
+    ItemTypeSeed('Silver Ring', ItemSlot.RING, 4, 5),
     ItemTypeSeed('Iron Shield', ItemSlot.SHIELD, 9, 0),
 ]
 

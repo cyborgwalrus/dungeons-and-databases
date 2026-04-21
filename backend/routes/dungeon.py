@@ -184,7 +184,8 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
             return {
                 'message': (
                     'Defeat!\n'
-                    f'You have been defeated by {enemy_name} and lost the loot from this dungeon run...'
+                    f'You have been defeated by {enemy_name}!\n'
+                    'You lost the loot from this dungeon run...'
                 ),
                 'victory': False,
                 'items_dropped': [],
@@ -252,7 +253,7 @@ def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, A
     if check_character_death(character):
         return {
             'message': (
-                f'You rolled a {dice_roll} and failed to escape. '
+                f'You rolled a {dice_roll} and failed to escape!\n'
                 f'{enemy_name} dealt {damage_taken} damage! '
                 'You lost the loot from this dungeon run and returned to the start...'
             ),
@@ -267,7 +268,7 @@ def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, A
 
     return {
         'message': (
-            f'You rolled a {dice_roll}! Failed to escape! '
+            f'You rolled a {dice_roll} and failed to escape!\n'
             f'{enemy_name} caught you and dealt {damage_taken} damage!'
         ),
         'victory': False,
@@ -342,15 +343,3 @@ def run_away() -> Any:
         damage=outcome['damage'],
         dice_roll=outcome['dice_roll'],
     )
-
-
-@dungeon_bp.route('/dungeon/leave', methods=['POST'])
-def leave_dungeon() -> Any:
-    """Leave the dungeon and clean up the active encounter state."""
-    character = get_character()
-    if not character:
-        return json_error('No active character selected', 400)
-
-    _destroy_active_loot_and_encounter(character)
-    db.session.commit()
-    return jsonify({'message': 'You left the dungeon'})

@@ -14,6 +14,7 @@ import { renderPlayerStatsInto, syncPlayerStatsInDom } from '../components/playe
 import { renderEquipPanel as renderEquipPanelImpl } from '../components/equip.js';
 import { renderInventoryGrid as renderInventoryGridImpl } from '../components/inventory.js';
 import { makeIcon, getItemDisplayName, formatStats } from '../helpers.js';
+import { buildScreenShell } from '../ui.js';
 
 /**
  * Render the home screen with inventory, equipment, and navigation actions.
@@ -73,29 +74,47 @@ export async function renderHome(root, deps) {
     });
   }
 
-  root.innerHTML = `<div class="game-container"><div id="main-content"></div></div>`;
+  root.innerHTML = buildScreenShell({
+    className: 'screen-shell--game',
+    title: 'Dungeons & Databases',
+    subtitle: state.player?.name ? `${state.player.name} is ready` : 'Manage your character and inventory',
+    sections: [{ id: 'main-content', body: 'Loading...' }],
+  });
   const main = document.getElementById('main-content');
   main.innerHTML = `
-    <div class="home-layout">
-      <div id="player-stats-container" class="home-panel home-stats-panel">
+    <div class="screen-stack home-stack">
+      <div id="player-stats-container" class="screen-panel screen-panel--dark home-panel home-stats-panel">
         <div id="player-stats"></div>
       </div>
-      <div id="equip-panel" class="home-panel home-equip-panel"></div>
-      <div class="inventory-panel-box home-panel home-inventory-panel">
-        <div class="inventory-scroll-box">
-          <div id="inventory-grid" class="inventory-grid"></div>
+      <div id="equip-panel" class="screen-panel screen-panel--nested home-panel home-equip-panel"></div>
+      <div class="screen-panel screen-panel--nested home-panel home-inventory-panel">
+        <div class="inventory-management-box">
+          <div class="inventory-panel-box">
+            <div id="inventory-grid" class="inventory-grid"></div>
+          </div>
+          <div class="inventory-panel-box inventory-panel-box--sell-area">
+            <div class="sell-area-content">
+              <div
+                id="inventory-sell-area-dropzone"
+                class="inventory-scroll-box inventory-empty sell-area-dropzone"
+                aria-label="Sell area"
+                title="Drop inventory items here to sell"
+              >
+                <div class="inventory-empty-container">
+                  <p class="inventory-empty-message">💰 Drag items here to sell.</p>
+                </div>
+              </div>
+              <button class="dungeon-button dungeon-button-clear sell-all-btn" id="clear-inventory-btn">SELL\nALL</button>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="clear-inventory-row">
-        <div class="clear-inventory-actions">
-          <button class="dungeon-button dungeon-button-clear" id="clear-inventory-btn">Clear Inventory</button>
-          <button type="button" class="dungeon-button dungeon-button-trash trash-dropzone" id="inventory-trash-dropzone" aria-label="Trash inventory item" title="Drop inventory items here to delete">🗑 Trash</button>
+      <div class="screen-panel screen-panel--dark home-actions-row">
+        <div class="home-actions-container screen-button-stack">
+          <button class="dungeon-button dungeon-button-primary" id="enter-dungeon">Enter the Dungeon</button>
+          <button class="dungeon-button dungeon-button-secondary" id="select-character-btn">Change Character</button>
+          <button class="dungeon-button dungeon-button-danger" id="logout-btn">Logout</button>
         </div>
-      </div>
-      <div class="home-actions-container">
-        <button class="dungeon-button dungeon-button-primary" id="enter-dungeon">Enter the Dungeon</button>
-        <button class="dungeon-button dungeon-button-secondary" id="select-character-btn">Change Character</button>
-        <button class="dungeon-button dungeon-button-danger" id="logout-btn">Logout</button>
       </div>
     </div>
   `;
@@ -131,12 +150,12 @@ export async function renderHome(root, deps) {
 
     try {
       clearButton.dataset.confirmClear = '0';
-      clearButton.textContent = 'Clear Inventory';
+      clearButton.textContent = 'SELL\nALL';
       await clearUnequippedInventory(state, userId);
       await loadStateAndRenderPartial();
       await syncPlayerHealthToFull(state);
     } catch (error) {
-      console.error('Clear inventory failed', error);
+      console.error('Sell all failed', error);
     }
   });
 
@@ -148,7 +167,7 @@ export async function renderHome(root, deps) {
       if (clearButton.dataset.confirmClear !== '1') return;
       if (event.target.closest && event.target.closest('#clear-inventory-btn')) return;
       clearButton.dataset.confirmClear = '0';
-      clearButton.textContent = 'Clear Inventory';
+      clearButton.textContent = 'SELL\nALL';
     });
   }
 }

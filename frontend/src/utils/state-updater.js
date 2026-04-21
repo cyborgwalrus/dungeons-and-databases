@@ -56,7 +56,7 @@ export async function syncPlayerHealthToFull(state) {
 
 /**
  * Delete all unequipped inventory items and refresh the player view.
- * Called by the "Clear Inventory" button on home screen.
+ * Called by the "Sell All" button on home screen.
  *
  * @param {Object} state - App state object (modified in place).
  * @param {number} userId - Current user ID.

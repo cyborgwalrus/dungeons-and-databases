@@ -11,11 +11,11 @@ AUTH_TOKEN_SALT = 'dungeons-and-databases-auth-token'
 DEFAULT_AUTH_TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
 DEFAULT_LOADOUT_ITEM_NAMES = [
     'Steel Sword',
-    'Steel Armor',
+    'Linen Armor',
     'Iron Shield',
     'Iron Helmet',
-    'Silver Necklace',
-    'Enchanted Ring',
+    'Ruby Necklace',
+    'Silver Ring',
 ]
 
 

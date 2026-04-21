@@ -6,8 +6,9 @@
 
 import { fetchJson, clearAuthToken, setAuthToken } from './api.js';
 import { formatDungeonMessage } from './helpers.js';
+import { buildScreenShell } from './ui.js';
 import { renderPlayerStatsInto, syncPlayerStatsInDom } from './components/player.js';
-import { buildDungeonMarkup, applyDungeonCombatUpdate, showDungeonDefeatScreen } from './screens/dungeon-runtime.js';
+import { buildDungeonMarkup, applyDungeonCombatUpdate, renderLootPanel, showDungeonDefeatScreen } from './screens/dungeon-runtime.js';
 import { state, getCharacterId } from './app-state.js';
 import { renderLogin } from './screens/login.js';
 import { renderCharacterSelect } from './screens/character-select.js';
@@ -38,10 +39,19 @@ function updateEnemyPanel(enemy) {
   const enLevel = document.getElementById('enemy-level');
   const enHealth = document.getElementById('enemy-health');
   const enDamage = document.getElementById('enemy-damage');
+  const enemyBar = document.getElementById('enemy-health-bar');
   if (enName) enName.textContent = `Enemy: ${enemy.name || 'None'}`;
   if (enLevel) enLevel.textContent = `${enemy.level || ''}`;
   if (enHealth) enHealth.textContent = `${enemy.health} / ${enemy.max_health} HP`;
   if (enDamage) enDamage.textContent = `${enemy.damage}`;
+  if (enemyBar) {
+    const currentHealth = Math.max(0, Number(enemy.health) || 0);
+    const maxHealth = Math.max(1, Number(enemy.max_health) || 1);
+    const fill = enemyBar.querySelector('.vertical-health-bar-fill');
+    if (fill) fill.style.height = `${Math.max(0, Math.min(1, currentHealth / maxHealth)) * 100}%`;
+    enemyBar.dataset.health = String(currentHealth);
+    enemyBar.dataset.maxHealth = String(maxHealth);
+  }
 }
 
 /**
@@ -61,9 +71,8 @@ async function handleDungeonAttack() {
   });
 
   if (dungeonState.player_died) {
-    await showDungeonDefeatScreen({
-      message: dungeonState.message || 'You were defeated and lost the loot from this dungeon run.',
-      lootCounts: state.lootCounts,
+    showDungeonDefeatScreen({
+      message: dungeonState.message || 'Defeat!\nYou have been defeated by the enemy!\nYou lost the loot from this dungeon run...',
       onExit: () => {
         resetDungeonLoot(state);
         navigateTo('/');
@@ -90,10 +99,14 @@ async function handleDungeonRun() {
     dungeonMessage.innerHTML = formatDungeonMessage(dungeonState.message || 'Action result');
   }
 
+  if (dungeonState.character) {
+    state.player = dungeonState.character;
+    syncPlayerStatsInDom(dungeonState.character);
+  }
+
   if (dungeonState.player_died) {
-    await showDungeonDefeatScreen({
-      message: dungeonState.message || 'You were defeated and lost the loot from this dungeon run.',
-      lootCounts: state.lootCounts,
+    showDungeonDefeatScreen({
+      message: dungeonState.message || 'Defeat!\nYou have been defeated by the enemy!\nYou lost the loot from this dungeon run...',
       onExit: () => {
         resetDungeonLoot(state);
         navigateTo('/');
@@ -107,19 +120,22 @@ async function handleDungeonRun() {
       resetDungeonLoot(state);
       navigateTo('/');
     }, 1500);
-  } else {
-    setTimeout(() => renderDungeon({ resetRunState: false }), 500);
   }
 }
 
 /**
  * Render the dungeon screen and bind combat controls to live actions.
- * Fetches the latest encounter and wires up attack/run/leave handlers.
+ * Fetches the latest encounter and wires up attack/run handlers.
  */
 async function renderDungeon({ resetRunState = true } = {}) {
   if (resetRunState) resetDungeonLoot(state);
   state.lastDungeonMessage = null;
-  root.innerHTML = `<div class="game-container"><div id="dungeon-content">Loading...</div></div>`;
+  root.innerHTML = buildScreenShell({
+    className: 'screen-shell--game',
+    title: 'Dungeons & Databases',
+    subtitle: 'Prepare for combat',
+    sections: [{ id: 'dungeon-content', body: 'Loading...' }],
+  });
   const content = document.getElementById('dungeon-content');
 
   const characterId = getCharacterId();
@@ -142,7 +158,12 @@ async function renderDungeon({ resetRunState = true } = {}) {
   content.innerHTML = buildDungeonMarkup(enemy, messageToShow);
 
   renderPlayerStatsInto(document.getElementById('player-stats-container'), state.player);
+  const lootEl = document.getElementById('loot');
+  if (lootEl) {
+    renderLootPanel(lootEl, state.lootCounts);
+  }
   state.lastDungeonMessage = null;
+  updateEnemyPanel(enemy);
 
   document.getElementById('attack').addEventListener('click', event => {
     event.preventDefault();
@@ -151,13 +172,6 @@ async function renderDungeon({ resetRunState = true } = {}) {
   document.getElementById('run').addEventListener('click', event => {
     event.preventDefault();
     handleDungeonRun();
-  });
-  document.getElementById('back').addEventListener('click', event => {
-    event.preventDefault();
-    fetchJson('/dungeon/leave', { method: 'POST' }).finally(() => {
-      resetDungeonLoot(state);
-      navigateTo('/');
-    });
   });
 }
 

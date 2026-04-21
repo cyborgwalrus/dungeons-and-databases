@@ -6,7 +6,7 @@ import { renderItemCardHtml } from './item-card.js';
  * Render the equipped-item panel and attach drag/drop handlers.
  * Uses standardized drag/drop utilities to reduce code duplication.
  */
-export async function renderEquipPanel(opts) {
+export function renderEquipPanel(opts) {
   const { equipped, fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull, makeIcon, formatStats, getItemDisplayName } = opts;
   const equipPanel = document.getElementById('equip-panel');
   if (!equipPanel) return;
@@ -22,7 +22,6 @@ export async function renderEquipPanel(opts) {
     if (eq) {
       return `
         <div class="equip-slot" data-slot="${slotNum}" data-slot-type="${slotDef.type}">
-          <span class="slot-label">${slotDef.label}</span>
           ${renderItemCardHtml(eq, {
             className: 'equipped-card',
             source: 'equipped',
@@ -44,10 +43,12 @@ export async function renderEquipPanel(opts) {
 
   // Setup each equipment slot as a drop zone for inventory items
   document.querySelectorAll('.equip-slot').forEach(slotEl => {
+    const slotType = slotEl.getAttribute('data-slot-type') || '';
     setupDragDropZone(slotEl, {
       validatePayload: (event) => {
         const payload = getItemDragData(event);
-        return payload && payload.source === 'inventory' ? payload : null;
+        if (!payload || payload.source !== 'inventory') return null;
+        return payload.slot && payload.slot === slotType ? payload : null;
       },
       onDrop: async (payload) => {
         try {

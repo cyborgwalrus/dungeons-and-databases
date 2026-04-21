@@ -14,6 +14,7 @@ export function makeIcon(i) {
   if (slot === 'necklace') return '📿';
 
   const name = (i.name || '').toLowerCase();
+  if (name.includes('steel sword')) return '🗡️';
   if (name.includes('helmet') || name.includes('helm') || name.includes('cap')) return '🪖';
   if (name.includes('ring')) return '💍';
   if (name.includes('necklace') || name.includes('amulet')) return '📿';
@@ -105,16 +106,40 @@ export function formatDungeonMessage(message) {
 
   const hasVictory = lines.some(line => /^Victory!?$/i.test(line));
   const hasDefeat = lines.some(line => /defeated/i.test(line));
-  const statusText = hasVictory ? 'Victory!' : (hasDefeat ? 'Defeat!' : 'Fight!');
-  const statusClass = hasVictory ? 'dungeon-message-victory-text' : (hasDefeat ? 'dungeon-message-defeat-text' : 'dungeon-message-fight-text');
+  const runSuccessLine = lines.find(line => /^You rolled a \d+! You successfully escaped and returned home!?$/i.test(line));
+  const runFailLine = lines.find(line => /^You rolled a \d+ and failed to escape!?$/i.test(line));
+  const hasRun = Boolean(runSuccessLine || runFailLine || lines.some(line => /escape/i.test(line)));
+  const statusText = hasVictory ? 'Victory!' : (hasDefeat ? 'Defeat!' : (hasRun ? 'Run for your life!' : 'Fight!'));
+  const statusClass = hasVictory ? 'dungeon-message-victory-text' : (hasDefeat ? 'dungeon-message-defeat-text' : (hasRun ? 'dungeon-message-run-text' : 'dungeon-message-fight-text'));
 
-  const body = lines.filter(line => !/^Victory!?$/i.test(line) && !/^Fight!?$/i.test(line) && !/^Defeat!?$/i.test(line)).map(line => {
+  let bodyLines = lines.filter(line => !/^Victory!?$/i.test(line) && !/^Fight!?$/i.test(line) && !/^Defeat!?$/i.test(line) && !/^Run for your life!?$/i.test(line));
+  if (runSuccessLine) {
+    const rollMatch = runSuccessLine.match(/^You rolled a (\d+)! You successfully escaped and returned home!?$/i);
+    bodyLines = [
+      `You rolled a ${rollMatch ? rollMatch[1] : ''}!`,
+      'You successfully escaped and returned home!',
+    ];
+  } else if (runFailLine) {
+    const rollMatch = runFailLine.match(/^You rolled a (\d+) and failed to escape!?$/i);
+    bodyLines = [
+      `You rolled a ${rollMatch ? rollMatch[1] : ''}!`,
+      'You failed to escape!',
+    ];
+  }
+
+  const body = bodyLines.map(line => {
     const safeLine = escapeHtml(line);
     if (/leveled up/i.test(line)) {
       return `<div class="dungeon-message-line dungeon-message-levelup">${safeLine}</div>`;
     }
     if (/^You\s*:/.test(line) || /^You dealt/i.test(line)) {
       return `<div class="dungeon-message-line dungeon-message-player">${safeLine.replace(/^You\s*:/i, 'You')}</div>`;
+    }
+    if (/^You successfully escaped and returned home!?$/i.test(line)) {
+      return `<div class="dungeon-message-line dungeon-message-run-success">${safeLine}</div>`;
+    }
+    if (/^You failed to escape!?$/i.test(line)) {
+      return `<div class="dungeon-message-line dungeon-message-defeat">${safeLine}</div>`;
     }
     if (/^[^:]+:\s*dealt/i.test(line)) {
       return `<div class="dungeon-message-line dungeon-message-enemy">${safeLine.replace(/^([^:]+):\s*/i, '$1 ')}</div>`;
@@ -145,5 +170,5 @@ export function formatStats(i) {
   const aa = i.damage ?? 0;
   if (ha > 0 && aa === 0) return `${ha} HP`;
   if (aa > 0 && ha === 0) return `${aa} ATK`;
-  return `+${ha} HP / +${aa} ATK`;
+  return `${ha} HP ${aa} ATK`;
 }

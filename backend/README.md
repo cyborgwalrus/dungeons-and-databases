@@ -4,7 +4,7 @@
 
 The backend is organized as follows:
 
-```
+```text
 backend/
 ├── app.py                 # Flask application factory and API setup
 ├── db/                    # Database models and initialization
@@ -35,7 +35,7 @@ backend/
 |     Users      | `/users/<int:user_id>` - `GET` `PUT` `DELETE`<br>`/users/<int:user_id>/inventory` - `GET` `DELETE`                                     | User account management and shared inventory            |     Yes     |
 |   Characters   | `/users/<int:user_id>/characters` - `GET` `POST`<br>`/characters/<int:character_id>` - `GET` `PUT` `DELETE`<br>`/characters/<int:character_id>/select` - `POST`<br>`/characters/<int:character_id>/full_heal` - `POST`<br>`/characters/<int:character_id>/equipment` - `GET` `POST`<br>`/characters/<int:character_id>/equipment/<int:item_id>` - `DELETE` | Character management, selection, leveling, experience, equipment, and healing |     Yes     |
 |      Items     | `/items` - `POST`<br>`/items/<int:item_id>` - `GET` `DELETE`                                                                    | Item creation and inventory operations                   |     Yes     |
-|    Dungeon     | `/dungeon/enter` - `POST`<br>`/dungeon/attack` - `POST`<br>`/dungeon/run` - `POST`<br>`/dungeon/leave` - `POST`                       | Dungeon entry, combat, and cleanup operations            |     Yes     |
+|    Dungeon     | `/dungeon/enter` - `POST`<br>`/dungeon/attack` - `POST`<br>`/dungeon/run` - `POST`                       | Dungeon entry and combat operations                      |     Yes     |
 
 ## Endpoint Details
 
@@ -86,7 +86,6 @@ Selecting a character via `POST /api/characters/<int:character_id>/select` retur
 - `POST /api/dungeon/enter` - enter or resume the active dungeon encounter.
 - `POST /api/dungeon/attack` - attack the active encounter.
 - `POST /api/dungeon/run` - attempt to flee the active encounter.
-- `POST /api/dungeon/leave` - leave the dungeon and destroy any unclaimed loot.
 
 ### Setup
 
