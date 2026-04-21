@@ -1,75 +1,80 @@
-from flask import Blueprint, jsonify, request
+from flask import request
+from flask_restful import Resource
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from ..db.models import User, UserInventory, db
+from ..db.models import User, db
 from ..utils.game_utils import get_current_user as get_authenticated_user, get_player, issue_auth_token
 from ..utils.serializers import serialize_user
 from .common import get_json_data, json_error
 
-auth_bp = Blueprint('auth', __name__)
 
+class SignupResource(Resource):
+    def post(self):
+        """Create a new user account and return an auth token."""
+        data = get_json_data(request)
+        username = (data.get('username') or '').strip()
+        password = data.get('password') or ''
 
-@auth_bp.route('/login/signup', methods=['POST'])
-def signup():
-    """Create a new user account and return an auth token."""
-    data = get_json_data(request)
-    username = (data.get('username') or '').strip()
-    password = data.get('password') or ''
+        if not username or not password:
+            return json_error('username and password are required')
 
-    if not username or not password:
-        return json_error('username and password are required')
+        if User.query.filter_by(username=username).first():
+            return json_error('username already exists', 409)
 
-    if User.query.filter_by(username=username).first():
-        return json_error('username already exists', 409)
-
-    user = User()
-    user.username = username
-    user.password = generate_password_hash(password)
-    db.session.add(user)
-    db.session.commit()
-    if not user.inventory:
-        user.inventory = UserInventory(user_id=user.id)
-        db.session.add(user.inventory)
+        user = User()
+        user.username = username
+        user.password = generate_password_hash(password)
+        db.session.add(user)
+        db.session.flush()
+        user.ensure_inventory()
         db.session.commit()
-    token = issue_auth_token(user.id)
-    return jsonify({'message': 'signup complete', 'user': serialize_user(user), 'token': token}), 201
+        token = issue_auth_token(user.id)
+        return {'message': 'signup complete', 'user': serialize_user(user), 'token': token}, 201
 
 
-@auth_bp.route('/login/signin', methods=['POST'])
-def signin():
-    """Authenticate a user and return an auth token."""
-    data = get_json_data(request)
-    username = (data.get('username') or '').strip()
-    password = data.get('password') or ''
+class SigninResource(Resource):
+    def post(self):
+        """Authenticate a user and return an auth token."""
+        data = get_json_data(request)
+        username = (data.get('username') or '').strip()
+        password = data.get('password') or ''
 
-    user = User.query.filter_by(username=username).first()
-    if not user:
-        return json_error('invalid username or password', 401)
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            return json_error('invalid username or password', 401)
 
-    password_matches = False
-    try:
-        password_matches = check_password_hash(user.password, password)
-    except (TypeError, ValueError):
         password_matches = False
+        try:
+            password_matches = check_password_hash(user.password, password)
+        except (TypeError, ValueError):
+            password_matches = False
 
-    if not password_matches:
-        return json_error('invalid username or password', 401)
+        if not password_matches:
+            return json_error('invalid username or password', 401)
 
-    token = issue_auth_token(user.id)
-    return jsonify({'message': 'signin complete', 'user': serialize_user(user), 'token': token})
-
-
-@auth_bp.route('/login/signout', methods=['POST'])
-def signout():
-    """Return a sign-out response for the client to clear local auth state."""
-    return jsonify({'message': 'signed out'})
+        token = issue_auth_token(user.id)
+        return {'message': 'signin complete', 'user': serialize_user(user), 'token': token}
 
 
-@auth_bp.route('/login/me', methods=['GET'])
-def me():
-    """Return the current authenticated user and active character, if any."""
-    user = get_authenticated_user()
-    if not user:
-        return json_error('Unauthorized', 401)
-    character = get_player()
-    return jsonify({'user': serialize_user(user), 'character': None if not character else character.to_dict(include_inventory=True)})
+class SignoutResource(Resource):
+    def post(self):
+        """Return a sign-out response for the client to clear local auth state.
+            Note: This does not invalidate the token on the server, but the client should discard it."""
+        return {'message': 'signed out'}
+
+
+class MeResource(Resource):
+    def get(self):
+        """Return the current authenticated user and active character, if any."""
+        user = get_authenticated_user()
+        if not user:
+            return json_error('Unauthorized', 401)
+        character = get_player()
+        return {'user': serialize_user(user), 'character': None if not character else character.to_dict(include_inventory=True)}
+
+
+def register_auth_resources(api):
+    api.add_resource(SignupResource, '/api/login/signup')
+    api.add_resource(SigninResource, '/api/login/signin')
+    api.add_resource(SignoutResource, '/api/login/signout')
+    api.add_resource(MeResource, '/api/login/me')

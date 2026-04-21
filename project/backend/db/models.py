@@ -34,6 +34,13 @@ class User(db.Model):
         """Return the string identifier expected by Flask-Login-style helpers."""
         return str(self.id)
 
+    def ensure_inventory(self):
+        """Create or return the user's inventory, ensuring it always exists."""
+        if not self.inventory:
+            self.inventory = UserInventory(user_id=self.id)
+            db.session.add(self.inventory)
+        return self.inventory
+
     def to_dict(self):
         """Serialize the user together with their owned characters."""
         return {
@@ -72,7 +79,7 @@ class Character(db.Model):
     health: Mapped[int] = db.Column(db.Integer, nullable=False, default=100)
     damage: Mapped[int] = db.Column(db.Integer, nullable=False, default=10)
 
-    user_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     user: Mapped['User'] = relationship('User', back_populates='characters')
     equipment: Mapped[list['CharacterEquipment']] = relationship('CharacterEquipment', back_populates='character', cascade='all, delete-orphan')
     encounters: Mapped[list['Encounter']] = relationship('Encounter', back_populates='character', cascade='all, delete-orphan')
@@ -208,7 +215,7 @@ class Encounter(db.Model):
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     
-    character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False)
+    character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False, index=True)
     character: Mapped['Character'] = relationship('Character', back_populates='encounters')
     
     enemy_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('enemy_type.id'), nullable=False)
@@ -300,10 +307,10 @@ class Item(db.Model):
     damage: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
     is_loot: Mapped[bool] = db.Column(db.Boolean, nullable=False, default=True)
     
-    inventory_id: Mapped[int | None] = db.Column(db.Integer, db.ForeignKey('user_inventory.id'))
+    inventory_id: Mapped[int | None] = db.Column(db.Integer, db.ForeignKey('user_inventory.id'), index=True)
     inventory: Mapped['UserInventory'] = relationship('UserInventory', back_populates='items')
     
-    item_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('item_type.id'), nullable=False)
+    item_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('item_type.id'), nullable=False, index=True)
     item_type: Mapped['ItemType'] = relationship('ItemType', back_populates='items')
     equipment: Mapped['CharacterEquipment'] = relationship('CharacterEquipment', back_populates='item', uselist=False)
 
@@ -353,7 +360,7 @@ class CharacterEquipment(db.Model):
     __tablename__ = 'character_equipment'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
-    character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False)
+    character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False, index=True)
     item_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False, unique=True)
     slot: Mapped[ItemSlot] = db.Column(
         db.Enum(

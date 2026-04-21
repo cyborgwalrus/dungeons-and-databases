@@ -1,9 +1,6 @@
 from typing import Any
 
-from flask import jsonify
-
-from ..db.cache_helpers import get_item_type_data
-from ..db.models import Character, CharacterEquipment, Encounter, Item, User, db
+from ..db.models import Character, CharacterEquipment, Item, User, db
 from ..utils.game_utils import get_current_user as get_authenticated_user, get_player
 
 
@@ -27,7 +24,7 @@ def require_current_user_id(user_id: int) -> tuple[User | None, tuple[Any, int] 
         return None, error_response
     assert user is not None
     if user.id != user_id:
-        return None, json_error('User not found', 404)
+        return None, json_error('Unauthorized', 401)
     return user, None
 
 
@@ -58,19 +55,6 @@ def require_character_owner(character_id: int) -> tuple[Character | None, tuple[
     if not character or character.user_id != user.id:
         return None, json_error('Character not found', 404)
     return character, None
-
-
-def require_encounter_owner(encounter_id: int) -> tuple[Encounter | None, tuple[Any, int] | None]:
-    """Require that the current user owns the requested encounter."""
-    user, error_response = require_current_user()
-    if error_response:
-        return None, error_response
-    assert user is not None
-
-    encounter = Encounter.query.get(encounter_id)
-    if not encounter or not encounter.character or encounter.character.user_id != user.id:
-        return None, json_error('Encounter not found', 404)
-    return encounter, None
 
 
 def get_item(character: Character, item_id: int) -> Item | None:
@@ -116,11 +100,6 @@ def unequip_item(character: Character, item_id: int) -> tuple[Any, int] | None:
     return None
 
 
-def get_item_type(item_type_id: int) -> dict[str, Any] | None:
-    """Return cached item type data for the given ID."""
-    return get_item_type_data(item_type_id)
-
-
 def get_json_data(request: Any) -> dict[str, Any]:
     """Return JSON request data or an empty mapping when the body is missing."""
     return request.get_json(silent=True) or {}
@@ -128,4 +107,4 @@ def get_json_data(request: Any) -> dict[str, Any]:
 
 def json_error(message: str, status: int = 400) -> tuple[Any, int]:
     """Return a standard JSON error payload and HTTP status code."""
-    return jsonify({'error': message}), status
+    return {'error': message}, status

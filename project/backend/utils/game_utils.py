@@ -4,7 +4,7 @@ from flask import current_app, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
 from ..db.cache_helpers import get_all_item_type_data, get_item_type_data
-from ..db.models import Character, Item, User, UserInventory, db
+from ..db.models import Character, Item, User, db
 
 
 AUTH_TOKEN_SALT = 'dungeons-and-databases-auth-token'
@@ -115,19 +115,6 @@ def seed_character_loadout(character: Character) -> None:
             add_inventory_item(character, item_type['id'])
 
 
-def _get_or_create_user_inventory(character: Character) -> UserInventory:
-    """Return the user's inventory, creating one when the character lacks it."""
-    if character.user and character.user.inventory:
-        return character.user.inventory
-
-    user_inventory = UserInventory(user_id=character.user_id)
-    db.session.add(user_inventory)
-    db.session.flush()
-    if character.user:
-        character.user.inventory = user_inventory
-    return user_inventory
-
-
 def _scaled_bonus(base_bonus: int, level: int) -> int:
     """Scale item bonuses by level while preserving zero-value stats."""
     if base_bonus <= 0:
@@ -144,7 +131,10 @@ def add_inventory_item(player: Character, item_id: int, *, level: int = 1, is_lo
 
     loot_flag = False if is_loot is None else is_loot
 
-    user_inventory = _get_or_create_user_inventory(player)
+    # Ensure the player has an inventory before adding items
+    if not player.user:
+        return None
+    user_inventory = player.user.ensure_inventory()
 
     inventory_item = Item(
         name=item_type['name'],

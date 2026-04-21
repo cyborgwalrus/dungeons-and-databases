@@ -1,13 +1,14 @@
 import os
 from flask import Flask
+from flask_restful import Api
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.db.init_db import seed_initial_data
 from backend.db.models import db
-from backend.routes.auth_routes import auth_bp
-from backend.routes.user_routes import user_bp
-from backend.routes.character_routes import character_bp
-from backend.routes.item_routes import item_bp
+from backend.routes.auth_routes import register_auth_resources
+from backend.routes.character_routes import register_character_resources
+from backend.routes.item_routes import register_item_resources
+from backend.routes.user_routes import register_user_resources
 from backend.routes.dungeon_routes import dungeon_bp
 from .utils import cache, init_cache
 
@@ -25,15 +26,16 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(basedir, "game.db")}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Initialize database
+# Initialize database, cache and api
 db.init_app(app)
 init_cache(app)
+api = Api(app)
 
-# Register blueprints under the /api prefix.
-app.register_blueprint(auth_bp, url_prefix='/api')
-app.register_blueprint(user_bp, url_prefix='/api')
-app.register_blueprint(character_bp, url_prefix='/api')
-app.register_blueprint(item_bp, url_prefix='/api')
+register_auth_resources(api)
+register_user_resources(api)
+register_character_resources(api)
+register_item_resources(api)
+
 app.register_blueprint(dungeon_bp, url_prefix='/api')
 
 @app.cli.command('init-db')

@@ -2,92 +2,81 @@ from __future__ import annotations
 
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import request
+from flask_restful import Resource
 
 from ..db.models import Character, Item, db
 from ..utils.game_utils import add_inventory_item, remove_inventory_item
 from ..utils.serializers import serialize_item
 from .common import get_item, get_json_data, json_error, require_current_character
 
-item_bp = Blueprint('item', __name__)
 
 
-def _item_response(item: Item | None, status: int = 200) -> tuple[Any, int]:
-    """Wrap a serialized item in a JSON response."""
-    return jsonify(serialize_item(item)), status
 
 
-def _message_response(message: str, status: int = 200) -> tuple[Any, int]:
-    """Return a JSON message response with the given status code."""
-    return jsonify({'message': message}), status
+class ItemListResource(Resource):
+    def post(self):
+        """Create one or more inventory items for the current character."""
+        character, error_response = require_current_character()
+        if error_response:
+            return error_response
+        assert character is not None
+        data = get_json_data(request)
+
+        if isinstance(data, list):
+            source_ids = data
+        else:
+            source_id = data.get('item_type_id', data.get('item_id'))
+            source_ids = [source_id] if source_id is not None else []
+
+        if not source_ids:
+            return json_error('item_type_id is required')
+
+        try:
+            source_ids = [int(source_id) for source_id in source_ids]
+            if any(sid <= 0 for sid in source_ids):
+                return json_error('item_type_id must be positive integers')
+        except (TypeError, ValueError):
+            return json_error('item_type_id must be a valid integer')
+
+        created_items: list[Item] = []
+        for source_id in source_ids:
+            item = add_inventory_item(character, source_id)
+            if not item:
+                return json_error('Item not found', 404)
+            created_items.append(item)
+
+        db.session.commit()
+        return [serialize_item(item) for item in created_items], 201
 
 
-def _get_item_or_error(character: Character, item_id: int, message: str = 'Item not found') -> tuple[Item | None, tuple[Any, int] | None]:
-    """Fetch an inventory item or return a standard not-found response."""
-    item = get_item(character, item_id)
-    if not item:
-        return None, json_error(message, 404)
-    return item, None
-
-
-@item_bp.route('/items', methods=['POST'])
-def create_item():
-    """Create one or more inventory items for the current character."""
-    character, error_response = require_current_character()
-    if error_response:
-        return error_response
-    assert character is not None
-    data = get_json_data(request)
-
-    if isinstance(data, list):
-        source_ids = data
-    else:
-        source_id = data.get('item_type_id', data.get('item_id'))
-        source_ids = [source_id] if source_id is not None else []
-
-    if not source_ids:
-        return json_error('item_type_id is required')
-
-    try:
-        source_ids = [int(source_id) for source_id in source_ids]
-    except (TypeError, ValueError):
-        return json_error('item_type_id must be an integer')
-
-    created_items: list[Item] = []
-    for source_id in source_ids:
-        item = add_inventory_item(character, source_id)
+class ItemResource(Resource):
+    def get(self, item_id: int):
+        """Return a single inventory item owned by the current character."""
+        character, error_response = require_current_character()
+        if error_response:
+            return error_response
+        assert character is not None
+        item = get_item(character, item_id)
         if not item:
             return json_error('Item not found', 404)
-        created_items.append(item)
+        return serialize_item(item)
 
-    db.session.commit()
-    return jsonify([serialize_item(item) for item in created_items]), 201
+    def delete(self, item_id: int):
+        """Remove an item from the current character's inventory."""
+        character, error_response = require_current_character()
+        if error_response:
+            return error_response
+        assert character is not None
+        inventory_item = remove_inventory_item(character, item_id)
 
+        if not inventory_item:
+            return json_error('Item not in inventory', 404)
 
-@item_bp.route('/items/<int:item_id>', methods=['GET'])
-def get_item_route(item_id: int):
-    """Return a single inventory item owned by the current character."""
-    character, error_response = require_current_character()
-    if error_response:
-        return error_response
-    assert character is not None
-    item, error_response = _get_item_or_error(character, item_id)
-    if error_response:
-        return error_response
-    return _item_response(item)
+        db.session.commit()
+        return {'message': 'Item removed from inventory'}
 
 
-@item_bp.route('/items/<int:item_id>', methods=['DELETE'])
-def remove_item(item_id: int):
-    """Remove an item from the current character's inventory."""
-    character, error_response = require_current_character()
-    if error_response:
-        return error_response
-    assert character is not None
-    inventory_item = remove_inventory_item(character, item_id)
-
-    if not inventory_item:
-        return json_error('Item not in inventory', 404)
-
-    db.session.commit()
-    return _message_response('Item removed from inventory')
+def register_item_resources(api):
+    api.add_resource(ItemListResource, '/api/items')
+    api.add_resource(ItemResource, '/api/items/<int:item_id>')

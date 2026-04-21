@@ -60,25 +60,15 @@ def create_new_encounter(character: Character | None = None) -> Encounter | None
     return encounter
 
 
-def _experience_reward_for_enemy(encounter: Encounter) -> int:
-    """Calculate the XP reward for defeating the current enemy."""
-    enemy_level = encounter.enemy_level if encounter.enemy_level else 1
-    return 20 + (enemy_level * 10)
-
-
-def _enemy_level_step(character: Character) -> int:
-    """Return the enemy level increment based on the character's level."""
-    return 1 + max(0, (character.level - 1) // 3)
-
-
 def _next_enemy_level(character: Character, encounter: Encounter) -> int:
     """Calculate the next encounter's enemy level."""
-    return encounter.enemy_level + _enemy_level_step(character)
+    return encounter.enemy_level + (1 + max(0, (character.level - 1) // 3))
 
 
 def _apply_victory_experience(character: Character, encounter: Encounter, message_lines: list[str]) -> None:
     """Grant XP for a victory and append any level-up messages."""
-    experience_gained = _experience_reward_for_enemy(encounter)
+    enemy_level = encounter.enemy_level if encounter.enemy_level else 1
+    experience_gained = 20 + (enemy_level * 10)
     character.gain_experience(experience_gained)
     message_lines.append(f'You gained {experience_gained} XP!')
 
@@ -120,25 +110,10 @@ def check_character_death(character: Character) -> bool:
     return character.health <= 0
 
 
-def _remove_active_encounter(character: Character) -> None:
-    """Delete the active encounter for the character."""
-    Encounter.query.filter_by(character_id=character.id).delete()
-
-
-def _finalize_loot(character: Character) -> None:
-    """Mark remaining loot as safe to keep after a successful escape."""
-    clear_loot_flags(character)
-
-
 def _destroy_active_loot_and_encounter(character: Character) -> None:
     """Delete active loot and the encounter after defeat or retreat."""
     destroy_loot_items(character)
-    _remove_active_encounter(character)
-
-
-def _loot_item_level(monster_level: int) -> int:
-    """Roll the item level for dropped loot around the monster's level."""
-    return max(1, monster_level + random.choice([-1, 0, 0, 1]))
+    Encounter.query.filter_by(character_id=character.id).delete()
 
 
 def drop_loot(encounter: Encounter) -> list[dict[str, Any]]:
@@ -156,7 +131,7 @@ def drop_loot(encounter: Encounter) -> list[dict[str, Any]]:
         items_dropped.append(
             {
                 **item_type,
-                'level': _loot_item_level(monster_level),
+                'level': max(1, monster_level + random.choice([-1, 0, 0, 1])),
             }
         )
 
@@ -241,7 +216,7 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
 
     _apply_victory_experience(character, encounter, message_lines)
 
-    _remove_active_encounter(character)
+    Encounter.query.filter_by(character_id=character.id).delete()
     next_encounter = _create_next_encounter(character, encounter)
     db.session.commit()
 
@@ -354,7 +329,7 @@ def run_away() -> Any:
     if outcome['player_died']:
         _destroy_active_loot_and_encounter(character)
     elif outcome['success']:
-        _finalize_loot(character)
+        clear_loot_flags(character)
     db.session.commit()
     return build_combat_response(
         character,
