@@ -4,6 +4,6 @@
   "private": true,
   "type": "module",
   "devDependencies": {
-    "eslint": "^8.45.0"
+    "eslint": "10.2.1"
   }
 }

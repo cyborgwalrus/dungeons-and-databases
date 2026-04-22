@@ -27,11 +27,6 @@ def check_character_death(health: int) -> bool:
     return health <= 0
 
 
-def _serialize_combat_character(character, current_health: int) -> dict[str, Any]:
-    """Build the player payload returned to the dungeon UI."""
-    return character.to_response(health=current_health).model_dump()
-
-
 def _destroy_active_loot_and_encounter(character) -> None:
     """Delete active loot and the encounter after defeat or retreat."""
     destroy_loot_items(character)
@@ -45,13 +40,6 @@ def _resolve_encounter_state(encounter: Encounter) -> Combat:
     if encounter.combat:
         return encounter.combat
     raise RuntimeError('Combat state is missing')
-
-
-def _scaled_enemy_stats(base_health: int, base_damage: int, enemy_level: int) -> tuple[int, int]:
-    """Return the live health and damage values for a seeded enemy."""
-    return base_health + (enemy_level * 10), base_damage + (enemy_level * 2)
-
-
 def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
     """Resolve a single attack turn and return the resulting combat state."""
     enemy_name = encounter.enemy_name
@@ -287,9 +275,9 @@ class CombatResource(Resource):
             character.health = outcome['character']['health']
 
         db.session.commit()
+        invalidate_user_characters_cache(character.user_id, [character.id])
         if outcome['victory'] or outcome['player_died'] or outcome.get('success', False):
             invalidate_user_inventory_cache(character.user_id)
-            invalidate_user_characters_cache(character.user_id, [character.id])
 
         return build_combat_response(outcome)
 

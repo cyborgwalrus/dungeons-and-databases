@@ -2,7 +2,6 @@
 
 from flask import request
 from flask_restful import Resource
-from pydantic import ValidationError
 
 from backend.db.models import Item, User, db
 from backend.db.schemas import UserUpdateRequest
@@ -13,7 +12,7 @@ from backend.utils.api_response_cache import (
     invalidate_user_profile_cache,
     invalidate_user_state_cache,
 )
-from backend.utils.route_helpers import json_error
+from backend.utils.route_helpers import validate_payload
 
 
 class UserResource(Resource):
@@ -28,10 +27,10 @@ class UserResource(Resource):
         """Update a user's profile fields."""
         assert user.id is not None
         data = request.get_json(silent=True) or {}
-        try:
-            payload = UserUpdateRequest.model_validate(data)
-        except ValidationError as error:
-            return json_error(error.errors()[0].get('msg', 'Invalid payload'))
+        payload, error_response = validate_payload(UserUpdateRequest, data)
+        if error_response:
+            return error_response
+        assert payload is not None
 
         for field_name, value in payload.model_dump(exclude_unset=True).items():
             setattr(user, field_name, value)

@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from flask import request
 from flask_restful import Resource
-from pydantic import ValidationError
 
 from backend.db.models import Item, db
 from backend.db.schemas import ItemCreateRequest
 from backend.utils.game_utils import add_inventory_item
-from backend.utils.route_helpers import json_error, require_current_character
+from backend.utils.route_helpers import json_error, require_current_character, validate_payload
 from backend.utils.api_response_cache import invalidate_user_inventory_cache
 
 
@@ -32,13 +31,11 @@ class ItemListResource(Resource):
 
         created_items: list[Item] = []
         for source_id in source_ids:
-            try:
-                if source_id is None:
-                    payload = ItemCreateRequest.model_validate({})
-                else:
-                    payload = ItemCreateRequest.model_validate({'item_type_id': source_id})
-            except ValidationError as error:
-                return json_error(error.errors()[0].get('msg', 'Invalid payload'))
+            payload_data = {} if source_id is None else {'item_type_id': source_id}
+            payload, error_response = validate_payload(ItemCreateRequest, payload_data)
+            if error_response:
+                return error_response
+            assert payload is not None
 
             item = add_inventory_item(character, payload.item_type_id)
             if not item:

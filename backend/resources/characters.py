@@ -2,7 +2,6 @@
 
 from flask import request
 from flask_restful import Resource
-from pydantic import ValidationError
 
 from backend.db.models import Character, db
 from backend.db.schemas import CharacterCreateRequest, CharacterUpdateRequest, ItemSelectionRequest
@@ -11,7 +10,12 @@ from backend.utils.game_utils import (
     issue_auth_token,
     seed_character_loadout,
 )
-from backend.utils.route_helpers import equip_item, json_error, require_item, unequip_item
+from backend.utils.route_helpers import (
+    equip_item,
+    require_item,
+    unequip_item,
+    validate_payload,
+)
 from backend.utils.api_response_cache import (
     get_cached_character_data,
     get_cached_character_equipment_data,
@@ -31,10 +35,10 @@ class CharacterListResource(Resource):
     def post(self, user):
         """List or create characters for a user."""
         data = request.get_json(silent=True) or {}
-        try:
-            payload = CharacterCreateRequest.model_validate(data)
-        except ValidationError as error:
-            return json_error(error.errors()[0].get('msg', 'Invalid payload'))
+        payload, error_response = validate_payload(CharacterCreateRequest, data)
+        if error_response:
+            return error_response
+        assert payload is not None
 
         character = Character(
             user_id=user.id,
@@ -75,10 +79,10 @@ class CharacterResource(Resource):
     def put(self, character):
         """Update basic character stats from the request payload."""
         data = request.get_json(silent=True) or {}
-        try:
-            payload = CharacterUpdateRequest.model_validate(data)
-        except ValidationError as error:
-            return json_error(error.errors()[0].get('msg', 'Invalid payload'))
+        payload, error_response = validate_payload(CharacterUpdateRequest, data)
+        if error_response:
+            return error_response
+        assert payload is not None
 
         for field_name, value in payload.model_dump(exclude_unset=True).items():
             setattr(character, field_name, value)
@@ -123,10 +127,10 @@ class CharacterEquipmentResource(Resource):
     def post(self, character):
         """Equip an item from the character's inventory."""
         data = request.get_json(silent=True) or {}
-        try:
-            payload = ItemSelectionRequest.model_validate(data)
-        except ValidationError as error:
-            return json_error(error.errors()[0].get('msg', 'Invalid payload'))
+        payload, error_response = validate_payload(ItemSelectionRequest, data)
+        if error_response:
+            return error_response
+        assert payload is not None
         item_id = payload.item_id
 
         item, error_response = require_item(

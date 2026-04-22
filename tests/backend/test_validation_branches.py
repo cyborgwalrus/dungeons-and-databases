@@ -1,19 +1,19 @@
 def test_auth_resources_reject_missing_required_fields(client):
     missing_signup_username = client.post('/api/login/signup', json={'password': 'secret'})
     assert missing_signup_username.status_code == 400
-    assert missing_signup_username.get_json()['error'] == 'Field required'
+    assert missing_signup_username.get_json()['error'][0]['msg'] == 'Field required'
 
     missing_signup_password = client.post('/api/login/signup', json={'username': 'alice'})
     assert missing_signup_password.status_code == 400
-    assert missing_signup_password.get_json()['error'] == 'Field required'
+    assert missing_signup_password.get_json()['error'][0]['msg'] == 'Field required'
 
     missing_signin_username = client.post('/api/login/signin', json={'password': 'secret'})
     assert missing_signin_username.status_code == 400
-    assert missing_signin_username.get_json()['error'] == 'Field required'
+    assert missing_signin_username.get_json()['error'][0]['msg'] == 'Field required'
 
     missing_signin_password = client.post('/api/login/signin', json={'username': 'alice'})
     assert missing_signin_password.status_code == 400
-    assert missing_signin_password.get_json()['error'] == 'Field required'
+    assert missing_signin_password.get_json()['error'][0]['msg'] == 'Field required'
 
 
 def test_user_and_character_resources_reject_unauthorized_or_invalid_updates(client, entities):
@@ -47,23 +47,23 @@ def test_user_and_character_resources_reject_unauthorized_or_invalid_updates(cli
 
     negative_health = client.put(f'/api/characters/{character_id}', headers=owner_headers, json={'health': -1})
     assert negative_health.status_code == 400
-    assert negative_health.get_json()['error'] == 'Input should be greater than or equal to 0'
+    assert negative_health.get_json()['error'][0]['msg'] == 'Input should be greater than or equal to 0'
 
     negative_damage = client.put(f'/api/characters/{character_id}', headers=owner_headers, json={'damage': -1})
     assert negative_damage.status_code == 400
-    assert negative_damage.get_json()['error'] == 'Input should be greater than or equal to 0'
+    assert negative_damage.get_json()['error'][0]['msg'] == 'Input should be greater than or equal to 0'
 
     invalid_integer = client.put(f'/api/characters/{character_id}', headers=owner_headers, json={'level': 'bad'})
     assert invalid_integer.status_code == 400
-    assert invalid_integer.get_json()['error'] == 'Input should be a valid integer, unable to parse string as an integer'
+    assert invalid_integer.get_json()['error'][0]['msg'] == 'Input should be a valid integer, unable to parse string as an integer'
 
     missing_item_id = client.post(f'/api/characters/{character_id}/equipment', headers=owner_headers, json={})
     assert missing_item_id.status_code == 400
-    assert missing_item_id.get_json()['error'] == 'Field required'
+    assert missing_item_id.get_json()['error'][0]['msg'] == 'Field required'
 
     invalid_item_id = client.post(f'/api/characters/{character_id}/equipment', headers=owner_headers, json={'item_id': 0})
     assert invalid_item_id.status_code == 400
-    assert invalid_item_id.get_json()['error'] == 'Input should be greater than or equal to 1'
+    assert invalid_item_id.get_json()['error'][0]['msg'] == 'Input should be greater than or equal to 1'
 
     missing_inventory_item = client.post(
         f'/api/characters/{character_id}/equipment',
@@ -86,11 +86,11 @@ def test_item_resources_reject_invalid_payloads_and_missing_inventory_items(clie
 
     missing_item_type = client.post('/api/items', headers=headers, json={})
     assert missing_item_type.status_code == 400
-    assert missing_item_type.get_json()['error'] == 'Field required'
+    assert missing_item_type.get_json()['error'][0]['msg'] == 'Field required'
 
     blank_item_type = client.post('/api/items', headers=headers, json=['steel_sword', ' '])
     assert blank_item_type.status_code == 400
-    assert blank_item_type.get_json()['error'] == 'String should have at least 1 character'
+    assert blank_item_type.get_json()['error'][0]['msg'] == 'String should have at least 1 character'
 
     missing_catalog_item = client.post('/api/items', headers=headers, json=['missing-item'])
     assert missing_catalog_item.status_code == 404

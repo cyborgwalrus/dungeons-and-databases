@@ -82,7 +82,11 @@ def get_cached_character_equipment_data(character_id: int, user_id: int) -> list
     character = _load_character_state(character_id, user_id)
     if not character:
         return []
-    return [equipment.item.to_response().model_dump() for equipment in character.equipment if equipment.item]
+    return [
+        equipment.item.to_response().model_dump()
+        for equipment in character.equipment
+        if equipment.item
+    ]
 
 
 def invalidate_user_profile_cache(user_id: int) -> None:

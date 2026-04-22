@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from pydantic import ValidationError
+
 from backend.db.models import Character, CharacterEquipment, Item, User, db
 from backend.utils.game_utils import get_current_user, get_player
 
@@ -86,6 +88,9 @@ def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
     if not slot:
         return json_error('Item cannot be equipped', 400)
 
+    assert character.id is not None
+    assert item.id is not None
+
     existing_equipment = CharacterEquipment.query.filter_by(
         character_id=character.id,
         slot=slot,
@@ -93,7 +98,15 @@ def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
     if existing_equipment:
         db.session.delete(existing_equipment)
 
-    db.session.add(CharacterEquipment(character=character, item=item, slot=slot))
+    db.session.add(
+        CharacterEquipment(
+            character=character,
+            item=item,
+            character_id=character.id,
+            item_id=item.id,
+            slot=slot,
+        )
+    )
     return None
 
 
@@ -198,3 +211,14 @@ def parse_string_list(
 def json_error(message: str, status: int = 400) -> tuple[Any, int]:
     """Return a standard JSON error payload and HTTP status code."""
     return {'error': message}, status
+
+
+def validate_payload(
+    model_class,
+    data: dict[str, Any],
+) -> tuple[Any | None, tuple[dict[str, Any], int] | None]:
+    """Validate request data with a SQLModel/Pydantic schema."""
+    try:
+        return model_class.model_validate(data), None
+    except ValidationError as error:
+        return None, ({'error': error.errors()}, 400)

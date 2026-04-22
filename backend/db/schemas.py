@@ -20,7 +20,7 @@ class ItemSlot(str, Enum):
     NECKLACE = 'necklace'
 
 
-class ModelSchema(SQLModel):
+class ModelSchema(SQLModel):  # pylint: disable=too-few-public-methods
     """Common schema configuration shared by request and response models."""
 
     model_config: ClassVar[ConfigDict] = ConfigDict(

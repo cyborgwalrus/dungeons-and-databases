@@ -224,10 +224,6 @@ class Combat(ModelBase, table=True):
         """Return the combat response representation."""
         return CombatResponse.model_validate(self)
 
-    def to_character_dict(self, character: 'Character'):
-        """Return a combat snapshot using the persisted character plus the live encounter health."""
-        return character.to_response(health=self.character_health).model_dump()
-
 
 class Item(ModelBase, table=True):
     """Concrete item instance held in inventory or equipped by a character."""
@@ -252,7 +248,7 @@ class Item(ModelBase, table=True):
     level: int = Field(default=1, ge=1)
     health: int = Field(default=0, ge=0)
     damage: int = Field(default=0, ge=0)
-    is_loot: bool = True
+    is_loot: bool = False
 
     user: User = Relationship(sa_relationship=relationship('User', back_populates='items'))
     equipment: 'CharacterEquipment | None' = Relationship(

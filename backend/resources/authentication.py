@@ -2,13 +2,12 @@
 
 from flask import request
 from flask_restful import Resource
-from pydantic import ValidationError
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from backend.db.models import User, db
 from backend.db.schemas import AuthCredentials
 from backend.utils.game_utils import get_current_user, get_player, issue_auth_token
-from backend.utils.route_helpers import json_error
+from backend.utils.route_helpers import json_error, validate_payload
 
 
 class SignupResource(Resource):
@@ -17,10 +16,10 @@ class SignupResource(Resource):
     def post(self):
         """Create a new account and return an auth token."""
         data = request.get_json(silent=True) or {}
-        try:
-            credentials = AuthCredentials.model_validate(data)
-        except ValidationError as error:
-            return json_error(error.errors()[0].get('msg', 'Invalid payload'))
+        credentials, error_response = validate_payload(AuthCredentials, data)
+        if error_response:
+            return error_response
+        assert credentials is not None
 
         if User.query.filter_by(username=credentials.username).first():
             return json_error('username already exists', 409)
@@ -47,10 +46,10 @@ class SigninResource(Resource):
     def post(self):
         """Authenticate an existing user and return an auth token."""
         data = request.get_json(silent=True) or {}
-        try:
-            credentials = AuthCredentials.model_validate(data)
-        except ValidationError as error:
-            return json_error(error.errors()[0].get('msg', 'Invalid payload'))
+        credentials, error_response = validate_payload(AuthCredentials, data)
+        if error_response:
+            return error_response
+        assert credentials is not None
 
         user = User.query.filter_by(username=credentials.username).first()
         if not user:
