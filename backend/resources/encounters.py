@@ -1,3 +1,5 @@
+"""Encounter resources for creating dungeon fights."""
+
 import random
 from typing import Any
 
@@ -14,7 +16,11 @@ def _scaled_enemy_stats(base_health: int, base_damage: int, enemy_level: int) ->
     return base_health + (enemy_level * 10), base_damage + (enemy_level * 2)
 
 
-def create_new_encounter(character=None, *, enemy_level: int = 1) -> tuple[Encounter | None, Combat | None]:
+def create_new_encounter(
+    character=None,
+    *,
+    enemy_level: int = 1,
+) -> tuple[Encounter | None, Combat | None]:
     """Create a fresh encounter and combat row for the current player."""
     character = character or get_player()
     if character is None:
@@ -30,7 +36,11 @@ def create_new_encounter(character=None, *, enemy_level: int = 1) -> tuple[Encou
         return None, None
 
     enemy_level = max(1, int(enemy_level))
-    enemy_health, enemy_damage = _scaled_enemy_stats(enemy_type['health'], enemy_type['damage'], enemy_level)
+    enemy_health, enemy_damage = _scaled_enemy_stats(
+        enemy_type['health'],
+        enemy_type['damage'],
+        enemy_level,
+    )
 
     encounter = Encounter(
         character_id=character.id,
@@ -74,8 +84,10 @@ def create_encounter_payload(character=None) -> dict[str, Any] | None:
 
 
 class EncounterResource(Resource):
+    """Create a new encounter and matching combat state."""
+
     def post(self):
-        """Create a new encounter and matching combat state for the active character."""
+        """Create a new encounter and matching combat state."""
         character, error_response = require_current_character()
         if error_response:
             return error_response
@@ -88,4 +100,5 @@ class EncounterResource(Resource):
 
 
 def register_encounter_resources(api):
+    """Register encounter routes on the provided API instance."""
     api.add_resource(EncounterResource, '/api/encounters')

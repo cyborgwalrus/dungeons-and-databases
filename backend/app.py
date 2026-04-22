@@ -1,3 +1,5 @@
+"""Application entry point for the backend API."""
+
 import os
 from flask import Flask
 from flask_restful import Api
@@ -19,7 +21,9 @@ secret_key = os.environ.get('SECRET_KEY')
 if not secret_key:
     raise RuntimeError('SECRET_KEY must be set')
 app.config['SECRET_KEY'] = secret_key
-app.config['AUTH_TOKEN_MAX_AGE_SECONDS'] = int(os.environ.get('AUTH_TOKEN_MAX_AGE_SECONDS', 60 * 60 * 24 * 30))
+app.config['AUTH_TOKEN_MAX_AGE_SECONDS'] = int(
+    os.environ.get('AUTH_TOKEN_MAX_AGE_SECONDS', 60 * 60 * 24 * 30)
+)
 app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', '').lower() in {'1', 'true', 'yes', 'on'}
 
 # Database configuration
@@ -41,6 +45,7 @@ register_combat_resources(api)
 
 @app.cli.command('init-db')
 def init_db():
+    """Recreate the database and warm the reference-data cache."""
     # Rebuild DB tables, warm reference data, and clear cached lookups.
     with app.app_context():
         db.session.remove()
@@ -53,6 +58,7 @@ def init_db():
 
 @app.cli.command('delete-db')
 def delete_db():
+    """Drop the database tables and remove the SQLite database file."""
     # Drop all tables, clear cache state, and remove the SQLite database file.
     with app.app_context():
         try:
@@ -65,8 +71,8 @@ def delete_db():
             if os.path.exists(db_path):
                 os.remove(db_path)
             print('Database dropped and file removed')
-        except (OSError, SQLAlchemyError) as e:
-            print('Failed to delete database:', e)
+        except (OSError, SQLAlchemyError) as error:
+            print('Failed to delete database:', error)
 
 if __name__ == '__main__':
     app.run(debug=app.config['DEBUG'], port=5000)

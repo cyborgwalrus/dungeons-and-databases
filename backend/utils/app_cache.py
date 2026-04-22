@@ -1,3 +1,5 @@
+"""Shared cache instance and initialization helper."""
+
 import os
 
 from flask_caching import Cache

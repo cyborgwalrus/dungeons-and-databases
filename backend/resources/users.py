@@ -1,8 +1,14 @@
+"""User profile and inventory resources for the backend API."""
+
 from flask import request
 from flask_restful import Resource
 
 from backend.db.models import db
-from backend.utils.route_helpers import get_json_data, parse_required_string, require_current_user_id
+from backend.utils.route_helpers import (
+    get_json_data,
+    parse_required_string,
+    require_current_user_id,
+)
 from backend.utils.api_response_cache import (
     get_cached_user_data,
     get_cached_user_inventory_data,
@@ -13,8 +19,10 @@ from backend.utils.api_response_cache import (
 
 
 class UserResource(Resource):
+    """Read, update, or delete a user profile."""
+
     def get(self, user_id):
-        """Return the requested user if the authenticated user owns it."""
+        """Read, update, or delete a user profile."""
         user, error_response = require_current_user_id(user_id)
         if error_response:
             return error_response
@@ -61,8 +69,10 @@ class UserResource(Resource):
 
 
 class UserItemsResource(Resource):
+    """List or clear the user's shared inventory."""
+
     def get(self, user_id):
-        """List the contents of the user's shared inventory."""
+        """List or clear the user's shared inventory."""
         user, error_response = require_current_user_id(user_id)
         if error_response:
             return error_response
@@ -87,5 +97,6 @@ class UserItemsResource(Resource):
 
 
 def register_user_resources(api):
+    """Register user routes on the provided API instance."""
     api.add_resource(UserResource, '/api/users/<int:user_id>')
     api.add_resource(UserItemsResource, '/api/users/<int:user_id>/inventory')

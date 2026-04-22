@@ -1,7 +1,6 @@
 {
-    "python-envs.defaultEnvManager": "ms-python.python:venv",
     "python.testing.pytestArgs": [
-        "backend"
+        "tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true

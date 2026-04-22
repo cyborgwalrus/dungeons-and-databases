@@ -1,3 +1,5 @@
+"""SQLAlchemy models for users, characters, encounters, and items."""
+
 from enum import Enum
 
 from flask_sqlalchemy import SQLAlchemy
@@ -13,8 +15,12 @@ class User(db.Model):
     username: Mapped[str] = db.Column(db.String(80), nullable=False, unique=True)
     password: Mapped[str] = db.Column(db.String(255), nullable=False)
 
-    characters: Mapped[list['Character']] = relationship('Character', back_populates='user', cascade='all, delete-orphan')
-    items: Mapped[list['Item']] = relationship('Item', back_populates='user', cascade='all, delete-orphan')
+    characters: Mapped[list['Character']] = relationship(
+        'Character', back_populates='user', cascade='all, delete-orphan'
+    )
+    items: Mapped[list['Item']] = relationship(
+        'Item', back_populates='user', cascade='all, delete-orphan'
+    )
 
     def to_dict(self):
         """Serialize the user together with their owned characters."""
@@ -22,6 +28,10 @@ class User(db.Model):
             'id': self.id,
             'username': self.username,
         }
+
+    def owns_character(self, character_id: int) -> bool:
+        """Return whether the user owns the requested character."""
+        return any(character.id == character_id for character in self.characters)
 
 
 class Character(db.Model):
@@ -35,10 +45,21 @@ class Character(db.Model):
     health: Mapped[int] = db.Column(db.Integer, nullable=False, default=100)
     damage: Mapped[int] = db.Column(db.Integer, nullable=False, default=10)
 
-    user_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    user_id: Mapped[int] = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id'),
+        nullable=False,
+        index=True,
+    )
     user: Mapped['User'] = relationship('User', back_populates='characters')
-    equipment: Mapped[list['CharacterEquipment']] = relationship('CharacterEquipment', back_populates='character', cascade='all, delete-orphan')
-    encounters: Mapped[list['Encounter']] = relationship('Encounter', back_populates='character', cascade='all, delete-orphan')
+    equipment: Mapped[list['CharacterEquipment']] = relationship(
+        'CharacterEquipment',
+        back_populates='character',
+        cascade='all, delete-orphan',
+    )
+    encounters: Mapped[list['Encounter']] = relationship(
+        'Encounter', back_populates='character', cascade='all, delete-orphan'
+    )
 
     @property
     def equipped_items(self):
@@ -122,12 +143,27 @@ class Encounter(db.Model):
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
 
-    character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False, index=True)
-    character: Mapped['Character'] = relationship('Character', back_populates='encounters')
+    character_id: Mapped[int] = db.Column(
+        db.Integer,
+        db.ForeignKey('character.id'),
+        nullable=False,
+        index=True,
+    )
+    character: Mapped['Character'] = relationship(
+        'Character', back_populates='encounters'
+    )
 
-    combat: Mapped['Combat'] = relationship('Combat', back_populates='encounter', cascade='all, delete-orphan', uselist=False, single_parent=True)
+    combat: Mapped['Combat'] = relationship(
+        'Combat',
+        back_populates='encounter',
+        cascade='all, delete-orphan',
+        uselist=False,
+        single_parent=True,
+    )
 
-    enemy_template_id: Mapped[str] = db.Column(db.String(80), nullable=False, index=True)
+    enemy_template_id: Mapped[str] = db.Column(
+        db.String(80), nullable=False, index=True
+    )
     enemy_name: Mapped[str] = db.Column(db.String(80), nullable=False)
     enemy_description: Mapped[str | None] = db.Column(db.String(255))
     enemy_base_health: Mapped[int] = db.Column(db.Integer, nullable=False)
@@ -147,6 +183,10 @@ class Encounter(db.Model):
             'level': self.enemy_level,
         }
 
+    def has_combat(self) -> bool:
+        """Return whether the encounter currently has live combat state."""
+        return self.combat is not None
+
 
 class Combat(db.Model):
     """Volatile player combat state attached to a single encounter."""
@@ -154,8 +194,19 @@ class Combat(db.Model):
     __table_args__ = {'sqlite_autoincrement': True}
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
-    encounter_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('encounter.id'), nullable=False, unique=True, index=True)
-    character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False, index=True)
+    encounter_id: Mapped[int] = db.Column(
+        db.Integer,
+        db.ForeignKey('encounter.id'),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+    character_id: Mapped[int] = db.Column(
+        db.Integer,
+        db.ForeignKey('character.id'),
+        nullable=False,
+        index=True,
+    )
     character_health: Mapped[int] = db.Column(db.Integer, nullable=False)
     enemy_current_health: Mapped[int] = db.Column(db.Integer, nullable=False)
     enemy_max_health: Mapped[int] = db.Column(db.Integer, nullable=False)
@@ -213,10 +264,21 @@ class Item(db.Model):
     damage: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
     is_loot: Mapped[bool] = db.Column(db.Boolean, nullable=False, default=True)
 
-    user_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    user_id: Mapped[int] = db.Column(
+        db.Integer,
+        db.ForeignKey('user.id'),
+        nullable=False,
+        index=True,
+    )
     user: Mapped['User'] = relationship('User', back_populates='items')
 
-    equipment: Mapped['CharacterEquipment'] = relationship('CharacterEquipment', back_populates='item', uselist=False, cascade='all, delete-orphan', single_parent=True)
+    equipment: Mapped['CharacterEquipment'] = relationship(
+        'CharacterEquipment',
+        back_populates='item',
+        uselist=False,
+        cascade='all, delete-orphan',
+        single_parent=True,
+    )
 
     @property
     def is_equipped(self):
@@ -242,8 +304,18 @@ class CharacterEquipment(db.Model):
     __tablename__ = 'character_equipment'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
-    character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False, index=True)
-    item_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=False, unique=True)
+    character_id: Mapped[int] = db.Column(
+        db.Integer,
+        db.ForeignKey('character.id'),
+        nullable=False,
+        index=True,
+    )
+    item_id: Mapped[int] = db.Column(
+        db.Integer,
+        db.ForeignKey('item.id'),
+        nullable=False,
+        unique=True,
+    )
     slot: Mapped[ItemSlot] = db.Column(
         db.Enum(
             ItemSlot,
@@ -254,5 +326,22 @@ class CharacterEquipment(db.Model):
         nullable=False,
     )
 
-    character: Mapped['Character'] = relationship('Character', back_populates='equipment')
-    item: Mapped['Item'] = relationship('Item', back_populates='equipment', uselist=False)
+    character: Mapped['Character'] = relationship(
+        'Character', back_populates='equipment'
+    )
+    item: Mapped['Item'] = relationship(
+        'Item', back_populates='equipment', uselist=False
+    )
+
+    def to_dict(self):
+        """Serialize the equipment link for API responses."""
+        return {
+            'id': self.id,
+            'character_id': self.character_id,
+            'item_id': self.item_id,
+            'slot': self.slot.value if self.slot else None,
+        }
+
+    def matches_item(self, item_id: int) -> bool:
+        """Return whether this record points to the requested item."""
+        return self.item_id == item_id

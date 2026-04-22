@@ -1,3 +1,5 @@
+"""Login and session resources for the backend API."""
+
 from flask import request
 from flask_restful import Resource
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -8,8 +10,10 @@ from backend.utils.route_helpers import get_json_data, json_error, parse_require
 
 
 class SignupResource(Resource):
+    """Create a new account and return an auth token."""
+
     def post(self):
-        """Create a new user account and return an auth token."""
+        """Create a new account and return an auth token."""
         data = get_json_data(request)
         username, error_response = parse_required_string(data, 'username')
         if error_response:
@@ -34,8 +38,10 @@ class SignupResource(Resource):
 
 
 class SigninResource(Resource):
+    """Authenticate an existing user and return an auth token."""
+
     def post(self):
-        """Authenticate a user and return an auth token."""
+        """Authenticate an existing user and return an auth token."""
         data = get_json_data(request)
         username, error_response = parse_required_string(data, 'username')
         if error_response:
@@ -64,15 +70,18 @@ class SigninResource(Resource):
 
 
 class SignoutResource(Resource):
+    """Return a client-side sign-out response."""
+
     def post(self):
-        """Return a sign-out response for the client to clear local auth state.
-            Note: This does not invalidate the token on the server, but the client should discard it."""
+        """Return a client-side sign-out response."""
         return {'message': 'signed out'}
 
 
 class MeResource(Resource):
+    """Return the authenticated user and active character."""
+
     def get(self):
-        """Return the current authenticated user and active character, if any."""
+        """Return the authenticated user and active character."""
         user = get_current_user()
         if not user:
             return json_error('Unauthorized', 401)
@@ -81,6 +90,7 @@ class MeResource(Resource):
 
 
 def register_auth_resources(api):
+    """Register authentication routes on the provided API instance."""
     api.add_resource(SignupResource, '/api/login/signup')
     api.add_resource(SigninResource, '/api/login/signin')
     api.add_resource(SignoutResource, '/api/login/signout')

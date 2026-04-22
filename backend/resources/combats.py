@@ -1,3 +1,5 @@
+"""Combat resources for resolving dungeon encounters."""
+
 import random
 from typing import Any
 
@@ -7,7 +9,10 @@ from flask_restful import Resource
 from backend.db.models import Combat, Encounter, db
 from backend.db.reference_data import get_all_item_type_data
 from backend.resources.encounters import create_new_encounter
-from backend.utils.api_response_cache import invalidate_user_characters_cache, invalidate_user_inventory_cache
+from backend.utils.api_response_cache import (
+    invalidate_user_characters_cache,
+    invalidate_user_inventory_cache,
+)
 from backend.utils.game_utils import add_inventory_item, clear_loot_flags, destroy_loot_items
 from backend.utils.route_helpers import json_error, require_current_character
 
@@ -217,40 +222,45 @@ def drop_loot(encounter: Encounter) -> list[dict[str, Any]]:
     return items_dropped
 
 
-def build_combat_response(
-    character: dict[str, Any],
-    encounter: Encounter | None,
-    combat: Combat | None,
-    message: str,
-    *,
-    victory: bool,
-    items_dropped: list[dict[str, Any]],
-    player_died: bool,
-    success: bool = False,
-    damage: int = 0,
-    dice_roll: int | None = None,
-) -> Any:
+def build_combat_response(outcome: dict[str, Any]) -> Any:
     """Build the JSON payload returned by combat endpoints."""
+    character = outcome['character']
+    encounter = outcome['encounter']
+    combat = outcome['combat']
     payload: dict[str, Any] = {
         'character': character,
-        'encounter': None if player_died or success or encounter is None else encounter.to_dict(),
-        'combat': None if player_died or success or combat is None else combat.to_dict(),
-        'message': message,
-        'victory': victory,
-        'items_dropped': items_dropped,
-        'player_died': player_died,
-        'success': success,
+        'encounter': (
+            None
+            if outcome['player_died']
+            or outcome.get('success', False)
+            or encounter is None
+            else encounter.to_dict()
+        ),
+        'combat': (
+            None
+            if outcome['player_died']
+            or outcome.get('success', False)
+            or combat is None
+            else combat.to_dict()
+        ),
+        'message': outcome['message'],
+        'victory': outcome['victory'],
+        'items_dropped': outcome['items_dropped'],
+        'player_died': outcome['player_died'],
+        'success': outcome.get('success', False),
     }
 
-    if dice_roll is not None:
-        payload['dice_roll'] = dice_roll
-    if success:
-        payload['damage'] = damage
+    if outcome.get('dice_roll') is not None:
+        payload['dice_roll'] = outcome['dice_roll']
+    if outcome.get('success', False):
+        payload['damage'] = outcome.get('damage', 0)
 
     return jsonify(payload)
 
 
 class CombatResource(Resource):
+    """Resolve a single combat action."""
+
     def post(self, combat_id: int, action: str):
         """Resolve a combat action for the requested combat row."""
         character, error_response = require_current_character()
@@ -288,19 +298,9 @@ class CombatResource(Resource):
             invalidate_user_inventory_cache(character.user_id)
             invalidate_user_characters_cache(character.user_id, [character.id])
 
-        return build_combat_response(
-            outcome['character'],
-            outcome['encounter'],
-            outcome.get('combat'),
-            outcome['message'],
-            victory=outcome['victory'],
-            items_dropped=outcome['items_dropped'],
-            player_died=outcome['player_died'],
-            success=outcome.get('success', False),
-            damage=outcome.get('damage', 0),
-            dice_roll=outcome.get('dice_roll'),
-        )
+        return build_combat_response(outcome)
 
 
 def register_combat_resources(api):
+    """Register combat routes on the provided API instance."""
     api.add_resource(CombatResource, '/api/combats/<int:combat_id>/<string:action>')

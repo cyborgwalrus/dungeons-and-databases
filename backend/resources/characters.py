@@ -1,9 +1,23 @@
+"""Character management resources for the backend API."""
+
 from flask import request
 from flask_restful import Resource
 
 from backend.db.models import Character, db
-from backend.utils.game_utils import get_player as get_current_character, seed_character_loadout, issue_auth_token
-from backend.utils.route_helpers import equip_item, get_item, json_error, parse_int_field, require_character_owner, require_current_user, unequip_item
+from backend.utils.game_utils import (
+    get_player as get_current_character,
+    issue_auth_token,
+    seed_character_loadout,
+)
+from backend.utils.route_helpers import (
+    equip_item,
+    json_error,
+    parse_int_field,
+    require_character_owner,
+    require_current_user,
+    require_item,
+    unequip_item,
+)
 from backend.utils.api_response_cache import (
     get_cached_character_data,
     get_cached_character_equipment_data,
@@ -14,6 +28,8 @@ from backend.utils.api_response_cache import (
 
 
 class CharacterListResource(Resource):
+    """List or create characters for a user."""
+
     def get(self, user_id):
         """List characters for the specified user."""
         user, error_response = require_current_user()
@@ -27,7 +43,7 @@ class CharacterListResource(Resource):
         return get_cached_user_characters_data(user.id)
 
     def post(self, user_id):
-        """Create a new character for the specified user and seed starter gear."""
+        """List or create characters for a user."""
         data = request.get_json(silent=True) or {}
         user, error_response = require_current_user()
         if error_response:
@@ -66,8 +82,10 @@ class CharacterListResource(Resource):
 
 
 class CharacterResource(Resource):
+    """Retrieve, update, or delete a single character."""
+
     def get(self, character_id):
-        """Return a single character owned by the current user."""
+        """Retrieve, update, or delete a single character."""
         character, error_response = require_character_owner(character_id)
         if error_response:
             return error_response
@@ -129,8 +147,10 @@ class CharacterResource(Resource):
 
 
 class CharacterSelectResource(Resource):
+    """Set the active character in the auth token."""
+
     def post(self, character_id):
-        """Set the requested character as the active player character."""
+        """Set the active character in the auth token."""
         character, error_response = require_character_owner(character_id)
         if error_response:
             return error_response
@@ -141,8 +161,10 @@ class CharacterSelectResource(Resource):
 
 
 class CharacterFullHealResource(Resource):
+    """Restore a character to full health."""
+
     def post(self, character_id):
-        """Restore the character to full health."""
+        """Restore a character to full health."""
         character, error_response = require_character_owner(character_id)
         if error_response:
             return error_response
@@ -156,8 +178,10 @@ class CharacterFullHealResource(Resource):
 
 
 class CharacterEquipmentResource(Resource):
+    """Inspect and manage a character's equipment."""
+
     def get(self, character_id):
-        """List the equipment currently worn by the character."""
+        """Inspect and manage a character's equipment."""
         character, error_response = require_character_owner(character_id)
         if error_response:
             return error_response
@@ -180,9 +204,13 @@ class CharacterEquipmentResource(Resource):
             return error_response
         assert character is not None
 
-        item = get_item(character, item_id)
-        if not item:
-            return json_error('Item not found in inventory', 404)
+        item, error_response = require_item(
+            character,
+            item_id,
+            message='Item not found in inventory',
+        )
+        if error_response:
+            return error_response
 
         error_response = equip_item(character, item)
         if error_response:
@@ -192,10 +220,16 @@ class CharacterEquipmentResource(Resource):
         db.session.expire(character)
         invalidate_user_characters_cache(character.user_id)
         invalidate_user_inventory_cache(character.user_id)
-        return {'message': 'Item equipped', 'item': item.to_dict(), 'character': character.to_dict()}
+        return {
+            'message': 'Item equipped',
+            'item': item.to_dict(),
+            'character': character.to_dict(),
+        }
 
 
 class CharacterEquipmentItemResource(Resource):
+    """Remove a single equipped item from a character."""
+
     def delete(self, character_id, item_id):
         """Unequip a worn item and return it to the inventory."""
         character, error_response = require_character_owner(character_id)
@@ -210,13 +244,35 @@ class CharacterEquipmentItemResource(Resource):
         db.session.expire(character)
         invalidate_user_characters_cache(character.user_id)
         invalidate_user_inventory_cache(character.user_id)
-        return {'message': 'Item unequipped', 'character': character.to_dict()}
+        return {
+            'message': 'Item unequipped',
+            'character': character.to_dict(),
+        }
 
 
 def register_character_resources(api):
-    api.add_resource(CharacterListResource, '/api/users/<int:user_id>/characters')
-    api.add_resource(CharacterResource, '/api/characters/<int:character_id>')
-    api.add_resource(CharacterSelectResource, '/api/characters/<int:character_id>/select')
-    api.add_resource(CharacterFullHealResource, '/api/characters/<int:character_id>/full_heal')
-    api.add_resource(CharacterEquipmentResource, '/api/characters/<int:character_id>/equipment')
-    api.add_resource(CharacterEquipmentItemResource, '/api/characters/<int:character_id>/equipment/<int:item_id>')
+    """Register character routes on the provided API instance."""
+    api.add_resource(
+        CharacterListResource,
+        '/api/users/<int:user_id>/characters',
+    )
+    api.add_resource(
+        CharacterResource,
+        '/api/characters/<int:character_id>',
+    )
+    api.add_resource(
+        CharacterSelectResource,
+        '/api/characters/<int:character_id>/select',
+    )
+    api.add_resource(
+        CharacterFullHealResource,
+        '/api/characters/<int:character_id>/full_heal',
+    )
+    api.add_resource(
+        CharacterEquipmentResource,
+        '/api/characters/<int:character_id>/equipment',
+    )
+    api.add_resource(
+        CharacterEquipmentItemResource,
+        '/api/characters/<int:character_id>/equipment/<int:item_id>',
+    )

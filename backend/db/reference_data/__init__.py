@@ -1,3 +1,5 @@
+"""Load and cache item and enemy reference data from JSON templates."""
+
 from __future__ import annotations
 
 import json
@@ -13,7 +15,11 @@ _ITEM_TYPES_PATH = _REFERENCE_DATA_DIR / 'item_types.json'
 _ENEMY_TYPES_PATH = _REFERENCE_DATA_DIR / 'enemy_types.json'
 
 
-def _load_template_collection(path: Path, required_fields: tuple[str, ...]) -> tuple[dict[str, Any], ...]:
+def load_template_collection(
+    path: Path,
+    required_fields: tuple[str, ...],
+) -> tuple[dict[str, Any], ...]:
+    """Load and validate a collection of template dictionaries from JSON."""
     with path.open('r', encoding='utf-8') as file:
         raw_templates = json.load(file)
 
@@ -31,11 +37,15 @@ def _load_template_collection(path: Path, required_fields: tuple[str, ...]) -> t
         if not template_id:
             raise ValueError(f'{path.name} entry {index} is missing an id')
         if template_id in seen_ids:
-            raise ValueError(f'{path.name} contains duplicate template id {template_id!r}')
+            raise ValueError(
+                f'{path.name} contains duplicate template id {template_id!r}'
+            )
 
         for field_name in required_fields:
             if field_name not in raw_template:
-                raise ValueError(f'{path.name} entry {index} is missing required field {field_name!r}')
+                raise ValueError(
+                    f'{path.name} entry {index} is missing required field {field_name!r}'
+                )
 
         template = dict(raw_template)
         template['id'] = template_id
@@ -47,19 +57,21 @@ def _load_template_collection(path: Path, required_fields: tuple[str, ...]) -> t
 
 @lru_cache(maxsize=1)
 def _load_item_templates() -> tuple[dict[str, Any], ...]:
-    return _load_template_collection(_ITEM_TYPES_PATH, ('name', 'slot', 'health', 'damage'))
+    return load_template_collection(_ITEM_TYPES_PATH, ('name', 'slot', 'health', 'damage'))
 
 
 @lru_cache(maxsize=1)
 def _load_enemy_templates() -> tuple[dict[str, Any], ...]:
-    return _load_template_collection(_ENEMY_TYPES_PATH, ('name', 'description', 'health', 'damage'))
+    return load_template_collection(_ENEMY_TYPES_PATH, ('name', 'description', 'health', 'damage'))
 
 
 def get_all_item_templates() -> list[dict[str, Any]]:
+    """Return all item templates as mutable dictionaries."""
     return [dict(template) for template in _load_item_templates()]
 
 
-def get_item_template(template_id: str) -> dict[str, Any] | None:
+def get_item_template(template_id: str | None) -> dict[str, Any] | None:
+    """Return a single item template by slug or ``None`` when missing."""
     if template_id is None:
         return None
     normalized_id = str(template_id).strip()
@@ -72,10 +84,12 @@ def get_item_template(template_id: str) -> dict[str, Any] | None:
 
 
 def get_all_enemy_templates() -> list[dict[str, Any]]:
+    """Return all enemy templates as mutable dictionaries."""
     return [dict(template) for template in _load_enemy_templates()]
 
 
-def get_enemy_template(template_id: str) -> dict[str, Any] | None:
+def get_enemy_template(template_id: str | None) -> dict[str, Any] | None:
+    """Return a single enemy template by slug or ``None`` when missing."""
     if template_id is None:
         return None
     normalized_id = str(template_id).strip()

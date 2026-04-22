@@ -1,3 +1,5 @@
+"""Authentication, inventory, and loadout helpers for the backend."""
+
 from typing import Any
 
 from flask import current_app, request
@@ -19,7 +21,7 @@ DEFAULT_LOADOUT_ITEM_IDS = [
 ]
 
 
-def _get_auth_serializer() -> URLSafeTimedSerializer:
+def get_auth_serializer() -> URLSafeTimedSerializer:
     """Build the serializer used to sign and validate auth tokens."""
     secret_key = current_app.config.get('SECRET_KEY')
     if not secret_key:
@@ -29,13 +31,17 @@ def _get_auth_serializer() -> URLSafeTimedSerializer:
 
 def issue_auth_token(user_id: int, character_id: int | None = None) -> str:
     """Create a signed auth token for the current user and optional character."""
-    serializer = _get_auth_serializer()
-    payload = {'user_id': int(user_id), 'character_id': int(character_id) if character_id is not None else None}
+    serializer = get_auth_serializer()
+    payload = {
+        'user_id': int(user_id),
+        'character_id': int(character_id) if character_id is not None else None,
+    }
     return serializer.dumps(payload)
 
 
 def get_request_auth_payload() -> dict[str, Any] | None:
     """Parse and validate the bearer token from the incoming request."""
+    payload: dict[str, Any] | None = None
     authorization = request.headers.get('Authorization', '').strip()
     if not authorization:
         return None
@@ -49,29 +55,33 @@ def get_request_auth_payload() -> dict[str, Any] | None:
         return None
 
     try:
-        serializer = _get_auth_serializer()
-        max_age = int(current_app.config.get('AUTH_TOKEN_MAX_AGE_SECONDS', DEFAULT_AUTH_TOKEN_MAX_AGE_SECONDS))
+        serializer = get_auth_serializer()
+        max_age = int(
+            current_app.config.get(
+                'AUTH_TOKEN_MAX_AGE_SECONDS', DEFAULT_AUTH_TOKEN_MAX_AGE_SECONDS
+            )
+        )
         payload = serializer.loads(token, max_age=max_age)
     except (BadSignature, SignatureExpired, TypeError, ValueError):
-        return None
+        payload = None
 
-    if not isinstance(payload, dict):
-        return None
+    if isinstance(payload, dict):
+        user_id = payload.get('user_id')
+        if user_id is not None:
+            try:
+                payload['user_id'] = int(user_id)
+            except (TypeError, ValueError):
+                payload = None
 
-    user_id = payload.get('user_id')
-    if user_id is None:
-        return None
-    try:
-        payload['user_id'] = int(user_id)
-    except (TypeError, ValueError):
-        return None
-
-    character_id = payload.get('character_id')
-    if character_id is not None:
-        try:
-            payload['character_id'] = int(character_id)
-        except (TypeError, ValueError):
-            return None
+        if payload is not None:
+            character_id = payload.get('character_id')
+            if character_id is not None:
+                try:
+                    payload['character_id'] = int(character_id)
+                except (TypeError, ValueError):
+                    payload = None
+    else:
+        payload = None
 
     return payload
 
@@ -123,7 +133,13 @@ def _scaled_bonus(base_bonus: int, level: int) -> int:
     return max(0, int(round(base_bonus * bonus_multiplier)))
 
 
-def add_inventory_item(player: Character, item_id: str, *, level: int = 1, is_loot: bool | None = None) -> Item | None:
+def add_inventory_item(
+    player: Character,
+    item_id: str,
+    *,
+    level: int = 1,
+    is_loot: bool | None = None,
+) -> Item | None:
     """Create an inventory item from item type data and attach it to a player."""
     item_type = get_item_type_data(item_id)
     if not item_type:
@@ -145,7 +161,7 @@ def add_inventory_item(player: Character, item_id: str, *, level: int = 1, is_lo
     return inventory_item
 
 
-def remove_inventory_item(player: Character, item_id: int) -> Item | None:
+def remove_inventory_item(player: Character, item_id: int | str) -> Item | None:
     """Remove an item from the player's inventory by item or type ID."""
     if not player.user:
         return None
@@ -154,7 +170,10 @@ def remove_inventory_item(player: Character, item_id: int) -> Item | None:
     if inventory_item and inventory_item.is_equipped:
         return None
     if not inventory_item:
-        inventory_item = Item.query.filter_by(user_id=player.user_id, item_type_id=str(item_id)).first()
+        inventory_item = Item.query.filter_by(
+            user_id=player.user_id,
+            item_type_id=str(item_id),
+        ).first()
         if not inventory_item or inventory_item.is_equipped:
             return None
 

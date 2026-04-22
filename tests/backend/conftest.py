@@ -1,18 +1,14 @@
+"""Pytest fixtures for the backend test suite."""
+
 from __future__ import annotations
 
 import os
-import sys
-from pathlib import Path
 from types import SimpleNamespace
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
-
-os.environ.setdefault('SECRET_KEY', 'test-secret-key')
 
 import pytest
 from werkzeug.security import generate_password_hash
+
+os.environ.setdefault('SECRET_KEY', 'test-secret-key')
 
 from backend.app import app as flask_app
 from backend.db.models import Character, Item, User, db
@@ -24,6 +20,7 @@ from backend.utils.game_utils import add_inventory_item, issue_auth_token, seed_
 
 @pytest.fixture(scope='session')
 def app(tmp_path_factory):
+    """Create the shared Flask app bound to a temporary test database."""
     database_path = tmp_path_factory.mktemp('db') / 'test-game.db'
     flask_app.config.update(
         TESTING=True,
@@ -47,8 +44,9 @@ def app(tmp_path_factory):
 
 
 @pytest.fixture(autouse=True)
-def reset_database(app):
-    with app.app_context():
+def reset_database(request):
+    """Reset the database before and after each test."""
+    with request.getfixturevalue('app').app_context():
         db.session.remove()
         cache.clear()
         db.drop_all()
@@ -60,12 +58,16 @@ def reset_database(app):
 
 
 @pytest.fixture
-def client(app):
-    return app.test_client()
+def client(request):
+    """Return a Flask test client bound to the shared app."""
+    return request.getfixturevalue('app').test_client()
 
 
 @pytest.fixture
-def entities(app):
+def entities(request):
+    """Factory helpers for creating backend test data."""
+    request.getfixturevalue('app')
+
     def create_user(username: str = 'player', password: str = 'secret') -> User:
         user = User(username=username, password=generate_password_hash(password))
         db.session.add(user)
@@ -76,11 +78,12 @@ def entities(app):
         user: User,
         *,
         name: str = 'Hero',
-        level: int = 1,
-        health: int = 100,
-        damage: int = 10,
         seed_loadout: bool = False,
+        **stats: int,
     ) -> Character:
+        level = stats.get('level', 1)
+        health = stats.get('health', 100)
+        damage = stats.get('damage', 10)
         character = Character(
             user_id=user.id,
             name=name,
@@ -109,12 +112,15 @@ def entities(app):
         return item
 
     def auth_headers(token: str) -> dict[str, str]:
+        """Build an Authorization header for the supplied token."""
         return {'Authorization': f'Bearer {token}'}
 
     def token_for(user: User, character: Character | None = None) -> str:
+        """Issue a token for a user and optional active character."""
         return issue_auth_token(user.id, None if character is None else character.id)
 
     def create_encounter(character: Character, *, enemy_level: int = 1):
+        """Create a matching encounter and combat record for a character."""
         encounter, combat = create_new_encounter(character, enemy_level=enemy_level)
         if encounter is None or combat is None:
             raise AssertionError('Failed to create encounter')
