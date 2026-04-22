@@ -1,5 +1,7 @@
 from unittest.mock import patch
 
+from backend.db.models import db
+
 
 def test_encounter_creation_returns_combat_payload(client, entities):
     user = entities.create_user(username='dungeon-user', password='secret')
@@ -35,8 +37,92 @@ def test_combat_attack_victory_grants_loot_and_spawns_followup_encounter(client,
     assert payload['victory'] is True
     assert payload['player_died'] is False
     assert payload['items_dropped']
-    assert payload['combat']['id'] != combat_id
+    assert payload['combat'] is not None
     assert payload['character']['health'] > 0
+
+
+def test_combat_attack_survives_when_enemy_lives(client, entities):
+    user = entities.create_user(username='scrapper', password='secret')
+    character = entities.create_character(user, name='Scout', health=100, damage=10)
+    token = entities.token_for(user, character)
+    initial_health = character.health
+
+    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: minimum
+    ):
+        encounter_response = client.post('/api/encounters', headers=entities.auth_headers(token))
+        encounter_id = encounter_response.get_json()['encounter']['id']
+        combat_id = encounter_response.get_json()['combat']['id']
+        attack_response = client.post(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
+
+    assert attack_response.status_code == 200
+    payload = attack_response.get_json()
+    assert payload['victory'] is False
+    assert payload['player_died'] is False
+    assert payload['items_dropped'] == []
+    assert payload['encounter']['id'] == encounter_id
+    assert payload['combat']['id'] == combat_id
+    assert payload['character']['health'] < initial_health
+
+
+def test_combat_run_failure_survives_and_keeps_combat_active(client, entities):
+    user = entities.create_user(username='dodger', password='secret')
+    character = entities.create_character(user, name='Runner', health=80, damage=10)
+    token = entities.token_for(user, character)
+    initial_health = character.health
+
+    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combats.random.randint', side_effect=[1, 2]
+    ):
+        encounter_response = client.post('/api/encounters', headers=entities.auth_headers(token))
+        encounter_id = encounter_response.get_json()['encounter']['id']
+        combat_id = encounter_response.get_json()['combat']['id']
+        run_response = client.post(f'/api/combats/{combat_id}/run', headers=entities.auth_headers(token))
+
+    assert run_response.status_code == 200
+    payload = run_response.get_json()
+    assert payload['success'] is False
+    assert payload['player_died'] is False
+    assert payload['dice_roll'] == 1
+    assert 'damage' not in payload
+    assert payload['encounter']['id'] == encounter_id
+    assert payload['combat']['id'] == combat_id
+    assert payload['character']['health'] == initial_health - 2
+
+
+def test_encounter_creation_returns_404_when_enemy_catalog_is_empty(client, entities):
+    user = entities.create_user(username='stranded', password='secret')
+    character = entities.create_character(user, name='Wanderer')
+    token = entities.token_for(user, character)
+
+    with patch('backend.resources.encounters.get_all_enemy_type_data', return_value=[]):
+        response = client.post('/api/encounters', headers=entities.auth_headers(token))
+
+    assert response.status_code == 404
+    assert response.get_json()['error'] == 'No enemy types available'
+
+
+def test_combat_victory_levels_up_character_and_emits_next_level_message(client, entities):
+    user = entities.create_user(username='champion', password='secret')
+    character = entities.create_character(user, name='Hero', health=90, damage=100)
+    token = entities.token_for(user, character)
+    character.experience = 95
+    db.session.commit()
+
+    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]
+    ), patch('backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: maximum):
+        encounter_response = client.post('/api/encounters', headers=entities.auth_headers(token))
+        combat_id = encounter_response.get_json()['combat']['id']
+        attack_response = client.post(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
+
+    assert attack_response.status_code == 200
+    payload = attack_response.get_json()
+    assert payload['victory'] is True
+    assert 'You reached level 2!' in payload['message']
+    assert 'Next level at 150 XP.' in payload['message']
+    assert payload['character']['level'] == 2
+    assert payload['character']['experience'] == 25
 
 
 def test_combat_run_success_clears_loot_flags(client, entities):

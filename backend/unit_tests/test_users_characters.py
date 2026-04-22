@@ -111,7 +111,9 @@ def test_character_update_validation_and_equipment_round_trip(client, entities):
 
     inventory_after_equip = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
     assert inventory_after_equip.status_code == 200
-    assert inventory_after_equip.get_json() == []
+    inventory_items = inventory_after_equip.get_json()
+    assert len(inventory_items) == 6
+    assert starter_item.id not in {item['id'] for item in inventory_items}
 
     unequip_response = client.delete(
         f'/api/characters/{owner_character.id}/equipment/{starter_item.id}',
@@ -129,7 +131,7 @@ def test_character_update_validation_and_equipment_round_trip(client, entities):
 
     inventory_after_unequip = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
     assert inventory_after_unequip.status_code == 200
-    assert len(inventory_after_unequip.get_json()) == 1
+    assert len(inventory_after_unequip.get_json()) == 7
 
 
 def test_character_delete_returns_token_when_active_character_is_removed(client, entities):
