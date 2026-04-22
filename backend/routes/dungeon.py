@@ -4,10 +4,10 @@ from typing import Any
 from flask import Blueprint, jsonify
 
 from backend.db.cache_helpers import get_all_enemy_type_data, get_all_item_type_data
-from backend.db.models import Character, Encounter, db
+from backend.db.models import Character, Encounter, EncounterState, db
 from backend.utils.game_utils import add_inventory_item, clear_loot_flags, destroy_loot_items, get_player
 from backend.utils.route_helpers import get_character, json_error
-from backend.utils.api_response_cache import invalidate_user_state_cache
+from backend.utils.api_response_cache import invalidate_user_characters_cache, invalidate_user_inventory_cache
 
 dungeon_bp = Blueprint('dungeon', __name__)
 
@@ -15,6 +15,24 @@ dungeon_bp = Blueprint('dungeon', __name__)
 def _combat_damage_roll(max_damage: int) -> int:
     """Roll a bounded combat damage value for one turn."""
     return random.randint(max(1, max_damage // 2), max(1, max_damage))
+
+
+def _get_or_create_encounter_state(character: Character, encounter: Encounter) -> EncounterState:
+    """Return the live combat state for the current encounter, creating it if needed."""
+    encounter_state = encounter.state
+    if encounter_state:
+        return encounter_state
+
+    encounter_state = EncounterState(
+        encounter=encounter,
+        character_id=character.id,
+        player_health=character.health,
+        enemy_health=0,
+        enemy_max_health=0,
+        enemy_damage=0,
+    )
+    db.session.add(encounter_state)
+    return encounter_state
 
 
 def _get_or_create_encounter(character: Character) -> Encounter | None:
@@ -36,7 +54,9 @@ def create_new_encounter(character: Character | None = None) -> Encounter | None
     if character is None:
         return None
 
-    Encounter.query.filter_by(character_id=character.id).delete()
+    existing_encounter = Encounter.query.filter_by(character_id=character.id).first()
+    if existing_encounter:
+        db.session.delete(existing_encounter)
 
     enemy_types = get_all_enemy_type_data()
     enemy_type = random.choice(enemy_types) if enemy_types else None
@@ -51,11 +71,19 @@ def create_new_encounter(character: Character | None = None) -> Encounter | None
         character_id=character.id,
         enemy_type_id=enemy_type['id'],
         enemy_level=enemy_level,
-        max_health=enemy_health,
-        health=enemy_health,
-        damage=enemy_damage,
     )
     db.session.add(encounter)
+    db.session.flush()
+    db.session.add(
+        EncounterState(
+            encounter=encounter,
+            character_id=character.id,
+            player_health=character.health,
+            enemy_health=enemy_health,
+            enemy_max_health=enemy_health,
+            enemy_damage=enemy_damage,
+        )
+    )
     db.session.commit()
     return encounter
 
@@ -97,23 +125,47 @@ def _create_next_encounter(character: Character, encounter: Encounter) -> Encoun
         character_id=character.id,
         enemy_type_id=enemy_type['id'],
         enemy_level=next_enemy_level,
-        max_health=enemy_health,
-        health=enemy_health,
-        damage=enemy_damage,
     )
     db.session.add(next_encounter)
+    db.session.flush()
+    db.session.add(
+        EncounterState(
+            encounter=next_encounter,
+            character_id=character.id,
+            player_health=character.health,
+            enemy_health=enemy_health,
+            enemy_max_health=enemy_health,
+            enemy_damage=enemy_damage,
+        )
+    )
     return next_encounter
 
 
-def check_character_death(character: Character) -> bool:
+def check_character_death(health: int) -> bool:
     """Return whether the character has died."""
-    return character.health <= 0
+    return health <= 0
 
 
 def _destroy_active_loot_and_encounter(character: Character) -> None:
     """Delete active loot and the encounter after defeat or retreat."""
     destroy_loot_items(character)
-    Encounter.query.filter_by(character_id=character.id).delete()
+    encounter = _get_active_encounter(character)
+    if encounter:
+        db.session.delete(encounter)
+
+
+def _serialize_combat_character(character: Character, current_health: int) -> dict[str, Any]:
+    """Build the player payload returned to the dungeon UI."""
+    character_data = character.to_dict()
+    character_data['health'] = current_health
+    return character_data
+
+
+def _resolve_encounter_state(encounter: Encounter) -> EncounterState:
+    """Return the encounter state for a populated encounter."""
+    if encounter.state:
+        return encounter.state
+    raise RuntimeError('Encounter state is missing')
 
 
 def drop_loot(encounter: Encounter) -> list[dict[str, Any]]:
@@ -139,7 +191,7 @@ def drop_loot(encounter: Encounter) -> list[dict[str, Any]]:
 
 
 def build_combat_response(
-    character: Character,
+    character: dict[str, Any],
     encounter: Encounter | None,
     message: str,
     *,
@@ -152,8 +204,8 @@ def build_combat_response(
 ) -> Any:
     """Build the JSON payload returned by dungeon combat endpoints."""
     payload: dict[str, Any] = {
-        'character': character.to_dict(),
-        'enemy': None if player_died or success else encounter.to_dict(),
+        'character': character,
+        'enemy': None if player_died or success or encounter is None else encounter.to_dict(),
         'message': message,
         'victory': victory,
         'items_dropped': items_dropped,
@@ -172,15 +224,17 @@ def build_combat_response(
 def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str, Any]:
     """Resolve a single attack turn and return the resulting combat state."""
     enemy_name = encounter.enemy_type.name
+    encounter_state = _resolve_encounter_state(encounter)
     effective_damage = character.damage + character.bonus_damage
     player_hits = _combat_damage_roll(effective_damage)
-    monster_hits = _combat_damage_roll(encounter.damage)
+    monster_hits = _combat_damage_roll(encounter_state.enemy_damage)
 
-    encounter.health = max(0, encounter.health - player_hits)
+    encounter_state.enemy_health = max(0, encounter_state.enemy_health - player_hits)
 
-    if encounter.health > 0:
-        character.health = max(0, character.health - monster_hits)
-        if check_character_death(character):
+    if encounter_state.enemy_health > 0:
+        encounter_state.player_health = max(0, encounter_state.player_health - monster_hits)
+        if check_character_death(encounter_state.player_health):
+            character.health = encounter_state.player_health
             return {
                 'message': (
                     'Defeat!\n'
@@ -191,6 +245,7 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
                 'items_dropped': [],
                 'player_died': True,
                 'encounter': encounter,
+                'character': _serialize_combat_character(character, encounter_state.player_health),
             }
 
         return {
@@ -202,6 +257,7 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
             'items_dropped': [],
             'player_died': False,
             'encounter': encounter,
+            'character': _serialize_combat_character(character, encounter_state.player_health),
         }
 
     message_lines = [
@@ -215,9 +271,10 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
         for item in items_dropped:
             add_inventory_item(character, item['id'], level=item['level'], is_loot=True)
 
+    character.health = encounter_state.player_health
     _apply_victory_experience(character, encounter, message_lines)
 
-    Encounter.query.filter_by(character_id=character.id).delete()
+    db.session.delete(encounter)
     next_encounter = _create_next_encounter(character, encounter)
     db.session.commit()
 
@@ -227,15 +284,18 @@ def _resolve_attack_turn(character: Character, encounter: Encounter) -> dict[str
         'items_dropped': items_dropped,
         'player_died': False,
         'encounter': next_encounter,
+        'character': character.to_dict(),
     }
 
 
 def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, Any]:
     """Resolve a run attempt and return the resulting combat state."""
     enemy_name = encounter.enemy_type.name
+    encounter_state = _resolve_encounter_state(encounter)
     dice_roll = random.randint(1, 6)
 
     if dice_roll >= 4:
+        character.health = encounter_state.player_health
         db.session.delete(encounter)
         return {
             'message': f'You rolled a {dice_roll}! You successfully escaped and returned home!',
@@ -246,11 +306,13 @@ def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, A
             'damage': 0,
             'dice_roll': dice_roll,
             'encounter': encounter,
+            'character': character.to_dict(),
         }
 
-    damage_taken = _combat_damage_roll(encounter.damage)
-    character.health = max(0, character.health - damage_taken)
-    if check_character_death(character):
+    damage_taken = _combat_damage_roll(encounter_state.enemy_damage)
+    encounter_state.player_health = max(0, encounter_state.player_health - damage_taken)
+    if check_character_death(encounter_state.player_health):
+        character.health = encounter_state.player_health
         return {
             'message': (
                 f'You rolled a {dice_roll} and failed to escape!\n'
@@ -264,6 +326,7 @@ def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, A
             'damage': damage_taken,
             'dice_roll': dice_roll,
             'encounter': encounter,
+            'character': character.to_dict(),
         }
 
     return {
@@ -278,6 +341,7 @@ def _resolve_run_turn(character: Character, encounter: Encounter) -> dict[str, A
         'damage': damage_taken,
         'dice_roll': dice_roll,
         'encounter': encounter,
+        'character': _serialize_combat_character(character, encounter_state.player_health),
     }
 
 
@@ -305,11 +369,15 @@ def attack_monster() -> Any:
     outcome = _resolve_attack_turn(character, encounter)
     if outcome['player_died']:
         _destroy_active_loot_and_encounter(character)
+    elif outcome['victory']:
+        character.health = outcome['character']['health']
     db.session.commit()
-    invalidate_user_state_cache(character.user_id)
+    if outcome['victory'] or outcome['player_died']:
+        invalidate_user_inventory_cache(character.user_id)
+        invalidate_user_characters_cache(character.user_id, [character.id])
 
     return build_combat_response(
-        character,
+        outcome['character'],
         outcome['encounter'],
         outcome['message'],
         victory=outcome['victory'],
@@ -332,10 +400,14 @@ def run_away() -> Any:
         _destroy_active_loot_and_encounter(character)
     elif outcome['success']:
         clear_loot_flags(character)
+    else:
+        character.health = outcome['character']['health']
     db.session.commit()
-    invalidate_user_state_cache(character.user_id)
+    if outcome['success'] or outcome['player_died']:
+        invalidate_user_inventory_cache(character.user_id)
+        invalidate_user_characters_cache(character.user_id, [character.id])
     return build_combat_response(
-        character,
+        outcome['character'],
         outcome['encounter'],
         outcome['message'],
         victory=outcome['victory'],

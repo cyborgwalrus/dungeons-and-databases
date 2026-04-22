@@ -145,26 +145,48 @@ class Encounter(db.Model):
     character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False, index=True)
     character: Mapped['Character'] = relationship('Character', back_populates='encounters')
 
+    state: Mapped['EncounterState'] = relationship('EncounterState', back_populates='encounter', cascade='all, delete-orphan', uselist=False, single_parent=True)
+
     enemy_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('enemy_type.id'), nullable=False)
     enemy_type: Mapped['EnemyType'] = relationship('EnemyType')
     enemy_level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
-    max_health: Mapped[int] = db.Column(db.Integer, nullable=False)
-    health: Mapped[int] = db.Column(db.Integer, nullable=False)
-    damage: Mapped[int] = db.Column(db.Integer, nullable=False)
 
     def to_dict(self):
         """Serialize the current encounter state for the client."""
+        state = self.state
         return {
             'id': self.id,
             'character_id': self.character_id,
             'enemy_type_id': self.enemy_type_id,
             'name': self.enemy_type.name,
-            'health': self.health,
-            'max_health': self.max_health,
-            'damage': self.damage,
+            'health': None if not state else state.enemy_health,
+            'max_health': None if not state else state.enemy_max_health,
+            'damage': None if not state else state.enemy_damage,
             'level': self.enemy_level,
             'description': self.enemy_type.description
         }
+
+
+class EncounterState(db.Model):
+    """Volatile player combat state attached to a single encounter."""
+    __tablename__ = 'encounter_state'
+
+    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
+    encounter_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('encounter.id'), nullable=False, unique=True, index=True)
+    character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False, index=True)
+    player_health: Mapped[int] = db.Column(db.Integer, nullable=False)
+    enemy_health: Mapped[int] = db.Column(db.Integer, nullable=False)
+    enemy_max_health: Mapped[int] = db.Column(db.Integer, nullable=False)
+    enemy_damage: Mapped[int] = db.Column(db.Integer, nullable=False)
+
+    encounter: Mapped['Encounter'] = relationship('Encounter', back_populates='state')
+    character: Mapped['Character'] = relationship('Character')
+
+    def to_character_dict(self, character: 'Character'):
+        """Return a combat snapshot using the persisted character plus the live encounter health."""
+        data = character.to_dict()
+        data['health'] = self.player_health
+        return data
 
 
 class ItemSlot(Enum):

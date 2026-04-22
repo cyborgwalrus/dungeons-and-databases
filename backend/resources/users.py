@@ -3,7 +3,13 @@ from flask_restful import Resource
 
 from backend.db.models import db
 from backend.utils.route_helpers import get_json_data, require_current_user_id
-from backend.utils.api_response_cache import get_cached_user_data, get_cached_user_inventory_data, invalidate_user_state_cache
+from backend.utils.api_response_cache import (
+    get_cached_user_data,
+    get_cached_user_inventory_data,
+    invalidate_user_inventory_cache,
+    invalidate_user_profile_cache,
+    invalidate_user_state_cache,
+)
 
 
 class UserResource(Resource):
@@ -29,7 +35,7 @@ class UserResource(Resource):
             user.password = data['password']
 
         db.session.commit()
-        invalidate_user_state_cache(user.id)
+        invalidate_user_profile_cache(user.id)
         return user.to_dict()
 
     def delete(self, user_id):
@@ -67,7 +73,7 @@ class UserItemsResource(Resource):
             for item in removable_items:
                 db.session.delete(item)
             db.session.commit()
-            invalidate_user_state_cache(user_id)
+            invalidate_user_inventory_cache(user_id)
 
         return {'message': 'Inventory cleared'}
 

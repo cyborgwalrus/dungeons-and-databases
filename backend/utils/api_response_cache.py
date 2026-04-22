@@ -73,11 +73,19 @@ def get_cached_character_equipment_data(character_id: int, user_id: int) -> list
     return [equipment.item.to_dict() for equipment in character.equipment if equipment.item]
 
 
-def invalidate_user_state_cache(user_id: int, character_ids: Iterable[int] | None = None) -> None:
-    """Invalidate cached user, inventory, character list, and character snapshots."""
+def invalidate_user_profile_cache(user_id: int) -> None:
+    """Invalidate the cached user profile only."""
     cache.delete_memoized(get_cached_user_data, user_id)
-    cache.delete_memoized(get_cached_user_characters_data, user_id)
+
+
+def invalidate_user_inventory_cache(user_id: int) -> None:
+    """Invalidate the cached user inventory only."""
     cache.delete_memoized(get_cached_user_inventory_data, user_id)
+
+
+def invalidate_user_characters_cache(user_id: int, character_ids: Iterable[int] | None = None) -> None:
+    """Invalidate the cached character list and character snapshots for a user."""
+    cache.delete_memoized(get_cached_user_characters_data, user_id)
 
     if character_ids is None:
         character_ids = [character.id for character in Character.query.filter_by(user_id=user_id).all()]
@@ -85,3 +93,10 @@ def invalidate_user_state_cache(user_id: int, character_ids: Iterable[int] | Non
     for character_id in character_ids:
         cache.delete_memoized(get_cached_character_data, character_id, user_id)
         cache.delete_memoized(get_cached_character_equipment_data, character_id, user_id)
+
+
+def invalidate_user_state_cache(user_id: int, character_ids: Iterable[int] | None = None) -> None:
+    """Invalidate all cached user-scoped data."""
+    invalidate_user_profile_cache(user_id)
+    invalidate_user_inventory_cache(user_id)
+    invalidate_user_characters_cache(user_id, character_ids)

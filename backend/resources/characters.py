@@ -8,7 +8,8 @@ from backend.utils.api_response_cache import (
     get_cached_character_data,
     get_cached_character_equipment_data,
     get_cached_user_characters_data,
-    invalidate_user_state_cache,
+    invalidate_user_characters_cache,
+    invalidate_user_inventory_cache,
 )
 
 
@@ -58,7 +59,8 @@ class CharacterListResource(Resource):
         db.session.flush()
         seed_character_loadout(character)
         db.session.commit()
-        invalidate_user_state_cache(user.id)
+        invalidate_user_characters_cache(user.id)
+        invalidate_user_inventory_cache(user.id)
         return character.to_dict(), 201
 
 
@@ -86,7 +88,8 @@ class CharacterResource(Resource):
 
         db.session.delete(character)
         db.session.commit()
-        invalidate_user_state_cache(user.id, [character.id])
+        invalidate_user_characters_cache(user.id, [character.id])
+        invalidate_user_inventory_cache(user.id)
         response: dict[str, object] = {'message': 'Character deleted'}
         if active_character and active_character.id == character.id:
             response['token'] = issue_auth_token(user.id)
@@ -120,7 +123,7 @@ class CharacterResource(Resource):
             return json_error('health, damage, and level must be valid integers')
 
         db.session.commit()
-        invalidate_user_state_cache(character.user_id, [character.id])
+        invalidate_user_characters_cache(character.user_id, [character.id])
         return character.to_dict()
 
 
@@ -146,7 +149,7 @@ class CharacterFullHealResource(Resource):
 
         character.health = character.max_health
         db.session.commit()
-        invalidate_user_state_cache(character.user_id, [character.id])
+        invalidate_user_characters_cache(character.user_id, [character.id])
 
         return character.to_dict()
 
@@ -189,7 +192,8 @@ class CharacterEquipmentResource(Resource):
 
         db.session.commit()
         db.session.expire(character)
-        invalidate_user_state_cache(character.user_id)
+        invalidate_user_characters_cache(character.user_id)
+        invalidate_user_inventory_cache(character.user_id)
         return {'message': 'Item equipped', 'item': item.to_dict(), 'character': character.to_dict()}
 
 
@@ -206,7 +210,8 @@ class CharacterEquipmentItemResource(Resource):
 
         db.session.commit()
         db.session.expire(character)
-        invalidate_user_state_cache(character.user_id)
+        invalidate_user_characters_cache(character.user_id)
+        invalidate_user_inventory_cache(character.user_id)
         return {'message': 'Item unequipped', 'character': character.to_dict()}
 
 
