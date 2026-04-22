@@ -4,7 +4,8 @@ def test_user_endpoints_enforce_ownership_and_allow_profile_updates(client, enti
     owner_token = entities.token_for(owner)
 
     forbidden_get = client.get(f'/api/users/{intruder.id}', headers=entities.auth_headers(owner_token))
-    assert forbidden_get.status_code == 401
+    assert forbidden_get.status_code == 404
+    assert forbidden_get.get_json()['error'] == 'User not found'
 
     get_response = client.get(f'/api/users/{owner.id}', headers=entities.auth_headers(owner_token))
     assert get_response.status_code == 200
@@ -23,4 +24,5 @@ def test_user_endpoints_enforce_ownership_and_allow_profile_updates(client, enti
     assert delete_response.get_json()['message'] == 'User deleted'
 
     deleted_lookup = client.get(f'/api/users/{owner.id}', headers=entities.auth_headers(owner_token))
-    assert deleted_lookup.status_code == 401
+    assert deleted_lookup.status_code == 404
+    assert deleted_lookup.get_json()['error'] == 'User not found'

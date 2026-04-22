@@ -14,7 +14,7 @@ from backend.utils.api_response_cache import (
     invalidate_user_inventory_cache,
 )
 from backend.utils.game_utils import add_inventory_item, clear_loot_flags, destroy_loot_items
-from backend.utils.route_helpers import json_error, require_current_character
+from backend.utils.route_helpers import json_error
 
 
 def _combat_damage_roll(max_damage: int) -> int:
@@ -261,16 +261,11 @@ def build_combat_response(outcome: dict[str, Any]) -> Any:
 class CombatResource(Resource):
     """Resolve a single combat action."""
 
-    def post(self, combat_id: int, action: str):
+    def post(self, combat: Combat, action: str):
         """Resolve a combat action for the requested combat row."""
-        character, error_response = require_current_character()
-        if error_response:
-            return error_response
-        assert character is not None
-
-        combat = Combat.query.get(combat_id)
-        if not combat or combat.character_id != character.id:
-            return json_error('Combat not found', 404)
+        character = combat.character
+        if not character:
+            return json_error('Character not found', 404)
 
         encounter = combat.encounter
         if not encounter:
@@ -303,4 +298,4 @@ class CombatResource(Resource):
 
 def register_combat_resources(api):
     """Register combat routes on the provided API instance."""
-    api.add_resource(CombatResource, '/combats/<int:combat_id>/<string:action>')
+    api.add_resource(CombatResource, '/combats/<combat:combat>/<string:action>')

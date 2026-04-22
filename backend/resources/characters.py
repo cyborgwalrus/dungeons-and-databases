@@ -13,8 +13,6 @@ from backend.utils.route_helpers import (
     equip_item,
     json_error,
     parse_int_field,
-    require_character_owner,
-    require_current_user,
     require_item,
     unequip_item,
 )
@@ -30,29 +28,13 @@ from backend.utils.api_response_cache import (
 class CharacterListResource(Resource):
     """List or create characters for a user."""
 
-    def get(self, user_id):
+    def get(self, user):
         """List characters for the specified user."""
-        user, error_response = require_current_user()
-        if error_response:
-            return error_response
-        assert user is not None
-
-        if user.id != user_id:
-            return json_error('Unauthorized', 401)
-
         return get_cached_user_characters_data(user.id)
 
-    def post(self, user_id):
+    def post(self, user):
         """List or create characters for a user."""
         data = request.get_json(silent=True) or {}
-        user, error_response = require_current_user()
-        if error_response:
-            return error_response
-        assert user is not None
-
-        if user.id != user_id:
-            return json_error('Unauthorized', 401)
-
         name = (data.get('name') or '').strip() or 'Hero'
 
         level, error_response = parse_int_field(data, 'level', minimum=1, default=1)
@@ -84,44 +66,26 @@ class CharacterListResource(Resource):
 class CharacterResource(Resource):
     """Retrieve, update, or delete a single character."""
 
-    def get(self, character_id):
+    def get(self, character):
         """Retrieve, update, or delete a single character."""
-        character, error_response = require_character_owner(character_id)
-        if error_response:
-            return error_response
-        assert character is not None
-        return get_cached_character_data(character_id, character.user_id)
+        return get_cached_character_data(character.id, character.user_id)
 
-    def delete(self, character_id):
+    def delete(self, character):
         """Delete a character and clear the active token if needed."""
-        user, error_response = require_current_user()
-        if error_response:
-            return error_response
-        assert user is not None
-        character, error_response = require_character_owner(character_id)
-        if error_response:
-            return error_response
-        assert character is not None
-
         active_character = get_current_character()
 
         db.session.delete(character)
         db.session.commit()
-        invalidate_user_characters_cache(user.id, [character.id])
-        invalidate_user_inventory_cache(user.id)
+        invalidate_user_characters_cache(character.user_id, [character.id])
+        invalidate_user_inventory_cache(character.user_id)
         response: dict[str, object] = {'message': 'Character deleted'}
         if active_character and active_character.id == character.id:
-            response['token'] = issue_auth_token(user.id)
+            response['token'] = issue_auth_token(character.user_id)
         return response
 
-    def put(self, character_id):
+    def put(self, character):
         """Update basic character stats from the request payload."""
         data = request.get_json(silent=True) or {}
-        character, error_response = require_character_owner(character_id)
-        if error_response:
-            return error_response
-        assert character is not None
-
         try:
             if 'health' in data:
                 health = int(data['health'])
@@ -149,13 +113,8 @@ class CharacterResource(Resource):
 class CharacterSelectResource(Resource):
     """Set the active character in the auth token."""
 
-    def post(self, character_id):
+    def post(self, character):
         """Set the active character in the auth token."""
-        character, error_response = require_character_owner(character_id)
-        if error_response:
-            return error_response
-        assert character is not None
-
         token = issue_auth_token(character.user_id, character.id)
         return {'message': 'Character selected', 'character': character.to_dict(), 'token': token}
 
@@ -163,13 +122,8 @@ class CharacterSelectResource(Resource):
 class CharacterFullHealResource(Resource):
     """Restore a character to full health."""
 
-    def post(self, character_id):
+    def post(self, character):
         """Restore a character to full health."""
-        character, error_response = require_character_owner(character_id)
-        if error_response:
-            return error_response
-        assert character is not None
-
         character.health = character.max_health
         db.session.commit()
         invalidate_user_characters_cache(character.user_id, [character.id])
@@ -180,15 +134,11 @@ class CharacterFullHealResource(Resource):
 class CharacterEquipmentResource(Resource):
     """Inspect and manage a character's equipment."""
 
-    def get(self, character_id):
+    def get(self, character):
         """Inspect and manage a character's equipment."""
-        character, error_response = require_character_owner(character_id)
-        if error_response:
-            return error_response
-        assert character is not None
-        return get_cached_character_equipment_data(character_id, character.user_id)
+        return get_cached_character_equipment_data(character.id, character.user_id)
 
-    def post(self, character_id):
+    def post(self, character):
         """Equip an item from the character's inventory."""
         data = request.get_json(silent=True) or {}
         item_id = data.get('item_id')
@@ -199,11 +149,6 @@ class CharacterEquipmentResource(Resource):
             return error_response
         assert item_id is not None
 
-        character, error_response = require_character_owner(character_id)
-        if error_response:
-            return error_response
-        assert character is not None
-
         item, error_response = require_item(
             character,
             item_id,
@@ -211,6 +156,7 @@ class CharacterEquipmentResource(Resource):
         )
         if error_response:
             return error_response
+        assert item is not None
 
         error_response = equip_item(character, item)
         if error_response:
@@ -230,13 +176,9 @@ class CharacterEquipmentResource(Resource):
 class CharacterEquipmentItemResource(Resource):
     """Remove a single equipped item from a character."""
 
-    def delete(self, character_id, item_id):
+    def delete(self, character, item):
         """Unequip a worn item and return it to the inventory."""
-        character, error_response = require_character_owner(character_id)
-        if error_response:
-            return error_response
-        assert character is not None
-        error_response = unequip_item(character, item_id)
+        error_response = unequip_item(character, item.id)
         if error_response:
             return error_response
 
@@ -254,25 +196,25 @@ def register_character_resources(api):
     """Register character routes on the provided API instance."""
     api.add_resource(
         CharacterListResource,
-        '/users/<int:user_id>/characters',
+        '/users/<user:user>/characters',
     )
     api.add_resource(
         CharacterResource,
-        '/characters/<int:character_id>',
+        '/characters/<character:character>',
     )
     api.add_resource(
         CharacterSelectResource,
-        '/characters/<int:character_id>/select',
+        '/characters/<character:character>/select',
     )
     api.add_resource(
         CharacterFullHealResource,
-        '/characters/<int:character_id>/full_heal',
+        '/characters/<character:character>/full_heal',
     )
     api.add_resource(
         CharacterEquipmentResource,
-        '/characters/<int:character_id>/equipment',
+        '/characters/<character:character>/equipment',
     )
     api.add_resource(
         CharacterEquipmentItemResource,
-        '/characters/<int:character_id>/equipment/<int:item_id>',
+        '/characters/<character:character>/equipment/<item:item>',
     )

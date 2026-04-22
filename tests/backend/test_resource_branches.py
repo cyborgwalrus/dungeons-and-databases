@@ -20,9 +20,17 @@ def test_user_profile_update_and_delete_paths(client, entities):
     assert delete_response.status_code == 200
     assert delete_response.get_json()['message'] == 'User deleted'
 
-    assert client.get(f'/api/users/{user.id}', headers=headers).status_code == 401
-    assert client.get(f'/api/users/{user.id}/characters', headers=headers).status_code == 401
-    assert client.get(f'/api/users/{user.id}/inventory', headers=headers).status_code == 401
+    deleted_user_lookup = client.get(f'/api/users/{user.id}', headers=headers)
+    assert deleted_user_lookup.status_code == 404
+    assert deleted_user_lookup.get_json()['error'] == 'User not found'
+
+    deleted_character_list = client.get(f'/api/users/{user.id}/characters', headers=headers)
+    assert deleted_character_list.status_code == 404
+    assert deleted_character_list.get_json()['error'] == 'User not found'
+
+    deleted_inventory_lookup = client.get(f'/api/users/{user.id}/inventory', headers=headers)
+    assert deleted_inventory_lookup.status_code == 404
+    assert deleted_inventory_lookup.get_json()['error'] == 'User not found'
 
 
 def test_character_list_and_equipment_branches(client, entities):
@@ -33,8 +41,8 @@ def test_character_list_and_equipment_branches(client, entities):
     intruder_headers = entities.auth_headers(entities.token_for(intruder))
 
     unauthorized_list = client.get(f'/api/users/{intruder.id}/characters', headers=headers)
-    assert unauthorized_list.status_code == 401
-    assert unauthorized_list.get_json()['error'] == 'Unauthorized'
+    assert unauthorized_list.status_code == 404
+    assert unauthorized_list.get_json()['error'] == 'User not found'
 
     create_response = client.post(
         f'/api/users/{user.id}/characters',
@@ -103,6 +111,6 @@ def test_character_list_and_equipment_branches(client, entities):
 
     missing_unequip = client.delete(f'/api/characters/{inventory_character.id}/equipment/999999', headers=headers)
     assert missing_unequip.status_code == 404
-    assert missing_unequip.get_json()['error'] == 'Equipment not found'
+    assert missing_unequip.get_json()['error'] == 'Item not found'
 
     assert client.get(f'/api/characters/{character_id}', headers=intruder_headers).status_code == 404

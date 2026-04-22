@@ -6,13 +6,12 @@ from flask import request
 from flask_restful import Resource
 
 from backend.db.models import Item, db
-from backend.utils.game_utils import add_inventory_item, remove_inventory_item
+from backend.utils.game_utils import add_inventory_item
 from backend.utils.route_helpers import (
     get_json_data,
     json_error,
     parse_string_list,
     require_current_character,
-    require_item,
 )
 from backend.utils.api_response_cache import invalidate_user_inventory_cache
 
@@ -57,34 +56,24 @@ class ItemListResource(Resource):
 class ItemResource(Resource):
     """Read or delete a single inventory item."""
 
-    def get(self, item_id: int):
+    def get(self, item: Item):
         """Read or delete a single inventory item."""
-        character, error_response = require_current_character()
-        if error_response:
-            return error_response
-        assert character is not None
-        item, error_response = require_item(character, item_id)
-        if error_response:
-            return error_response
+        if item.is_equipped:
+            return json_error('Item not found', 404)
         return item.to_dict()
 
-    def delete(self, item_id: int):
+    def delete(self, item: Item):
         """Remove an item from the current character's inventory."""
-        character, error_response = require_current_character()
-        if error_response:
-            return error_response
-        assert character is not None
-        inventory_item = remove_inventory_item(character, item_id)
-
-        if not inventory_item:
+        if item.is_equipped:
             return json_error('Item not in inventory', 404)
 
+        db.session.delete(item)
         db.session.commit()
-        invalidate_user_inventory_cache(character.user_id)
+        invalidate_user_inventory_cache(item.user_id)
         return {'message': 'Item removed from inventory'}
 
 
 def register_item_resources(api):
     """Register item routes on the provided API instance."""
     api.add_resource(ItemListResource, '/items')
-    api.add_resource(ItemResource, '/items/<int:item_id>')
+    api.add_resource(ItemResource, '/items/<item:item>')

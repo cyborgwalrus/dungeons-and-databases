@@ -1,8 +1,9 @@
 """Application entry point for the backend API."""
 
 import os
-from flask import Flask
+from flask import Flask, jsonify
 from flask_restful import Api
+from werkzeug.exceptions import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.db.models import db
@@ -14,6 +15,12 @@ from backend.resources.encounters import register_encounter_resources
 from backend.resources.items import register_item_resources
 from backend.resources.users import register_user_resources
 from backend.utils import cache, init_cache
+from backend.utils.url_converters import (
+    CombatConverter,
+    CharacterConverter,
+    ItemConverter,
+    UserConverter,
+)
 
 
 app = Flask(__name__)
@@ -34,7 +41,23 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize database, cache and api
 db.init_app(app)
 init_cache(app)
+app.url_map.converters.update(
+    {
+        'user': UserConverter,
+        'character': CharacterConverter,
+        'item': ItemConverter,
+        'combat': CombatConverter,
+    }
+)
 api = Api(app, prefix='/api')
+
+
+@app.errorhandler(HTTPException)
+def handle_http_exception(error):
+    """Return JSON for HTTP errors raised during routing or handler execution."""
+    response = jsonify({'error': error.description or error.name})
+    response.status_code = error.code or 500
+    return response
 
 register_auth_resources(api)
 register_user_resources(api)

@@ -25,14 +25,24 @@ def test_user_and_character_resources_reject_unauthorized_or_invalid_updates(cli
     owner_headers = entities.auth_headers(owner_token)
     intruder_headers = entities.auth_headers(intruder_token)
 
-    assert client.get(f'/api/users/{owner.id}', headers=intruder_headers).status_code == 401
-    assert client.put(f'/api/users/{owner.id}', headers=intruder_headers, json={'username': 'hijacked'}).status_code == 401
+    owner_lookup = client.get(f'/api/users/{owner.id}', headers=intruder_headers)
+    assert owner_lookup.status_code == 404
+    assert owner_lookup.get_json()['error'] == 'User not found'
+
+    owner_update = client.put(f'/api/users/{owner.id}', headers=intruder_headers, json={'username': 'hijacked'})
+    assert owner_update.status_code == 404
+    assert owner_update.get_json()['error'] == 'User not found'
 
     create_response = client.post(f'/api/users/{owner.id}/characters', headers=owner_headers, json={'name': 'Hero'})
     character_id = create_response.get_json()['id']
 
-    assert client.get(f'/api/users/{intruder.id}/characters', headers=owner_headers).status_code == 401
-    assert client.post(f'/api/users/{intruder.id}/characters', headers=owner_headers, json={'name': 'Hero'}).status_code == 401
+    missing_character_list = client.get(f'/api/users/{intruder.id}/characters', headers=owner_headers)
+    assert missing_character_list.status_code == 404
+    assert missing_character_list.get_json()['error'] == 'User not found'
+
+    missing_character_create = client.post(f'/api/users/{intruder.id}/characters', headers=owner_headers, json={'name': 'Hero'})
+    assert missing_character_create.status_code == 404
+    assert missing_character_create.get_json()['error'] == 'User not found'
     assert client.get(f'/api/characters/{character_id}', headers=intruder_headers).status_code == 404
 
     negative_health = client.put(f'/api/characters/{character_id}', headers=owner_headers, json={'health': -1})
@@ -65,7 +75,7 @@ def test_user_and_character_resources_reject_unauthorized_or_invalid_updates(cli
 
     missing_equipment = client.delete(f'/api/characters/{character_id}/equipment/999999', headers=owner_headers)
     assert missing_equipment.status_code == 404
-    assert missing_equipment.get_json()['error'] == 'Equipment not found'
+    assert missing_equipment.get_json()['error'] == 'Item not found'
 
 
 def test_item_resources_reject_invalid_payloads_and_missing_inventory_items(client, entities):
