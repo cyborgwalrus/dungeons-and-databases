@@ -54,12 +54,27 @@ function updateEnemyPanel(enemy) {
   }
 }
 
+/** Merge static encounter data with live combat state for display purposes. */
+function buildDungeonEnemy(encounter, combat) {
+  return {
+    ...(encounter || {}),
+    ...(combat || {}),
+    name: encounter?.enemy_name || encounter?.name || combat?.name || 'None',
+    description: encounter?.enemy_description || encounter?.description || '',
+    level: encounter?.level || combat?.level || '',
+    health: combat?.enemy_current_health ?? combat?.health ?? 0,
+    max_health: combat?.enemy_max_health ?? combat?.max_health ?? 0,
+    damage: combat?.enemy_damage ?? combat?.damage ?? 0,
+  };
+}
+
 /**
  * Send an attack request and mirror the resulting combat state.
  * Handles player death, loot drops, and state synchronization.
  */
 async function handleDungeonAttack() {
-  const res = await fetchJson('/dungeon/attack', { method: 'POST' });
+  if (!state.activeCombat?.id) return;
+  const res = await fetchJson(`/combats/${state.activeCombat.id}/attack`, { method: 'POST' });
   if (!res.ok || !res.data) return;
 
   const dungeonState = res.data;
@@ -71,6 +86,8 @@ async function handleDungeonAttack() {
   });
 
   if (dungeonState.player_died) {
+    state.activeEncounter = null;
+    state.activeCombat = null;
     showDungeonDefeatScreen({
       message: dungeonState.message || 'Defeat!\nYou have been defeated by the enemy!\nYou lost the loot from this dungeon run...',
       onExit: () => {
@@ -82,7 +99,11 @@ async function handleDungeonAttack() {
   }
 
   if (dungeonState.character) syncPlayerStatsInDom(dungeonState.character);
-  if (dungeonState.enemy) updateEnemyPanel(dungeonState.enemy);
+  if (dungeonState.encounter && dungeonState.combat) {
+    state.activeEncounter = dungeonState.encounter;
+    state.activeCombat = dungeonState.combat;
+    updateEnemyPanel(buildDungeonEnemy(dungeonState.encounter, dungeonState.combat));
+  }
 }
 
 /**
@@ -90,7 +111,8 @@ async function handleDungeonAttack() {
  * Handles escape attempts, victory, and continued combat.
  */
 async function handleDungeonRun() {
-  const res = await fetchJson('/dungeon/run', { method: 'POST' });
+  if (!state.activeCombat?.id) return;
+  const res = await fetchJson(`/combats/${state.activeCombat.id}/run`, { method: 'POST' });
   if (!res.ok || !res.data) return;
 
   const dungeonState = res.data;
@@ -105,6 +127,8 @@ async function handleDungeonRun() {
   }
 
   if (dungeonState.player_died) {
+    state.activeEncounter = null;
+    state.activeCombat = null;
     showDungeonDefeatScreen({
       message: dungeonState.message || 'Defeat!\nYou have been defeated by the enemy!\nYou lost the loot from this dungeon run...',
       onExit: () => {
@@ -115,7 +139,15 @@ async function handleDungeonRun() {
     return;
   }
 
+  if (dungeonState.encounter && dungeonState.combat) {
+    state.activeEncounter = dungeonState.encounter;
+    state.activeCombat = dungeonState.combat;
+    updateEnemyPanel(buildDungeonEnemy(dungeonState.encounter, dungeonState.combat));
+  }
+
   if (dungeonState.success) {
+    state.activeEncounter = null;
+    state.activeCombat = null;
     setTimeout(async () => {
       resetDungeonLoot(state);
       navigateTo('/');
@@ -150,8 +182,11 @@ async function renderDungeon({ resetRunState = true } = {}) {
   }
 
   // The dungeon view always starts from the server-authoritative encounter state.
-  const encounterResponse = await fetchJson('/dungeon/enter', { method: 'POST' });
-  const enemy = encounterResponse.ok ? encounterResponse.data : { name: '', health: 0, max_health: 0, damage: 0, description: '' };
+  const encounterResponse = await fetchJson('/encounters', { method: 'POST' });
+  const encounterPayload = encounterResponse.ok ? encounterResponse.data : null;
+  const enemy = buildDungeonEnemy(encounterPayload?.encounter, encounterPayload?.combat);
+  state.activeEncounter = encounterPayload?.encounter || null;
+  state.activeCombat = encounterPayload?.combat || null;
 
   const preface = `A wild ${enemy.name || 'creature'} appears! ${enemy.description || ''}`;
   const messageToShow = state.lastDungeonMessage || preface;

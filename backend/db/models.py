@@ -115,27 +115,6 @@ class Character(db.Model):
         return data
 
 
-class EnemyType(db.Model):
-    """Enemy template used to seed dungeon encounters."""
-    __tablename__ = 'enemy_type'
-
-    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
-    name: Mapped[str] = db.Column(db.String(80), nullable=False)
-    description: Mapped[str | None] = db.Column(db.String(255))
-    health: Mapped[int] = db.Column(db.Integer, nullable=False)
-    damage: Mapped[int] = db.Column(db.Integer, nullable=False)
-
-    def to_dict(self):
-        """Serialize the enemy template."""
-        return {
-            'id': self.id,
-            'name': self.name,
-            'description': self.description,
-            'health': self.health,
-            'damage': self.damage,
-        }
-
-
 class Encounter(db.Model):
     """Active dungeon encounter tied to a character and enemy template."""
     __tablename__ = 'encounter'
@@ -145,47 +124,60 @@ class Encounter(db.Model):
     character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False, index=True)
     character: Mapped['Character'] = relationship('Character', back_populates='encounters')
 
-    state: Mapped['EncounterState'] = relationship('EncounterState', back_populates='encounter', cascade='all, delete-orphan', uselist=False, single_parent=True)
+    combat: Mapped['Combat'] = relationship('Combat', back_populates='encounter', cascade='all, delete-orphan', uselist=False, single_parent=True)
 
-    enemy_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('enemy_type.id'), nullable=False)
-    enemy_type: Mapped['EnemyType'] = relationship('EnemyType')
+    enemy_template_id: Mapped[str] = db.Column(db.String(80), nullable=False, index=True)
+    enemy_name: Mapped[str] = db.Column(db.String(80), nullable=False)
+    enemy_description: Mapped[str | None] = db.Column(db.String(255))
+    enemy_base_health: Mapped[int] = db.Column(db.Integer, nullable=False)
+    enemy_base_damage: Mapped[int] = db.Column(db.Integer, nullable=False)
     enemy_level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
 
     def to_dict(self):
-        """Serialize the current encounter state for the client."""
-        state = self.state
+        """Serialize the static encounter data for the client."""
         return {
             'id': self.id,
             'character_id': self.character_id,
-            'enemy_type_id': self.enemy_type_id,
-            'name': self.enemy_type.name,
-            'health': None if not state else state.enemy_health,
-            'max_health': None if not state else state.enemy_max_health,
-            'damage': None if not state else state.enemy_damage,
+            'enemy_template_id': self.enemy_template_id,
+            'enemy_name': self.enemy_name,
+            'enemy_description': self.enemy_description,
+            'enemy_base_health': self.enemy_base_health,
+            'enemy_base_damage': self.enemy_base_damage,
             'level': self.enemy_level,
-            'description': self.enemy_type.description
         }
 
 
-class EncounterState(db.Model):
+class Combat(db.Model):
     """Volatile player combat state attached to a single encounter."""
-    __tablename__ = 'encounter_state'
+    __tablename__ = 'combat'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     encounter_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('encounter.id'), nullable=False, unique=True, index=True)
     character_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('character.id'), nullable=False, index=True)
-    player_health: Mapped[int] = db.Column(db.Integer, nullable=False)
-    enemy_health: Mapped[int] = db.Column(db.Integer, nullable=False)
+    character_health: Mapped[int] = db.Column(db.Integer, nullable=False)
+    enemy_current_health: Mapped[int] = db.Column(db.Integer, nullable=False)
     enemy_max_health: Mapped[int] = db.Column(db.Integer, nullable=False)
     enemy_damage: Mapped[int] = db.Column(db.Integer, nullable=False)
 
-    encounter: Mapped['Encounter'] = relationship('Encounter', back_populates='state')
+    encounter: Mapped['Encounter'] = relationship('Encounter', back_populates='combat')
     character: Mapped['Character'] = relationship('Character')
+
+    def to_dict(self):
+        """Serialize the live combat state for the client."""
+        return {
+            'id': self.id,
+            'encounter_id': self.encounter_id,
+            'character_id': self.character_id,
+            'character_health': self.character_health,
+            'enemy_current_health': self.enemy_current_health,
+            'enemy_max_health': self.enemy_max_health,
+            'enemy_damage': self.enemy_damage,
+        }
 
     def to_character_dict(self, character: 'Character'):
         """Return a combat snapshot using the persisted character plus the live encounter health."""
         data = character.to_dict()
-        data['health'] = self.player_health
+        data['health'] = self.character_health
         return data
 
 
@@ -198,12 +190,13 @@ class ItemSlot(Enum):
     RING = 'ring'
     NECKLACE = 'necklace'
 
-class ItemType(db.Model):
-    """Item template defining the base stats for generated items."""
-    __tablename__ = 'item_type'
+class Item(db.Model):
+    """Concrete item instance held in inventory or equipped by a character."""
+    __tablename__ = 'item'
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     name: Mapped[str] = db.Column(db.String(80), nullable=False)
+    item_type_id: Mapped[str] = db.Column(db.String(80), nullable=False, index=True)
     slot: Mapped[ItemSlot] = db.Column(
         db.Enum(
             ItemSlot,
@@ -213,26 +206,6 @@ class ItemType(db.Model):
         ),
         nullable=False,
     )
-    health: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
-    damage: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
-
-    def to_dict(self):
-        """Serialize the item template."""
-        return {
-            'id': self.id,
-            'name': self.name,
-            'slot': self.slot.value if self.slot else None,
-            'health': self.health,
-            'damage': self.damage,
-        }
-
-
-class Item(db.Model):
-    """Concrete item instance held in inventory or equipped by a character."""
-    __tablename__ = 'item'
-
-    id: Mapped[int] = db.Column(db.Integer, primary_key=True)
-    name: Mapped[str] = db.Column(db.String(80), nullable=False)
     level: Mapped[int] = db.Column(db.Integer, nullable=False, default=1)
     health: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
     damage: Mapped[int] = db.Column(db.Integer, nullable=False, default=0)
@@ -241,14 +214,7 @@ class Item(db.Model):
     user_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
     user: Mapped['User'] = relationship('User', back_populates='items')
 
-    item_type_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('item_type.id'), nullable=False, index=True)
-    item_type: Mapped['ItemType'] = relationship('ItemType')
     equipment: Mapped['CharacterEquipment'] = relationship('CharacterEquipment', back_populates='item', uselist=False, cascade='all, delete-orphan', single_parent=True)
-
-    @property
-    def slot(self):
-        """Return the item's equipment slot, if it has one."""
-        return self.item_type.slot if self.item_type else None
 
     @property
     def is_equipped(self):
@@ -260,6 +226,7 @@ class Item(db.Model):
         return {
             'id': self.id,
             'name': self.name,
+            'item_type_id': self.item_type_id,
             'level': self.level,
             'slot': self.slot.value if self.slot else None,
             'is_loot': self.is_loot,

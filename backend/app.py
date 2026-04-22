@@ -3,13 +3,14 @@ from flask import Flask
 from flask_restful import Api
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.db.init_db import seed_initial_data
 from backend.db.models import db
+from backend.db.reference_data import load_reference_data
 from backend.resources.authentication import register_auth_resources
 from backend.resources.characters import register_character_resources
+from backend.resources.combats import register_combat_resources
+from backend.resources.encounters import register_encounter_resources
 from backend.resources.items import register_item_resources
 from backend.resources.users import register_user_resources
-from backend.routes.dungeon import dungeon_bp
 from backend.utils import cache, init_cache
 
 
@@ -35,17 +36,19 @@ register_auth_resources(api)
 register_user_resources(api)
 register_character_resources(api)
 register_item_resources(api)
-
-app.register_blueprint(dungeon_bp, url_prefix='/api')
+register_encounter_resources(api)
+register_combat_resources(api)
 
 @app.cli.command('init-db')
 def init_db():
-    # Create DB tables, seed reference data, and clear cached lookups.
+    # Rebuild DB tables, warm reference data, and clear cached lookups.
     with app.app_context():
+        db.session.remove()
+        db.drop_all()
         db.create_all()
-        seed_initial_data()
+        load_reference_data()
         cache.clear()
-    print('Database initialized (tables created and seed data loaded)')
+    print('Database initialized (tables recreated and reference data loaded)')
 
 
 @app.cli.command('delete-db')

@@ -2,7 +2,7 @@ from flask import request
 from flask_restful import Resource
 
 from backend.db.models import db
-from backend.utils.route_helpers import get_json_data, require_current_user_id
+from backend.utils.route_helpers import get_json_data, parse_required_string, require_current_user_id
 from backend.utils.api_response_cache import (
     get_cached_user_data,
     get_cached_user_inventory_data,
@@ -30,9 +30,17 @@ class UserResource(Resource):
 
         data = get_json_data(request)
         if 'username' in data:
-            user.username = data['username']
+            username, error_response = parse_required_string(data, 'username')
+            if error_response:
+                return error_response
+            assert username is not None
+            user.username = username
         if 'password' in data:
-            user.password = data['password']
+            password, error_response = parse_required_string(data, 'password')
+            if error_response:
+                return error_response
+            assert password is not None
+            user.password = password
 
         db.session.commit()
         invalidate_user_profile_cache(user.id)

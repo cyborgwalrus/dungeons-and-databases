@@ -6,6 +6,8 @@ export const state = {
   equipped: [],
   lastDungeonMessage: null,
   lootCounts: {},
+  activeEncounter: null,
+  activeCombat: null,
 };
 
 /** Return the active character ID from local state, or null when unavailable. */

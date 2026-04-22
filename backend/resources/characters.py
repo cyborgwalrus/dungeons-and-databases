@@ -3,7 +3,7 @@ from flask_restful import Resource
 
 from backend.db.models import Character, db
 from backend.utils.game_utils import get_player as get_current_character, seed_character_loadout, issue_auth_token
-from backend.utils.route_helpers import equip_item, get_item, json_error, require_character_owner, require_current_user, unequip_item
+from backend.utils.route_helpers import equip_item, get_item, json_error, parse_int_field, require_character_owner, require_current_user, unequip_item
 from backend.utils.api_response_cache import (
     get_cached_character_data,
     get_cached_character_equipment_data,
@@ -37,16 +37,17 @@ class CharacterListResource(Resource):
         if user.id != user_id:
             return json_error('Unauthorized', 401)
 
-        name = data.get('name', '').strip()
-        if not name:
-            name = 'Hero'
+        name = (data.get('name') or '').strip() or 'Hero'
 
-        try:
-            level = int(data.get('level', 1))
-            health = int(data.get('health', 100))
-            damage = int(data.get('damage', 10))
-        except (TypeError, ValueError):
-            return json_error('level, health, and damage must be valid integers')
+        level, error_response = parse_int_field(data, 'level', minimum=1, default=1)
+        if error_response:
+            return error_response
+        health, error_response = parse_int_field(data, 'health', minimum=0, default=100)
+        if error_response:
+            return error_response
+        damage, error_response = parse_int_field(data, 'damage', minimum=0, default=10)
+        if error_response:
+            return error_response
 
         character = Character(
             user_id=user.id,
@@ -169,13 +170,10 @@ class CharacterEquipmentResource(Resource):
         item_id = data.get('item_id')
         if item_id is None:
             return json_error('item_id is required')
-
-        try:
-            item_id = int(item_id)
-            if item_id <= 0:
-                return json_error('item_id must be a positive integer')
-        except (TypeError, ValueError):
-            return json_error('item_id must be a valid integer')
+        item_id, error_response = parse_int_field(data, 'item_id', minimum=1)
+        if error_response:
+            return error_response
+        assert item_id is not None
 
         character, error_response = require_character_owner(character_id)
         if error_response:

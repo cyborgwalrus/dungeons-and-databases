@@ -9,26 +9,28 @@ from backend.db.models import Character, CharacterEquipment, Item, User
 from backend.utils.app_cache import cache
 
 
+_CHARACTER_EQUIPMENT_OPTIONS = selectinload(Character.equipment).selectinload(CharacterEquipment.item)
+
+
 def _load_user_state(user_id: int) -> User | None:
     return User.query.get(user_id)
 
 
 def _load_user_characters_state(user_id: int) -> User | None:
     return User.query.options(
-        selectinload(User.characters).selectinload(Character.equipment).selectinload(CharacterEquipment.item).selectinload(Item.item_type),
+        selectinload(User.characters).options(_CHARACTER_EQUIPMENT_OPTIONS),
     ).get(user_id)
 
 
 def _load_user_inventory_state(user_id: int) -> User | None:
     return User.query.options(
-        selectinload(User.items).selectinload(Item.item_type),
         selectinload(User.items).selectinload(Item.equipment),
     ).get(user_id)
 
 
 def _load_character_state(character_id: int, user_id: int) -> Character | None:
     return Character.query.options(
-        selectinload(Character.equipment).selectinload(CharacterEquipment.item).selectinload(Item.item_type),
+        _CHARACTER_EQUIPMENT_OPTIONS,
     ).filter_by(id=character_id, user_id=user_id).first()
 
 
@@ -83,8 +85,7 @@ def invalidate_user_inventory_cache(user_id: int) -> None:
     cache.delete_memoized(get_cached_user_inventory_data, user_id)
 
 
-def invalidate_user_characters_cache(user_id: int, character_ids: Iterable[int] | None = None) -> None:
-    """Invalidate the cached character list and character snapshots for a user."""
+def _invalidate_character_snapshots(user_id: int, character_ids: Iterable[int] | None = None) -> None:
     cache.delete_memoized(get_cached_user_characters_data, user_id)
 
     if character_ids is None:
@@ -95,8 +96,13 @@ def invalidate_user_characters_cache(user_id: int, character_ids: Iterable[int] 
         cache.delete_memoized(get_cached_character_equipment_data, character_id, user_id)
 
 
+def invalidate_user_characters_cache(user_id: int, character_ids: Iterable[int] | None = None) -> None:
+    """Invalidate the cached character list and character snapshots for a user."""
+    _invalidate_character_snapshots(user_id, character_ids)
+
+
 def invalidate_user_state_cache(user_id: int, character_ids: Iterable[int] | None = None) -> None:
     """Invalidate all cached user-scoped data."""
     invalidate_user_profile_cache(user_id)
     invalidate_user_inventory_cache(user_id)
-    invalidate_user_characters_cache(user_id, character_ids)
+    _invalidate_character_snapshots(user_id, character_ids)

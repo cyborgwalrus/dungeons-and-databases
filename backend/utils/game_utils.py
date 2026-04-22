@@ -3,19 +3,19 @@ from typing import Any
 from flask import current_app, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from backend.db.cache_helpers import get_all_item_type_data, get_item_type_data
+from backend.db.reference_data import get_all_item_type_data, get_item_type_data
 from backend.db.models import Character, Item, User as UserModel, db
 
 
 AUTH_TOKEN_SALT = 'dungeons-and-databases-auth-token'
 DEFAULT_AUTH_TOKEN_MAX_AGE_SECONDS = 60 * 60 * 24 * 30
-DEFAULT_LOADOUT_ITEM_NAMES = [
-    'Steel Sword',
-    'Linen Armor',
-    'Iron Shield',
-    'Iron Helmet',
-    'Ruby Necklace',
-    'Silver Ring',
+DEFAULT_LOADOUT_ITEM_IDS = [
+    'steel_sword',
+    'linen_armor',
+    'iron_shield',
+    'iron_helmet',
+    'ruby_necklace',
+    'silver_ring',
 ]
 
 
@@ -108,9 +108,9 @@ def get_player() -> Character | None:
 
 def seed_character_loadout(character: Character) -> None:
     """Populate a new character with the default starter equipment."""
-    item_types_by_name = {item_type['name']: item_type for item_type in get_all_item_type_data()}
-    for item_name in DEFAULT_LOADOUT_ITEM_NAMES:
-        item_type = item_types_by_name.get(item_name)
+    item_types_by_id = {item_type['id']: item_type for item_type in get_all_item_type_data()}
+    for item_type_id in DEFAULT_LOADOUT_ITEM_IDS:
+        item_type = item_types_by_id.get(item_type_id)
         if item_type:
             add_inventory_item(character, item_type['id'])
 
@@ -123,7 +123,7 @@ def _scaled_bonus(base_bonus: int, level: int) -> int:
     return max(0, int(round(base_bonus * bonus_multiplier)))
 
 
-def add_inventory_item(player: Character, item_id: int, *, level: int = 1, is_loot: bool | None = None) -> Item | None:
+def add_inventory_item(player: Character, item_id: str, *, level: int = 1, is_loot: bool | None = None) -> Item | None:
     """Create an inventory item from item type data and attach it to a player."""
     item_type = get_item_type_data(item_id)
     if not item_type:
@@ -134,6 +134,7 @@ def add_inventory_item(player: Character, item_id: int, *, level: int = 1, is_lo
     inventory_item = Item(
         name=item_type['name'],
         item_type_id=item_type['id'],
+        slot=item_type['slot'],
         user_id=player.user_id,
         level=max(1, int(level)),
         health=_scaled_bonus(item_type['health'] or 0, level),
@@ -153,7 +154,7 @@ def remove_inventory_item(player: Character, item_id: int) -> Item | None:
     if inventory_item and inventory_item.is_equipped:
         return None
     if not inventory_item:
-        inventory_item = Item.query.filter_by(user_id=player.user_id, item_type_id=item_id).first()
+        inventory_item = Item.query.filter_by(user_id=player.user_id, item_type_id=str(item_id)).first()
         if not inventory_item or inventory_item.is_equipped:
             return None
 

@@ -7,18 +7,17 @@ The backend is organized as follows:
 ```text
 backend/
 ├── app.py                 # Flask application factory and API setup
-├── db/                    # Database models and initialization
+├── db/                    # Database models, JSON reference data, and initialization
 │   ├── models.py         # SQLAlchemy ORM models (User, Character, Item, etc.)
-│   ├── init_db.py        # Database seeding and initialization
-│   ├── cache_helpers.py  # Cached queries for reference data
-│   └── README.md         # Database schema documentation
+│   ├── init_db.py        # Reference-data warmup and database initialization
+│   ├── reference_data/   # Slug-keyed item and enemy templates plus cached accessors
 ├── resources/            # Flask-RESTful resource classes for REST endpoints
-│   ├── auth_resources.py       # Authentication resources (signup, signin, me)
-│   ├── character_resources.py  # Character management resources
-│   ├── user_resources.py       # User account resources
-│   └── item_resources.py       # Item management resources
-├── routes/               # Blueprint-based routes (non-RESTful)
-│   └── dungeon_routes.py       # Dungeon combat endpoints
+│   ├── authentication.py        # Authentication resources (signup, signin, me)
+│   ├── characters.py            # Character management resources
+│   ├── users.py                 # User account resources
+│   ├── items.py                 # Item management resources
+│   ├── encounters.py            # Encounter creation resource
+│   └── combats.py               # Combat action resource
 ├── utils/                # Utilities and helpers
 │   ├── game_utils.py         # Game logic helpers (tokens, loadouts, combat)
 │   ├── serializers.py        # Response serialization functions
@@ -35,7 +34,8 @@ backend/
 |     Users      | `/users/<int:user_id>` - `GET` `PUT` `DELETE`<br>`/users/<int:user_id>/inventory` - `GET` `DELETE`                                     | User account management and shared inventory            |     Yes     |
 |   Characters   | `/users/<int:user_id>/characters` - `GET` `POST`<br>`/characters/<int:character_id>` - `GET` `PUT` `DELETE`<br>`/characters/<int:character_id>/select` - `POST`<br>`/characters/<int:character_id>/full_heal` - `POST`<br>`/characters/<int:character_id>/equipment` - `GET` `POST`<br>`/characters/<int:character_id>/equipment/<int:item_id>` - `DELETE` | Character management, selection, leveling, experience, equipment, and healing |     Yes     |
 |      Items     | `/items` - `POST`<br>`/items/<int:item_id>` - `GET` `DELETE`                                                                    | Item creation and inventory operations                   |     Yes     |
-|    Dungeon     | `/dungeon/enter` - `POST`<br>`/dungeon/attack` - `POST`<br>`/dungeon/run` - `POST`                       | Dungeon entry and combat operations                      |     Yes     |
+|   Encounters   | `/encounters` - `POST`                                                                                     | Dungeon encounter creation                                |     Yes     |
+|     Combat     | `/combats/<int:combat_id>/attack` - `POST`<br>`/combats/<int:combat_id>/run` - `POST`                      | Dungeon combat actions                                    |     Yes     |
 
 ## Endpoint Details
 
@@ -67,7 +67,6 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 - `POST /api/characters/<int:character_id>/equipment` - equip an item from the user's shared inventory.
 - `DELETE /api/characters/<int:character_id>/equipment/<int:item_id>` - unequip an item and return it to the user's shared inventory.
 
-
 ### Inventory
 
 - `GET /api/users/<int:user_id>/inventory` - list the shared inventory items for a user.
@@ -79,11 +78,14 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 - `GET /api/items/<int:item_id>` - fetch one item.
 - `DELETE /api/items/<int:item_id>` - remove an item.
 
-### Dungeon
+### Encounters
 
-- `POST /api/dungeon/enter` - enter or resume the active dungeon encounter.
-- `POST /api/dungeon/attack` - attack the active encounter.
-- `POST /api/dungeon/run` - attempt to flee the active encounter.
+- `POST /api/encounters` - create a new dungeon encounter and matching combat state for the active character.
+
+### Combat
+
+- `POST /api/combats/<int:combat_id>/attack` - attack the active combat.
+- `POST /api/combats/<int:combat_id>/run` - attempt to flee the active combat.
 
 ### Setup
 

@@ -1,0 +1,44 @@
+[
+  {
+    "id": "steel_sword",
+    "name": "Steel Sword",
+    "slot": "weapon",
+    "health": 0,
+    "damage": 10
+  },
+  {
+    "id": "linen_armor",
+    "name": "Linen Armor",
+    "slot": "armor",
+    "health": 10,
+    "damage": 0
+  },
+  {
+    "id": "iron_helmet",
+    "name": "Iron Helmet",
+    "slot": "helmet",
+    "health": 8,
+    "damage": 0
+  },
+  {
+    "id": "ruby_necklace",
+    "name": "Ruby Necklace",
+    "slot": "necklace",
+    "health": 5,
+    "damage": 4
+  },
+  {
+    "id": "silver_ring",
+    "name": "Silver Ring",
+    "slot": "ring",
+    "health": 4,
+    "damage": 5
+  },
+  {
+    "id": "iron_shield",
+    "name": "Iron Shield",
+    "slot": "shield",
+    "health": 9,
+    "damage": 0
+  }
+]

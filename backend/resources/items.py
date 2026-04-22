@@ -5,7 +5,7 @@ from flask_restful import Resource
 
 from backend.db.models import Item, db
 from backend.utils.game_utils import add_inventory_item, remove_inventory_item
-from backend.utils.route_helpers import get_item, get_json_data, json_error, require_current_character
+from backend.utils.route_helpers import get_item, get_json_data, json_error, parse_string_list, require_current_character
 from backend.utils.api_response_cache import invalidate_user_inventory_cache
 
 
@@ -27,12 +27,10 @@ class ItemListResource(Resource):
         if not source_ids:
             return json_error('item_type_id is required')
 
-        try:
-            source_ids = [int(source_id) for source_id in source_ids]
-            if any(sid <= 0 for sid in source_ids):
-                return json_error('item_type_id must be positive integers')
-        except (TypeError, ValueError):
-            return json_error('item_type_id must be a valid integer')
+        source_ids, error_response = parse_string_list(source_ids, 'item_type_id')
+        if error_response:
+            return error_response
+        assert source_ids is not None
 
         created_items: list[Item] = []
         for source_id in source_ids:

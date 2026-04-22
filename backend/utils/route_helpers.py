@@ -1,12 +1,7 @@
 from typing import Any
 
 from backend.db.models import Character, CharacterEquipment, Item, User, db
-from backend.utils.game_utils import get_current_user as get_authenticated_user, get_player
-
-
-def get_current_user() -> User | None:
-    """Return the user associated with the active request token."""
-    return get_authenticated_user()
+from backend.utils.game_utils import get_current_user, get_player
 
 
 def require_current_user() -> tuple[User | None, tuple[Any, int] | None]:
@@ -90,6 +85,63 @@ def unequip_item(character: Character, item_id: int) -> tuple[Any, int] | None:
 def get_json_data(request: Any) -> dict[str, Any]:
     """Return JSON request data or an empty mapping when the body is missing."""
     return request.get_json(silent=True) or {}
+
+
+def parse_required_string(data: dict[str, Any], field_name: str, *, default: Any = None) -> tuple[str | None, tuple[Any, int] | None]:
+    """Return a trimmed required string field or a validation error."""
+    value = data.get(field_name, default)
+    if value is None:
+        return None, json_error(f'{field_name} is required')
+
+    text = str(value).strip()
+    if not text:
+        return None, json_error(f'{field_name} is required')
+    return text, None
+
+
+def parse_int_field(
+    data: dict[str, Any],
+    field_name: str,
+    *,
+    minimum: int | None = None,
+    required: bool = True,
+    default: Any = None,
+) -> tuple[int | None, tuple[Any, int] | None]:
+    """Return a validated integer field or a validation error."""
+    value = data.get(field_name, default)
+    if value is None:
+        if required:
+            return None, json_error(f'{field_name} is required')
+        return None, None
+
+    try:
+        parsed_value = int(value)
+    except (TypeError, ValueError):
+        return None, json_error(f'{field_name} must be a valid integer')
+
+    if minimum is not None and parsed_value < minimum:
+        if minimum == 0:
+            return None, json_error(f'{field_name} must be non-negative')
+        if minimum == 1:
+            return None, json_error(f'{field_name} must be a positive integer')
+        return None, json_error(f'{field_name} must be at least {minimum}')
+
+    return parsed_value, None
+
+
+def parse_string_list(values: Any, field_name: str) -> tuple[list[str] | None, tuple[Any, int] | None]:
+    """Return a list of trimmed non-empty strings or a validation error."""
+    if not isinstance(values, list):
+        values = [values]
+
+    parsed_values: list[str] = []
+    for value in values:
+        text = str(value).strip()
+        if not text:
+            return None, json_error(f'{field_name} must be non-empty strings')
+        parsed_values.append(text)
+
+    return parsed_values, None
 
 
 def json_error(message: str, status: int = 400) -> tuple[Any, int]:

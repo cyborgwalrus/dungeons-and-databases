@@ -30,6 +30,8 @@ export function syncPlayerSnapshot(state, playerData) {
 export function resetDungeonLoot(state) {
   if (!state) return;
   state.lootCounts = {};
+  state.activeEncounter = null;
+  state.activeCombat = null;
 }
 
 /**
@@ -87,6 +89,8 @@ export function clearAuthState(state) {
   state.characters = [];
   state.inventory = [];
   state.equipped = [];
+  state.activeEncounter = null;
+  state.activeCombat = null;
 }
 
 /**
