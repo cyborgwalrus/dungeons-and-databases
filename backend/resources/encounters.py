@@ -101,4 +101,4 @@ class EncounterResource(Resource):
 
 def register_encounter_resources(api):
     """Register encounter routes on the provided API instance."""
-    api.add_resource(EncounterResource, '/api/encounters')
+    api.add_resource(EncounterResource, '/encounters')

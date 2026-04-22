@@ -91,7 +91,7 @@ class MeResource(Resource):
 
 def register_auth_resources(api):
     """Register authentication routes on the provided API instance."""
-    api.add_resource(SignupResource, '/api/login/signup')
-    api.add_resource(SigninResource, '/api/login/signin')
-    api.add_resource(SignoutResource, '/api/login/signout')
-    api.add_resource(MeResource, '/api/login/me')
+    api.add_resource(SignupResource, '/login/signup')
+    api.add_resource(SigninResource, '/login/signin')
+    api.add_resource(SignoutResource, '/login/signout')
+    api.add_resource(MeResource, '/login/me')

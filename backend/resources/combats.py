@@ -303,4 +303,4 @@ class CombatResource(Resource):
 
 def register_combat_resources(api):
     """Register combat routes on the provided API instance."""
-    api.add_resource(CombatResource, '/api/combats/<int:combat_id>/<string:action>')
+    api.add_resource(CombatResource, '/combats/<int:combat_id>/<string:action>')

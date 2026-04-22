@@ -1,5 +1,5 @@
 """Pytest fixtures for the backend test suite."""
-
+# pylint: disable=wrong-import-position
 from __future__ import annotations
 
 import os

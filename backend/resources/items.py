@@ -86,5 +86,5 @@ class ItemResource(Resource):
 
 def register_item_resources(api):
     """Register item routes on the provided API instance."""
-    api.add_resource(ItemListResource, '/api/items')
-    api.add_resource(ItemResource, '/api/items/<int:item_id>')
+    api.add_resource(ItemListResource, '/items')
+    api.add_resource(ItemResource, '/items/<int:item_id>')

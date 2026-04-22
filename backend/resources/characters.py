@@ -254,25 +254,25 @@ def register_character_resources(api):
     """Register character routes on the provided API instance."""
     api.add_resource(
         CharacterListResource,
-        '/api/users/<int:user_id>/characters',
+        '/users/<int:user_id>/characters',
     )
     api.add_resource(
         CharacterResource,
-        '/api/characters/<int:character_id>',
+        '/characters/<int:character_id>',
     )
     api.add_resource(
         CharacterSelectResource,
-        '/api/characters/<int:character_id>/select',
+        '/characters/<int:character_id>/select',
     )
     api.add_resource(
         CharacterFullHealResource,
-        '/api/characters/<int:character_id>/full_heal',
+        '/characters/<int:character_id>/full_heal',
     )
     api.add_resource(
         CharacterEquipmentResource,
-        '/api/characters/<int:character_id>/equipment',
+        '/characters/<int:character_id>/equipment',
     )
     api.add_resource(
         CharacterEquipmentItemResource,
-        '/api/characters/<int:character_id>/equipment/<int:item_id>',
+        '/characters/<int:character_id>/equipment/<int:item_id>',
     )

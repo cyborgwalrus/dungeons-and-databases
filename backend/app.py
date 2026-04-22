@@ -34,7 +34,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize database, cache and api
 db.init_app(app)
 init_cache(app)
-api = Api(app)
+api = Api(app, prefix='/api')
 
 register_auth_resources(api)
 register_user_resources(api)
@@ -73,6 +73,3 @@ def delete_db():
             print('Database dropped and file removed')
         except (OSError, SQLAlchemyError) as error:
             print('Failed to delete database:', error)
-
-if __name__ == '__main__':
-    app.run(debug=app.config['DEBUG'], port=5000)

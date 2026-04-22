@@ -98,5 +98,5 @@ class UserItemsResource(Resource):
 
 def register_user_resources(api):
     """Register user routes on the provided API instance."""
-    api.add_resource(UserResource, '/api/users/<int:user_id>')
-    api.add_resource(UserItemsResource, '/api/users/<int:user_id>/inventory')
+    api.add_resource(UserResource, '/users/<int:user_id>')
+    api.add_resource(UserItemsResource, '/users/<int:user_id>/inventory')
