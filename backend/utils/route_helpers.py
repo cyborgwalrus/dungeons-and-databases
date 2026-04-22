@@ -6,6 +6,11 @@ from backend.db.models import Character, CharacterEquipment, Item, User, db
 from backend.utils.game_utils import get_current_user, get_player
 
 
+def _slot_value(slot: Any) -> Any:
+    """Return a stable representation for enum-backed slot values."""
+    return slot.value if hasattr(slot, 'value') else slot
+
+
 def require_current_user() -> tuple[User | None, tuple[Any, int] | None]:
     """Require an authenticated user or return a standardized error response."""
     user = get_current_user()
@@ -75,36 +80,34 @@ def require_item(
         return None, json_error(message, status)
     return item, None
 
-
 def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
     """Move an inventory item into the character's equipment set."""
-    slot = item.slot
+    slot = _slot_value(item.slot)
     if not slot:
         return json_error('Item cannot be equipped', 400)
 
-    existing_equipment = next(
-        (equipment for equipment in character.equipment if equipment.slot == slot),
-        None,
-    )
+    existing_equipment = CharacterEquipment.query.filter_by(
+        character_id=character.id,
+        slot=slot,
+    ).first()
     if existing_equipment:
         db.session.delete(existing_equipment)
+
     db.session.add(CharacterEquipment(character=character, item=item, slot=slot))
     return None
 
 
 def unequip_item(character: Character, item_id: int) -> tuple[Any, int] | None:
     """Return an equipped item to the character's inventory."""
-    equipment = next(
-        (
-            equipment
-            for equipment in character.equipment
-            if equipment.item and equipment.item.id == item_id
-        ),
-        None,
-    )
+    equipment = CharacterEquipment.query.filter_by(
+        character_id=character.id,
+        item_id=item_id,
+    ).first()
     if not equipment:
         return json_error('Equipment not found', 404)
     db.session.delete(equipment)
+    if equipment.item is not None:
+        equipment.item.equipment = None
     return None
 
 

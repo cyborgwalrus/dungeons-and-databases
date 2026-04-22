@@ -77,9 +77,9 @@ def create_encounter_payload(character=None) -> dict[str, Any] | None:
         return None
 
     return {
-        'encounter': encounter.to_dict(),
-        'combat': combat.to_dict(),
-        'character': character.to_dict(),
+        'encounter': encounter.to_response().model_dump(),
+        'combat': combat.to_response().model_dump(),
+        'character': character.to_response().model_dump(),
     }
 
 

@@ -29,6 +29,7 @@ def app(tmp_path_factory):
     )
 
     with flask_app.app_context():
+        db.init_app(flask_app)
         db.session.remove()
         db.drop_all()
         db.create_all()

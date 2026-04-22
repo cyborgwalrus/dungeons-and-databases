@@ -4,15 +4,12 @@ from __future__ import annotations
 
 from flask import request
 from flask_restful import Resource
+from pydantic import ValidationError
 
 from backend.db.models import Item, db
+from backend.db.schemas import ItemCreateRequest
 from backend.utils.game_utils import add_inventory_item
-from backend.utils.route_helpers import (
-    get_json_data,
-    json_error,
-    parse_string_list,
-    require_current_character,
-)
+from backend.utils.route_helpers import json_error, require_current_character
 from backend.utils.api_response_cache import invalidate_user_inventory_cache
 
 
@@ -25,32 +22,32 @@ class ItemListResource(Resource):
         if error_response:
             return error_response
         assert character is not None
-        data = get_json_data(request)
+        data = request.get_json(silent=True) or {}
 
         if isinstance(data, list):
             source_ids = data
         else:
             source_id = data.get('item_type_id', data.get('item_id'))
-            source_ids = [source_id] if source_id is not None else []
-
-        if not source_ids:
-            return json_error('item_type_id is required')
-
-        source_ids, error_response = parse_string_list(source_ids, 'item_type_id')
-        if error_response:
-            return error_response
-        assert source_ids is not None
+            source_ids = [source_id] if source_id is not None else [None]
 
         created_items: list[Item] = []
         for source_id in source_ids:
-            item = add_inventory_item(character, source_id)
+            try:
+                if source_id is None:
+                    payload = ItemCreateRequest.model_validate({})
+                else:
+                    payload = ItemCreateRequest.model_validate({'item_type_id': source_id})
+            except ValidationError as error:
+                return json_error(error.errors()[0].get('msg', 'Invalid payload'))
+
+            item = add_inventory_item(character, payload.item_type_id)
             if not item:
                 return json_error('Item not found', 404)
             created_items.append(item)
 
         db.session.commit()
         invalidate_user_inventory_cache(character.user_id)
-        return [item.to_dict() for item in created_items], 201
+        return [item.to_response().model_dump() for item in created_items], 201
 
 
 class ItemResource(Resource):
@@ -60,7 +57,7 @@ class ItemResource(Resource):
         """Read or delete a single inventory item."""
         if item.is_equipped:
             return json_error('Item not found', 404)
-        return item.to_dict()
+        return item.to_response().model_dump()
 
     def delete(self, item: Item):
         """Remove an item from the current character's inventory."""

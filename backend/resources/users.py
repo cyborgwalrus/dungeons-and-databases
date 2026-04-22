@@ -2,12 +2,10 @@
 
 from flask import request
 from flask_restful import Resource
+from pydantic import ValidationError
 
-from backend.db.models import User, db
-from backend.utils.route_helpers import (
-    get_json_data,
-    parse_required_string,
-)
+from backend.db.models import Item, User, db
+from backend.db.schemas import UserUpdateRequest
 from backend.utils.api_response_cache import (
     get_cached_user_data,
     get_cached_user_inventory_data,
@@ -15,6 +13,7 @@ from backend.utils.api_response_cache import (
     invalidate_user_profile_cache,
     invalidate_user_state_cache,
 )
+from backend.utils.route_helpers import json_error
 
 
 class UserResource(Resource):
@@ -22,31 +21,29 @@ class UserResource(Resource):
 
     def get(self, user: User):
         """Read, update, or delete a user profile."""
+        assert user.id is not None
         return get_cached_user_data(user.id)
 
     def put(self, user: User):
         """Update a user's profile fields."""
-        data = get_json_data(request)
-        if 'username' in data:
-            username, error_response = parse_required_string(data, 'username')
-            if error_response:
-                return error_response
-            assert username is not None
-            user.username = username
-        if 'password' in data:
-            password, error_response = parse_required_string(data, 'password')
-            if error_response:
-                return error_response
-            assert password is not None
-            user.password = password
+        assert user.id is not None
+        data = request.get_json(silent=True) or {}
+        try:
+            payload = UserUpdateRequest.model_validate(data)
+        except ValidationError as error:
+            return json_error(error.errors()[0].get('msg', 'Invalid payload'))
+
+        for field_name, value in payload.model_dump(exclude_unset=True).items():
+            setattr(user, field_name, value)
 
         db.session.commit()
         invalidate_user_profile_cache(user.id)
-        return user.to_dict()
+        return user.to_response().model_dump()
 
     def delete(self, user: User):
         """Delete the authenticated user's account."""
-        character_ids = [character.id for character in user.characters]
+        assert user.id is not None
+        character_ids = [character.id for character in user.characters if character.id is not None]
         db.session.delete(user)
         db.session.commit()
         invalidate_user_state_cache(user.id, character_ids)
@@ -58,14 +55,22 @@ class UserItemsResource(Resource):
 
     def get(self, user: User):
         """List or clear the user's shared inventory."""
+        assert user.id is not None
         return get_cached_user_inventory_data(user.id)
 
     def delete(self, user: User):
         """Remove all items from the user's shared inventory."""
-        removable_items = [item for item in user.items if not item.is_equipped]
-        if removable_items:
-            for item in removable_items:
-                db.session.delete(item)
+        assert user.id is not None
+        inventory_items = [
+            item
+            for item in Item.query.all()
+            if item.user_id == user.id and not item.is_equipped
+        ]
+        deleted_count = 0
+        for item in inventory_items:
+            db.session.delete(item)
+            deleted_count += 1
+        if deleted_count:
             db.session.commit()
             invalidate_user_inventory_cache(user.id)
 

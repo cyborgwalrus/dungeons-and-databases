@@ -2,20 +2,16 @@
 
 from flask import request
 from flask_restful import Resource
+from pydantic import ValidationError
 
 from backend.db.models import Character, db
+from backend.db.schemas import CharacterCreateRequest, CharacterUpdateRequest, ItemSelectionRequest
 from backend.utils.game_utils import (
     get_player as get_current_character,
     issue_auth_token,
     seed_character_loadout,
 )
-from backend.utils.route_helpers import (
-    equip_item,
-    json_error,
-    parse_int_field,
-    require_item,
-    unequip_item,
-)
+from backend.utils.route_helpers import equip_item, json_error, require_item, unequip_item
 from backend.utils.api_response_cache import (
     get_cached_character_data,
     get_cached_character_equipment_data,
@@ -35,24 +31,17 @@ class CharacterListResource(Resource):
     def post(self, user):
         """List or create characters for a user."""
         data = request.get_json(silent=True) or {}
-        name = (data.get('name') or '').strip() or 'Hero'
-
-        level, error_response = parse_int_field(data, 'level', minimum=1, default=1)
-        if error_response:
-            return error_response
-        health, error_response = parse_int_field(data, 'health', minimum=0, default=100)
-        if error_response:
-            return error_response
-        damage, error_response = parse_int_field(data, 'damage', minimum=0, default=10)
-        if error_response:
-            return error_response
+        try:
+            payload = CharacterCreateRequest.model_validate(data)
+        except ValidationError as error:
+            return json_error(error.errors()[0].get('msg', 'Invalid payload'))
 
         character = Character(
             user_id=user.id,
-            name=name,
-            level=level,
-            health=health,
-            damage=damage,
+            name=payload.name or 'Hero',
+            level=payload.level,
+            health=payload.health,
+            damage=payload.damage,
         )
         db.session.add(character)
         db.session.flush()
@@ -60,7 +49,7 @@ class CharacterListResource(Resource):
         db.session.commit()
         invalidate_user_characters_cache(user.id)
         invalidate_user_inventory_cache(user.id)
-        return character.to_dict(), 201
+        return character.to_response().model_dump(), 201
 
 
 class CharacterResource(Resource):
@@ -87,27 +76,16 @@ class CharacterResource(Resource):
         """Update basic character stats from the request payload."""
         data = request.get_json(silent=True) or {}
         try:
-            if 'health' in data:
-                health = int(data['health'])
-                if health < 0:
-                    return json_error('health must be non-negative')
-                character.health = health
-            if 'damage' in data:
-                damage = int(data['damage'])
-                if damage < 0:
-                    return json_error('damage must be non-negative')
-                character.damage = damage
-            if 'level' in data:
-                level = int(data['level'])
-                if level < 1:
-                    return json_error('level must be at least 1')
-                character.level = level
-        except (TypeError, ValueError):
-            return json_error('health, damage, and level must be valid integers')
+            payload = CharacterUpdateRequest.model_validate(data)
+        except ValidationError as error:
+            return json_error(error.errors()[0].get('msg', 'Invalid payload'))
+
+        for field_name, value in payload.model_dump(exclude_unset=True).items():
+            setattr(character, field_name, value)
 
         db.session.commit()
         invalidate_user_characters_cache(character.user_id, [character.id])
-        return character.to_dict()
+        return character.to_response().model_dump()
 
 
 class CharacterSelectResource(Resource):
@@ -116,7 +94,11 @@ class CharacterSelectResource(Resource):
     def post(self, character):
         """Set the active character in the auth token."""
         token = issue_auth_token(character.user_id, character.id)
-        return {'message': 'Character selected', 'character': character.to_dict(), 'token': token}
+        return {
+            'message': 'Character selected',
+            'character': character.to_response().model_dump(),
+            'token': token,
+        }
 
 
 class CharacterFullHealResource(Resource):
@@ -128,7 +110,7 @@ class CharacterFullHealResource(Resource):
         db.session.commit()
         invalidate_user_characters_cache(character.user_id, [character.id])
 
-        return character.to_dict()
+        return character.to_response().model_dump()
 
 
 class CharacterEquipmentResource(Resource):
@@ -141,13 +123,11 @@ class CharacterEquipmentResource(Resource):
     def post(self, character):
         """Equip an item from the character's inventory."""
         data = request.get_json(silent=True) or {}
-        item_id = data.get('item_id')
-        if item_id is None:
-            return json_error('item_id is required')
-        item_id, error_response = parse_int_field(data, 'item_id', minimum=1)
-        if error_response:
-            return error_response
-        assert item_id is not None
+        try:
+            payload = ItemSelectionRequest.model_validate(data)
+        except ValidationError as error:
+            return json_error(error.errors()[0].get('msg', 'Invalid payload'))
+        item_id = payload.item_id
 
         item, error_response = require_item(
             character,
@@ -168,8 +148,8 @@ class CharacterEquipmentResource(Resource):
         invalidate_user_inventory_cache(character.user_id)
         return {
             'message': 'Item equipped',
-            'item': item.to_dict(),
-            'character': character.to_dict(),
+            'item': item.to_response().model_dump(),
+            'character': character.to_response().model_dump(),
         }
 
 
@@ -188,7 +168,7 @@ class CharacterEquipmentItemResource(Resource):
         invalidate_user_inventory_cache(character.user_id)
         return {
             'message': 'Item unequipped',
-            'character': character.to_dict(),
+            'character': character.to_response().model_dump(),
         }
 
 

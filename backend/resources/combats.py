@@ -29,9 +29,7 @@ def check_character_death(health: int) -> bool:
 
 def _serialize_combat_character(character, current_health: int) -> dict[str, Any]:
     """Build the player payload returned to the dungeon UI."""
-    character_data = character.to_dict()
-    character_data['health'] = current_health
-    return character_data
+    return character.to_response(health=current_health).model_dump()
 
 
 def _destroy_active_loot_and_encounter(character) -> None:
@@ -79,7 +77,7 @@ def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
                 'player_died': True,
                 'encounter': encounter,
                 'combat': combat,
-                'character': _serialize_combat_character(character, combat.character_health),
+                'character': character.to_response(health=combat.character_health).model_dump(),
             }
 
         return {
@@ -92,7 +90,7 @@ def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
             'player_died': False,
             'encounter': encounter,
             'combat': combat,
-            'character': _serialize_combat_character(character, combat.character_health),
+            'character': character.to_response(health=combat.character_health).model_dump(),
         }
 
     message_lines = [
@@ -121,7 +119,7 @@ def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
         'player_died': False,
         'encounter': next_encounter,
         'combat': next_combat,
-        'character': character.to_dict(),
+        'character': character.to_response().model_dump(),
     }
 
 
@@ -144,7 +142,7 @@ def _resolve_run_turn(character, encounter: Encounter) -> dict[str, Any]:
             'dice_roll': dice_roll,
             'encounter': encounter,
             'combat': combat,
-            'character': character.to_dict(),
+            'character': character.to_response().model_dump(),
         }
 
     damage_taken = _combat_damage_roll(combat.enemy_damage)
@@ -165,7 +163,7 @@ def _resolve_run_turn(character, encounter: Encounter) -> dict[str, Any]:
             'dice_roll': dice_roll,
             'encounter': encounter,
             'combat': combat,
-            'character': character.to_dict(),
+            'character': character.to_response().model_dump(),
         }
 
     return {
@@ -181,7 +179,7 @@ def _resolve_run_turn(character, encounter: Encounter) -> dict[str, Any]:
         'dice_roll': dice_roll,
         'encounter': encounter,
         'combat': combat,
-        'character': _serialize_combat_character(character, combat.character_health),
+        'character': character.to_response(health=combat.character_health).model_dump(),
     }
 
 
@@ -234,14 +232,14 @@ def build_combat_response(outcome: dict[str, Any]) -> Any:
             if outcome['player_died']
             or outcome.get('success', False)
             or encounter is None
-            else encounter.to_dict()
+            else encounter.to_response().model_dump()
         ),
         'combat': (
             None
             if outcome['player_died']
             or outcome.get('success', False)
             or combat is None
-            else combat.to_dict()
+            else combat.to_response().model_dump()
         ),
         'message': outcome['message'],
         'victory': outcome['victory'],

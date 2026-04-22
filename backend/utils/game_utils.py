@@ -185,15 +185,16 @@ def clear_loot_flags(player: Character) -> None:
     """Clear the loot marker from any items currently held by the player."""
     if not player.user:
         return
-    for item in player.user.items:
-        if item.is_loot:
-            item.is_loot = False
+    for item in Item.query.filter_by(user_id=player.user_id, is_loot=True).all():
+        item.is_loot = False
 
 
 def destroy_loot_items(player: Character) -> None:
     """Delete all loot items from the player's inventory."""
     if not player.user:
         return
-    loot_items = [item for item in player.user.items if item.is_loot and not item.is_equipped]
+    loot_items = Item.query.filter_by(user_id=player.user_id, is_loot=True).all()
     for item in loot_items:
+        if item.is_equipped:
+            continue
         db.session.delete(item)

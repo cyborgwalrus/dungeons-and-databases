@@ -50,7 +50,7 @@ def test_character_update_validation_and_equipment_round_trip(client, entities):
         json={'level': 0},
     )
     assert invalid_update.status_code == 400
-    assert invalid_update.get_json()['error'] == 'level must be at least 1'
+    assert invalid_update.get_json()['error'] == 'Input should be greater than or equal to 1'
 
     valid_update = client.put(
         f'/api/characters/{character_id}',

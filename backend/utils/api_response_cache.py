@@ -27,9 +27,7 @@ def _load_user_characters_state(user_id: int) -> User | None:
 
 
 def _load_user_inventory_state(user_id: int) -> User | None:
-    return User.query.options(
-        selectinload(User.items).selectinload(Item.equipment),
-    ).get(user_id)
+    return User.query.get(user_id)
 
 
 def _load_character_state(character_id: int, user_id: int) -> Character | None:
@@ -42,7 +40,7 @@ def _load_character_state(character_id: int, user_id: int) -> Character | None:
 def get_cached_user_data(user_id: int) -> dict[str, Any] | None:
     """Return a cached serialized user profile."""
     user = _load_user_state(user_id)
-    return user.to_dict() if user else None
+    return user.to_response().model_dump() if user else None
 
 
 @cache.memoize(timeout=600)
@@ -51,7 +49,7 @@ def get_cached_user_characters_data(user_id: int) -> list[dict[str, Any]]:
     user = _load_user_characters_state(user_id)
     if not user:
         return []
-    return [character.to_dict() for character in user.characters]
+    return [character.to_response().model_dump() for character in user.characters]
 
 
 @cache.memoize(timeout=600)
@@ -60,14 +58,22 @@ def get_cached_user_inventory_data(user_id: int) -> list[dict[str, Any]]:
     user = _load_user_inventory_state(user_id)
     if not user:
         return []
-    return [item.to_dict() for item in user.items if not item.is_equipped]
+    equipped_item_ids = {
+        equipment.item_id
+        for equipment in CharacterEquipment.query.join(Item).filter(Item.user_id == user_id).all()
+    }
+    return [
+        item.to_response().model_dump()
+        for item in Item.query.filter_by(user_id=user_id).all()
+        if item.id not in equipped_item_ids
+    ]
 
 
 @cache.memoize(timeout=300)
 def get_cached_character_data(character_id: int, user_id: int) -> dict[str, Any] | None:
     """Return a cached serialized character snapshot."""
     character = _load_character_state(character_id, user_id)
-    return character.to_dict() if character else None
+    return character.to_response().model_dump() if character else None
 
 
 @cache.memoize(timeout=300)
@@ -76,7 +82,7 @@ def get_cached_character_equipment_data(character_id: int, user_id: int) -> list
     character = _load_character_state(character_id, user_id)
     if not character:
         return []
-    return [equipment.item.to_dict() for equipment in character.equipment if equipment.item]
+    return [equipment.item.to_response().model_dump() for equipment in character.equipment if equipment.item]
 
 
 def invalidate_user_profile_cache(user_id: int) -> None:

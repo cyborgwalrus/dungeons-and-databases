@@ -58,15 +58,15 @@ def test_character_list_and_equipment_branches(client, entities):
 
     invalid_level = client.post(f'/api/users/{user.id}/characters', headers=headers, json={'name': 'Bad', 'level': 0})
     assert invalid_level.status_code == 400
-    assert invalid_level.get_json()['error'] == 'level must be a positive integer'
+    assert invalid_level.get_json()['error'] == 'Input should be greater than or equal to 1'
 
     invalid_health = client.post(f'/api/users/{user.id}/characters', headers=headers, json={'name': 'Bad', 'health': -1})
     assert invalid_health.status_code == 400
-    assert invalid_health.get_json()['error'] == 'health must be non-negative'
+    assert invalid_health.get_json()['error'] == 'Input should be greater than or equal to 0'
 
     invalid_damage = client.post(f'/api/users/{user.id}/characters', headers=headers, json={'name': 'Bad', 'damage': -1})
     assert invalid_damage.status_code == 400
-    assert invalid_damage.get_json()['error'] == 'damage must be non-negative'
+    assert invalid_damage.get_json()['error'] == 'Input should be greater than or equal to 0'
 
     character_lookup = client.get(f'/api/characters/{character_id}', headers=headers)
     assert character_lookup.status_code == 200
@@ -90,7 +90,7 @@ def test_character_list_and_equipment_branches(client, entities):
 
     no_item_payload = client.post(f'/api/characters/{character_id}/equipment', headers=headers, json={})
     assert no_item_payload.status_code == 400
-    assert no_item_payload.get_json()['error'] == 'item_id is required'
+    assert no_item_payload.get_json()['error'] == 'Field required'
 
     inventory_character = entities.create_character(user, name='Carrier', seed_loadout=False)
     positive_item_id = entities.create_inventory_item(inventory_character, 'steel_sword').id
