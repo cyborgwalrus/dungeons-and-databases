@@ -118,6 +118,7 @@ class Character(db.Model):
 class Encounter(db.Model):
     """Active dungeon encounter tied to a character and enemy template."""
     __tablename__ = 'encounter'
+    __table_args__ = {'sqlite_autoincrement': True}
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
 
@@ -150,6 +151,7 @@ class Encounter(db.Model):
 class Combat(db.Model):
     """Volatile player combat state attached to a single encounter."""
     __tablename__ = 'combat'
+    __table_args__ = {'sqlite_autoincrement': True}
 
     id: Mapped[int] = db.Column(db.Integer, primary_key=True)
     encounter_id: Mapped[int] = db.Column(db.Integer, db.ForeignKey('encounter.id'), nullable=False, unique=True, index=True)
