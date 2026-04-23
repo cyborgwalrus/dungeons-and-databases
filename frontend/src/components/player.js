@@ -2,16 +2,16 @@ import { escapeHtml } from '../helpers.js';
 
 /**
  * Derive the displayed combat stats from a player snapshot.
- * Keeps the same fallback logic in one place for all HUD panels.
+ * The backend now provides the complete character snapshot, so the UI reads it directly.
  */
 export function getPlayerStatValues(player) {
-  const level = player?.level || 1;
-  const bonusHealth = player?.bonus_health || 0;
-  const bonusDamage = player?.bonus_damage || 0;
-  const maxHealth = player?.max_health ?? ((100 + (Math.max(0, level - 1) * 10)) + bonusHealth);
-  const totalDamage = (player?.damage || 0) + bonusDamage;
-  const experience = player?.experience || 0;
-  const experienceToNextLevel = player?.experience_to_next_level || (100 + (Math.max(0, level - 1) * 50));
+  const level = player?.level;
+  const bonusHealth = player?.bonus_health;
+  const bonusDamage = player?.bonus_damage;
+  const maxHealth = player?.max_health;
+  const totalDamage = player?.damage + bonusDamage;
+  const experience = player?.experience;
+  const experienceToNextLevel = player?.experience_to_next_level;
 
   return {
     level,
@@ -31,8 +31,8 @@ export function syncVerticalHealthBar(player, container = document, barId = 'pla
   const bar = container.getElementById ? container.getElementById(barId) : container.querySelector(`#${barId}`);
   if (!bar) return;
 
-  const currentHealth = Math.max(0, Number(player.health) || 0);
-  const maxHealth = Math.max(1, Number(stats.maxHealth) || 1);
+  const currentHealth = Number(player.health);
+  const maxHealth = Number(stats.maxHealth);
   const fillRatio = Math.max(0, Math.min(1, currentHealth / maxHealth));
   const fill = bar.querySelector('.vertical-health-bar-fill');
   if (fill) fill.style.height = `${fillRatio * 100}%`;
@@ -47,8 +47,8 @@ export function syncVerticalXpBar(player, container = document, barId = 'player-
   const bar = container.getElementById ? container.getElementById(barId) : container.querySelector(`#${barId}`);
   if (!bar) return;
 
-  const currentExperience = Math.max(0, Number(player.experience) || 0);
-  const maxExperience = Math.max(1, Number(stats.experienceToNextLevel) || 1);
+  const currentExperience = Number(player.experience);
+  const maxExperience = Number(stats.experienceToNextLevel);
   const fillRatio = Math.max(0, Math.min(1, currentExperience / maxExperience));
   const fill = bar.querySelector('.vertical-health-bar-fill');
   if (fill) fill.style.height = `${fillRatio * 100}%`;

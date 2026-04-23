@@ -27,7 +27,7 @@ export function scoreItem(item) {
 export function isBetterThanEquipped(item, equippedBySlot) {
   if (!item || !equippedBySlot) return false;
 
-  const itemSlot = item.slot;
+  const itemSlot = item.slot_type;
   if (!itemSlot) return false; // Items without slots can't be compared
 
   const equippedInSlot = equippedBySlot[itemSlot];
@@ -86,8 +86,8 @@ export function buildEquippedSlotMap(equippedArray) {
 
   const map = {};
   equippedArray.forEach((item) => {
-    if (item && item.slot) {
-      map[item.slot] = item;
+    if (item && item.slot_type) {
+      map[item.slot_type] = item;
     }
   });
   return map;

@@ -27,7 +27,7 @@ export function renderInventoryGrid(opts) {
   // Track best item per slot for upgrade highlighting
   const bestBySlot = new Map();
   sortedInventory.forEach(item => {
-    const slot = String(item?.slot || '').toLowerCase();
+    const slot = String(item?.slot_type || '').toLowerCase();
     if (!slot) return;
 
     const currentBest = bestBySlot.get(slot);
@@ -57,7 +57,7 @@ export function renderInventoryGrid(opts) {
    * Used to highlight upgrades in the inventory grid.
    */
   function isBetterThanEquipped(item) {
-    const slot = String(item?.slot || '').toLowerCase();
+    const slot = String(item?.slot_type || '').toLowerCase();
     if (!slot) return false;
     const bestItem = bestBySlot.get(slot);
     if (!bestItem || bestItem.id !== item.id) return false;
@@ -121,7 +121,7 @@ export function renderInventoryGrid(opts) {
       dragData: {
         itemId: Number(card.getAttribute('data-item-id')),
         source: card.getAttribute('data-item-source') || 'inventory',
-        slot: card.getAttribute('data-item-slot') || '',
+        slot_type: card.getAttribute('data-item-slot-type') || '',
       }
     });
 

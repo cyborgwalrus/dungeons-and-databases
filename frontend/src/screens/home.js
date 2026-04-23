@@ -31,7 +31,7 @@ export async function renderHome(root, deps) {
   /** Fetch the current character, shared inventory, and equipped items separately. */
   async function loadCharacterViewModel() {
     const characterId = state.player?.id;
-    const userId = state.currentUser?.id || state.player?.user_id;
+    const userId = state.currentUser?.id;
     if (!characterId) return;
 
     const [characterResponse, inventoryResponse, equipmentResponse] = await Promise.all([
@@ -148,7 +148,7 @@ export async function renderHome(root, deps) {
   }
 
   document.getElementById('clear-inventory-btn').addEventListener('click', async () => {
-    const userId = state.currentUser?.id || state.player?.user_id;
+    const userId = state.currentUser?.id;
     const clearButton = document.getElementById('clear-inventory-btn');
     if (!clearButton) return;
 

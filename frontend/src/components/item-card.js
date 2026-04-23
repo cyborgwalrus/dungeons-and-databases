@@ -7,7 +7,7 @@ import { escapeHtml } from '../helpers.js';
 export function renderItemCardHtml(item, { className = '', source = 'inventory', icon = '', name = '', stats = '', better = false } = {}) {
   const classes = ['inventory-card', className, better ? 'inventory-card--better' : ''].filter(Boolean).join(' ');
   return `
-    <button type="button" draggable="true" class="${classes}" data-item-id="${item.id}" data-item-source="${escapeHtml(source)}" data-item-slot="${escapeHtml(item?.slot || '')}">
+    <button type="button" draggable="true" class="${classes}" data-item-id="${item.id}" data-item-source="${escapeHtml(source)}" data-item-slot-type="${escapeHtml(item?.slot_type || '')}">
       <div class="item-icon">${icon}</div>
       <div class="card-details">
         <div class="item-name">${escapeHtml(name)}</div>

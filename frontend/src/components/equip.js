@@ -18,7 +18,7 @@ export function renderEquipPanel(opts) {
   ];
 
   const slotsHtml = SLOT_DEFS.map((slotDef, slotNum) => {
-    const eq = (equipped || []).find(e => e.slot === slotDef.type);
+    const eq = (equipped || []).find(e => e.slot_type === slotDef.type);
     if (eq) {
       return `
         <div class="equip-slot" data-slot="${slotNum}" data-slot-type="${slotDef.type}">
@@ -48,7 +48,7 @@ export function renderEquipPanel(opts) {
       validatePayload: (event) => {
         const payload = getItemDragData(event);
         if (!payload || payload.source !== 'inventory') return null;
-        return payload.slot && payload.slot === slotType ? payload : null;
+        return payload.slot_type && payload.slot_type === slotType ? payload : null;
       },
       onDrop: async (payload) => {
         try {

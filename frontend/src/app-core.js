@@ -40,8 +40,8 @@ function updateEnemyPanel(enemy) {
   const enHealth = document.getElementById('enemy-health');
   const enDamage = document.getElementById('enemy-damage');
   const enemyBar = document.getElementById('enemy-health-bar');
-  if (enName) enName.textContent = `Enemy: ${enemy.name || 'None'}`;
-  if (enLevel) enLevel.textContent = `${enemy.level || ''}`;
+  if (enName) enName.textContent = `Enemy: ${enemy.name}`;
+  if (enLevel) enLevel.textContent = `${enemy.level}`;
   if (enHealth) enHealth.textContent = `${enemy.health} / ${enemy.max_health} HP`;
   if (enDamage) enDamage.textContent = `${enemy.damage}`;
   if (enemyBar) {
@@ -58,12 +58,12 @@ function updateEnemyPanel(enemy) {
 function buildDungeonEnemy(combat) {
   return {
     ...(combat || {}),
-    name: combat?.enemy_name || combat?.name || 'None',
-    description: combat?.enemy_description || combat?.description || '',
-    level: combat?.enemy_level || combat?.level || '',
-    health: combat?.enemy_current_health ?? combat?.health ?? 0,
-    max_health: combat?.enemy_max_health ?? combat?.max_health ?? 0,
-    damage: combat?.enemy_damage ?? combat?.damage ?? 0,
+    name: combat?.enemy_name,
+    description: combat?.enemy_description,
+    level: combat?.enemy_level,
+    health: combat?.enemy_current_health,
+    max_health: combat?.enemy_max_health,
+    damage: combat?.enemy_damage,
   };
 }
 
