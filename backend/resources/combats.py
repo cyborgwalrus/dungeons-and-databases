@@ -114,8 +114,7 @@ def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
 
     character.health = combat.character_health
     _apply_victory_experience(character, encounter, message_lines)
-
-    character.health = combat.character_health
+    combat.character_health = character.health
 
     return {
         'message': '\n'.join(message_lines),
