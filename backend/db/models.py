@@ -1,8 +1,6 @@
 """SQLModel table models for users, characters, encounters, combat, and items."""
 
-from __future__ import annotations
-
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Optional
 
 from sqlmodel import Column, Enum, Field, Relationship, SQLModel
 
@@ -169,7 +167,7 @@ class Encounter(ModelBase, table=True):
     enemy_level: int = Field(default=1, ge=1)
 
     character: Character = Relationship(back_populates='encounters')
-    combat: 'Combat | None' = Relationship(
+    combat: Optional['Combat'] = Relationship(
         back_populates='encounter',
         sa_relationship_kwargs={
             'uselist': False,
@@ -240,7 +238,7 @@ class Item(ModelBase, table=True):
     is_loot: bool = False
 
     user: User = Relationship(back_populates='items')
-    equipment: 'CharacterEquipment | None' = Relationship(
+    equipment: Optional['CharacterEquipment'] = Relationship(
         back_populates='item',
         sa_relationship_kwargs={
             'uselist': False,
