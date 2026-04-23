@@ -9,10 +9,10 @@ echo "[start-backend] starting with WIPE_DB_ON_RESTART=${WIPE_DB_ON_RESTART}"
 
 if [ "${WIPE_DB_ON_RESTART}" = 'true' ]; then
   echo "[start-backend] wiping DB on restart"
-  flask --app backend.app delete-db || true
+  flask --app backend.app clear-db || true
 fi
 
-echo "[start-backend] initializing DB"
+echo "[start-backend] initializing DB tables"
 flask --app backend.app init-db || true
 
 echo "[start-backend] launching Gunicorn"

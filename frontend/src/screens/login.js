@@ -42,6 +42,9 @@ export async function renderLogin(root, deps) {
           <div class="screen-button-stack auth-button-group">
             <button id="signin-btn" class="dungeon-button auth-button">Sign In</button>
             <button id="signup-btn" class="dungeon-button dungeon-button-secondary auth-button">Sign Up</button>
+            <button id="api-docs-link" class="dungeon-button dungeon-button-secondary auth-button" type="button">
+              API DOCS
+            </button>
           </div>
         </div>
       </div>
@@ -77,4 +80,7 @@ export async function renderLogin(root, deps) {
 
   document.getElementById('signin-btn').addEventListener('click', () => submitAuth('/login/signin', 'Sign in failed'));
   document.getElementById('signup-btn').addEventListener('click', () => submitAuth('/login/signup', 'Sign up failed'));
+  document.getElementById('api-docs-link').addEventListener('click', () => {
+    window.open('/api/docs', '_blank', 'noreferrer');
+  });
 }

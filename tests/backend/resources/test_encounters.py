@@ -21,7 +21,7 @@ def test_encounter_creation_returns_404_when_enemy_catalog_is_empty(client, enti
     character = entities.create_character(user, name='Wanderer')
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.encounters.get_all_enemy_type_data', return_value=[]):
+    with patch('backend.resources.encounters.enemy_types.get_all', return_value=[]):
         response = client.post('/api/encounters', headers=entities.auth_headers(token))
 
     assert response.status_code == 404

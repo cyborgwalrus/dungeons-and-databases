@@ -166,3 +166,18 @@ def test_combat_rejects_invalid_action_and_missing_combat(client, entities):
     bad_action = client.post(f'/api/combats/{combat_id}/dance', headers=entities.auth_headers(token))
     assert bad_action.status_code == 400
     assert bad_action.get_json()['error'] == 'Invalid combat action'
+
+
+def test_combat_routes_require_authentication(client, entities):
+    user = entities.create_user(username='runner', password='secret')
+    character = entities.create_character(user, name='Scout')
+    token = entities.token_for(user, character)
+
+    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]):
+        encounter_response = client.post('/api/encounters', headers=entities.auth_headers(token))
+
+    combat_id = encounter_response.get_json()['combat']['id']
+    response = client.post(f'/api/combats/{combat_id}/attack')
+
+    assert response.status_code == 401
+    assert response.get_json()['error'] == 'Unauthorized'

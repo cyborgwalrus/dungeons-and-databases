@@ -1,3 +1,12 @@
+def test_user_endpoints_require_authentication(client, entities):
+    user = entities.create_user(username='owner', password='secret')
+
+    response = client.get(f'/api/users/{user.id}')
+
+    assert response.status_code == 401
+    assert response.get_json()['error'] == 'Unauthorized'
+
+
 def test_user_endpoints_enforce_ownership_and_allow_profile_updates(client, entities):
     owner = entities.create_user(username='owner', password='secret')
     intruder = entities.create_user(username='intruder', password='secret')
@@ -24,5 +33,5 @@ def test_user_endpoints_enforce_ownership_and_allow_profile_updates(client, enti
     assert delete_response.get_json()['message'] == 'User deleted'
 
     deleted_lookup = client.get(f'/api/users/{owner.id}', headers=entities.auth_headers(owner_token))
-    assert deleted_lookup.status_code == 404
-    assert deleted_lookup.get_json()['error'] == 'User not found'
+    assert deleted_lookup.status_code == 401
+    assert deleted_lookup.get_json()['error'] == 'Unauthorized'

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import NotFound, Unauthorized
 from werkzeug.routing import BaseConverter
 
 from backend.db.models import Combat, Character, Item, User
@@ -41,7 +41,9 @@ class UserConverter(OwnedModelConverter):
         user_id = self._parse_int(value)
         user = User.query.get(user_id)
         current_user = get_current_user()
-        if not user or not current_user or current_user.id != user.id:
+        if not current_user:
+            raise Unauthorized(description='Unauthorized')
+        if not user or current_user.id != user.id:
             raise self._not_found()
         return user
 
@@ -55,7 +57,9 @@ class CharacterConverter(OwnedModelConverter):
         character_id = self._parse_int(value)
         character = Character.query.get(character_id)
         current_user = get_current_user()
-        if not character or not current_user or character.user_id != current_user.id:
+        if not current_user:
+            raise Unauthorized(description='Unauthorized')
+        if not character or character.user_id != current_user.id:
             raise self._not_found()
         return character
 
@@ -69,7 +73,9 @@ class ItemConverter(OwnedModelConverter):
         item_id = self._parse_int(value)
         item = Item.query.get(item_id)
         current_user = get_current_user()
-        if not item or not current_user or item.user_id != current_user.id:
+        if not current_user:
+            raise Unauthorized(description='Unauthorized')
+        if not item or item.user_id != current_user.id:
             raise self._not_found()
         return item
 
@@ -82,6 +88,9 @@ class CombatConverter(OwnedModelConverter):
     def to_python(self, value: str) -> Combat:
         combat_id = self._parse_int(value)
         combat = Combat.query.get(combat_id)
+        current_user = get_current_user()
+        if not current_user:
+            raise Unauthorized(description='Unauthorized')
         character = get_player()
         if not combat or not character or combat.character_id != character.id:
             raise self._not_found()

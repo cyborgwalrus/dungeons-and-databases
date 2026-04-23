@@ -1,4 +1,5 @@
 # Frontend (Static)
+
 Quick run (local static server):
 
 ```bash
@@ -24,5 +25,7 @@ docker compose up --build
 ```
 
 Notes:
-- The nginx frontend proxies `/api` to the backend container, so the browser only talks to `http://localhost:8080`.
-- If you run the static frontend without nginx, set `window.__API_BASE__` yourself or serve it through a proxy that forwards `/api`.
+
+- The frontend reverse proxy forwards `/api` to the backend container, so the browser only talks to `http://localhost:8080`.
+- If you run the static frontend without the proxy, set `window.__API_BASE__` yourself or serve it through a proxy that forwards `/api`.
+- The Swagger UI is available at `http://localhost:8080/api/docs` through the same `/api` proxy.

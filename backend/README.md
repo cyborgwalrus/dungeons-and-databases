@@ -99,3 +99,7 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 ## Deployment
 
 The backend container starts with `project/backend/start-backend.sh`, which initializes the database and then runs the API with a WSGI server on port `5000`.
+
+## API Docs
+
+Swagger UI is available at `/api/docs` through Flasgger, and the OpenAPI document is served from `/api/openapi.yaml`.

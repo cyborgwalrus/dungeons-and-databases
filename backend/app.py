@@ -1,10 +1,14 @@
 """Application entry point for the backend API."""
 
 import os
-from flask import Flask, jsonify
+from pathlib import Path
+
+import yaml
+from flasgger import Swagger
+from flask import Flask, jsonify, send_from_directory
 from flask_restful import Api
-from werkzeug.exceptions import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
+from werkzeug.exceptions import HTTPException
 
 from backend.db.models import db
 from backend.resources.authentication import register_auth_resources
@@ -40,6 +44,11 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 # Initialize database, cache and api
 db.init_app(app)
 init_cache(app)
+app.config['SWAGGER'] = {
+    'title': 'Dungeons & Databases API',
+    'uiversion': 3,
+    'openapi': '3.0.3',
+}
 app.url_map.converters.update(
     {
         'user': UserConverter,
@@ -49,6 +58,23 @@ app.url_map.converters.update(
     }
 )
 api = Api(app, prefix='/api')
+swagger_path = Path(__file__).with_name('openapi.yaml')
+swagger_template = yaml.safe_load(swagger_path.read_text(encoding='utf-8'))
+swagger_config = {
+    'headers': [],
+    'specs': [
+        {
+            'endpoint': 'apispec_1',
+            'route': '/api/apispec_1.json',
+            'rule_filter': lambda rule: False,
+            'model_filter': lambda tag: False,
+        }
+    ],
+    'static_url_path': '/flasgger_static',
+    'swagger_ui': True,
+    'specs_route': '/api/docs',
+}
+Swagger(app, config=swagger_config, template=swagger_template)
 
 
 @app.errorhandler(HTTPException)
@@ -58,6 +84,12 @@ def handle_http_exception(error):
     response.status_code = error.code or 500
     return response
 
+
+@app.get('/api/openapi.yaml')
+def openapi_yaml():
+    """Return the OpenAPI document used by Swagger UI."""
+    return send_from_directory(basedir, 'openapi.yaml', mimetype='text/yaml')
+
 register_auth_resources(api)
 register_user_resources(api)
 register_character_resources(api)
@@ -65,31 +97,23 @@ register_item_resources(api)
 register_encounter_resources(api)
 register_combat_resources(api)
 
-@app.cli.command('init-db')
-def init_db():
-    """Recreate the database."""
-    with app.app_context():
-        db.session.remove()
-        db.drop_all()
-        db.create_all()
-        cache.clear()
-    print('Database initialized (tables recreated)')
-
-
-@app.cli.command('delete-db')
-def delete_db():
-    """Drop the database tables and remove the SQLite database file."""
-    # Drop all tables, clear cache state, and remove the SQLite database file.
+@app.cli.command('clear-db')
+def clear_db():
+    """Drop the database tables and clear cached state."""
     with app.app_context():
         try:
-            # remove active session and drop tables
             db.session.remove()
             db.drop_all()
             cache.clear()
-            # remove DB file if exists
-            db_path = os.path.join(basedir, 'game.db')
-            if os.path.exists(db_path):
-                os.remove(db_path)
-            print('Database dropped and file removed')
+            print('Database cleared')
         except (OSError, SQLAlchemyError) as error:
-            print('Failed to delete database:', error)
+            print('Failed to clear database:', error)
+
+
+@app.cli.command('init-db')
+def init_db():
+    """Create the database tables and clear cached state."""
+    with app.app_context():
+        db.create_all()
+        cache.clear()
+        print('Database initialized')

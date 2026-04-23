@@ -18,14 +18,14 @@ Template data for items and enemies lives in Python modules under [reference_dat
 
 ### Data Reset in development mode
 
-If the Flask app is running in development mode using `FLASK_ENV=development`, the database is automatically wiped and recreated on every application restart. This allows for rapid iteration without manual cleanup. In production mode, the database persists across restarts. To manually reset the database in any environment, use the following Flask CLI commands:
+If the backend is started with `WIPE_DB_ON_RESTART=true`, the database is automatically cleared on every application restart and then reinitialized before the app launches. This allows for rapid iteration without manual cleanup. Otherwise, the database persists across restarts. To manually reset the database in any environment, use the following Flask CLI commands:
 
 ```bash
-# Create tables
-flask init-db
+# Drop the database state
+flask clear-db
 
-# Drop all tables and remove the database file
-flask delete-db
+# Recreate the database tables
+flask init-db
 ```
 
 ### Schema Details

@@ -12,6 +12,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: dnd_backend
+    command: /app/backend/start-backend.sh
     ports:
       - "5000:5000"
     environment:
