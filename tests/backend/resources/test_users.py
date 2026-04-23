@@ -13,8 +13,8 @@ def test_user_endpoints_enforce_ownership_and_allow_profile_updates(client, enti
     owner_token = entities.token_for(owner)
 
     forbidden_get = client.get(f'/api/users/{intruder.id}', headers=entities.auth_headers(owner_token))
-    assert forbidden_get.status_code == 404
-    assert forbidden_get.get_json()['error'] == 'User not found'
+    assert forbidden_get.status_code == 401
+    assert forbidden_get.get_json()['error'] == 'Unauthorized'
 
     get_response = client.get(f'/api/users/{owner.id}', headers=entities.auth_headers(owner_token))
     assert get_response.status_code == 200

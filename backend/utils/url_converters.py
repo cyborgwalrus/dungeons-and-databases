@@ -43,8 +43,10 @@ class UserConverter(OwnedModelConverter):
         current_user = get_current_user()
         if not current_user:
             raise Unauthorized(description='Unauthorized')
-        if not user or current_user.id != user.id:
+        if not user:
             raise self._not_found()
+        if current_user.id != user.id:
+            raise Unauthorized(description='Unauthorized')
         return user
 
 
@@ -59,8 +61,10 @@ class CharacterConverter(OwnedModelConverter):
         current_user = get_current_user()
         if not current_user:
             raise Unauthorized(description='Unauthorized')
-        if not character or character.user_id != current_user.id:
+        if not character:
             raise self._not_found()
+        if character.user_id != current_user.id:
+            raise Unauthorized(description='Unauthorized')
         return character
 
 
@@ -75,8 +79,10 @@ class ItemConverter(OwnedModelConverter):
         current_user = get_current_user()
         if not current_user:
             raise Unauthorized(description='Unauthorized')
-        if not item or item.user_id != current_user.id:
+        if not item:
             raise self._not_found()
+        if item.user_id != current_user.id:
+            raise Unauthorized(description='Unauthorized')
         return item
 
 
@@ -92,6 +98,8 @@ class CombatConverter(OwnedModelConverter):
         if not current_user:
             raise Unauthorized(description='Unauthorized')
         character = get_player()
-        if not combat or not character or combat.character_id != character.id:
+        if not combat or not character:
             raise self._not_found()
+        if combat.character_id != character.id:
+            raise Unauthorized(description='Unauthorized')
         return combat

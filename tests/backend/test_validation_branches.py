@@ -26,24 +26,26 @@ def test_user_and_character_resources_reject_unauthorized_or_invalid_updates(cli
     intruder_headers = entities.auth_headers(intruder_token)
 
     owner_lookup = client.get(f'/api/users/{owner.id}', headers=intruder_headers)
-    assert owner_lookup.status_code == 404
-    assert owner_lookup.get_json()['error'] == 'User not found'
+    assert owner_lookup.status_code == 401
+    assert owner_lookup.get_json()['error'] == 'Unauthorized'
 
     owner_update = client.put(f'/api/users/{owner.id}', headers=intruder_headers, json={'username': 'hijacked'})
-    assert owner_update.status_code == 404
-    assert owner_update.get_json()['error'] == 'User not found'
+    assert owner_update.status_code == 401
+    assert owner_update.get_json()['error'] == 'Unauthorized'
 
     create_response = client.post(f'/api/users/{owner.id}/characters', headers=owner_headers, json={'name': 'Hero'})
     character_id = create_response.get_json()['id']
 
     missing_character_list = client.get(f'/api/users/{intruder.id}/characters', headers=owner_headers)
-    assert missing_character_list.status_code == 404
-    assert missing_character_list.get_json()['error'] == 'User not found'
+    assert missing_character_list.status_code == 401
+    assert missing_character_list.get_json()['error'] == 'Unauthorized'
 
     missing_character_create = client.post(f'/api/users/{intruder.id}/characters', headers=owner_headers, json={'name': 'Hero'})
-    assert missing_character_create.status_code == 404
-    assert missing_character_create.get_json()['error'] == 'User not found'
-    assert client.get(f'/api/characters/{character_id}', headers=intruder_headers).status_code == 404
+    assert missing_character_create.status_code == 401
+    assert missing_character_create.get_json()['error'] == 'Unauthorized'
+    intruder_character_lookup = client.get(f'/api/characters/{character_id}', headers=intruder_headers)
+    assert intruder_character_lookup.status_code == 401
+    assert intruder_character_lookup.get_json()['error'] == 'Unauthorized'
 
     negative_health = client.put(f'/api/characters/{character_id}', headers=owner_headers, json={'health': -1})
     assert negative_health.status_code == 400

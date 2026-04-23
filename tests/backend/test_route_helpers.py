@@ -161,7 +161,7 @@ def test_route_helpers_user_and_character_guards(client, entities, monkeypatch):
         other_character.id,
     )
     assert missing_owner_character is None
-    assert missing_owner_error == ({'error': 'Character not found'}, 404)
+    assert missing_owner_error == ({'error': 'Unauthorized'}, 401)
 
 
 def test_route_helpers_item_mutators(entities):

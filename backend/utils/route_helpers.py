@@ -56,8 +56,10 @@ def require_character_owner(character_id: int) -> tuple[Character | None, tuple[
     assert user is not None
 
     character = Character.query.get(character_id)
-    if not character or character.user_id != user.id:
+    if not character:
         return None, json_error('Character not found', 404)
+    if character.user_id != user.id:
+        return None, json_error('Unauthorized', 401)
     return character, None
 
 

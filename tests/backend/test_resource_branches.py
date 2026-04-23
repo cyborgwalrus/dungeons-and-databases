@@ -1,5 +1,7 @@
 def test_user_profile_update_and_delete_paths(client, entities):
     user = entities.create_user(username='profile-user', password='secret')
+    observer = entities.create_user(username='observer', password='secret')
+    observer_headers = entities.auth_headers(entities.token_for(observer))
     token = entities.token_for(user)
     headers = entities.auth_headers(token)
 
@@ -20,15 +22,15 @@ def test_user_profile_update_and_delete_paths(client, entities):
     assert delete_response.status_code == 200
     assert delete_response.get_json()['message'] == 'User deleted'
 
-    deleted_user_lookup = client.get(f'/api/users/{user.id}', headers=headers)
+    deleted_user_lookup = client.get(f'/api/users/{user.id}', headers=observer_headers)
     assert deleted_user_lookup.status_code == 404
     assert deleted_user_lookup.get_json()['error'] == 'User not found'
 
-    deleted_character_list = client.get(f'/api/users/{user.id}/characters', headers=headers)
+    deleted_character_list = client.get(f'/api/users/{user.id}/characters', headers=observer_headers)
     assert deleted_character_list.status_code == 404
     assert deleted_character_list.get_json()['error'] == 'User not found'
 
-    deleted_inventory_lookup = client.get(f'/api/users/{user.id}/inventory', headers=headers)
+    deleted_inventory_lookup = client.get(f'/api/users/{user.id}/inventory', headers=observer_headers)
     assert deleted_inventory_lookup.status_code == 404
     assert deleted_inventory_lookup.get_json()['error'] == 'User not found'
 
@@ -41,8 +43,16 @@ def test_character_list_and_equipment_branches(client, entities):
     intruder_headers = entities.auth_headers(entities.token_for(intruder))
 
     unauthorized_list = client.get(f'/api/users/{intruder.id}/characters', headers=headers)
-    assert unauthorized_list.status_code == 404
-    assert unauthorized_list.get_json()['error'] == 'User not found'
+    assert unauthorized_list.status_code == 401
+    assert unauthorized_list.get_json()['error'] == 'Unauthorized'
+
+    unauthorized_profile = client.get(f'/api/users/{intruder.id}', headers=headers)
+    assert unauthorized_profile.status_code == 401
+    assert unauthorized_profile.get_json()['error'] == 'Unauthorized'
+
+    unauthorized_inventory = client.get(f'/api/users/{intruder.id}/inventory', headers=headers)
+    assert unauthorized_inventory.status_code == 401
+    assert unauthorized_inventory.get_json()['error'] == 'Unauthorized'
 
     create_response = client.post(
         f'/api/users/{user.id}/characters',
@@ -113,4 +123,6 @@ def test_character_list_and_equipment_branches(client, entities):
     assert missing_unequip.status_code == 404
     assert missing_unequip.get_json()['error'] == 'Item not found'
 
-    assert client.get(f'/api/characters/{character_id}', headers=intruder_headers).status_code == 404
+    intruder_character_lookup = client.get(f'/api/characters/{character_id}', headers=intruder_headers)
+    assert intruder_character_lookup.status_code == 401
+    assert intruder_character_lookup.get_json()['error'] == 'Unauthorized'

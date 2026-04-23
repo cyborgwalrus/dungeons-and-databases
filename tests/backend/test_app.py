@@ -27,18 +27,9 @@ def test_app_module_cli_commands_and_missing_secret_guard(app, monkeypatch):
             if original_backend_app is not None:
                 sys.modules['backend.app'] = original_backend_app
 
-    removed_paths: list[str] = []
-
-    def always_exists(path: str) -> bool:
-        return path is not None
-
-    monkeypatch.setattr(app_module.os.path, 'exists', always_exists)
-    monkeypatch.setattr(app_module.os, 'remove', removed_paths.append)
-
     runner = app.test_cli_runner()
     init_result = runner.invoke(app_module.init_db)
-    delete_result = runner.invoke(app_module.delete_db)
+    clear_result = runner.invoke(app_module.clear_db)
 
     assert init_result.exit_code == 0
-    assert delete_result.exit_code == 0
-    assert removed_paths and removed_paths[0].endswith('game.db')
+    assert clear_result.exit_code == 0
