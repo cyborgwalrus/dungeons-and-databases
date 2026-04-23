@@ -7,6 +7,7 @@ import yaml
 from flasgger import Swagger
 from flask import Flask, jsonify, send_from_directory
 from flask_restful import Api
+import flask_monitoringdashboard as dashboard
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 
@@ -96,6 +97,9 @@ register_character_resources(api)
 register_item_resources(api)
 register_encounter_resources(api)
 register_combat_resources(api)
+
+dashboard.config.init_from(file=str(Path(__file__).with_name('config.cfg')))
+dashboard.bind(app)
 
 @app.cli.command('clear-db')
 def clear_db():

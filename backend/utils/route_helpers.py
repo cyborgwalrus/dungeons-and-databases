@@ -98,7 +98,11 @@ def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
         slot=slot,
     ).first()
     if existing_equipment:
-        db.session.delete(existing_equipment)
+        existing_equipment.item = item
+        existing_equipment.item_id = item.id
+        existing_equipment.slot = slot
+        db.session.add(existing_equipment)
+        return None
 
     db.session.add(
         CharacterEquipment(
