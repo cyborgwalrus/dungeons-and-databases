@@ -42,13 +42,7 @@ password | string | Hashed password | -
 
 ### Character
 
-The Character table represents a playable character. Each character:
-
-- Belongs to a single user
-- Has basic attributes: name, level, health, damage, experience
-- Levels up when experience reaches the threshold and consumes that experience
-- Can have items equipped in specific equipment slots
-- Participates in dungeon encounters
+The Character table represents a playable character.
 
 Character | Type | Description | Relations
 -- | -- | -- | --
