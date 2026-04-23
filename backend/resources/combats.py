@@ -40,10 +40,30 @@ def _resolve_encounter_state(encounter: Encounter) -> Combat:
     if encounter.combat:
         return encounter.combat
     raise RuntimeError('Combat state is missing')
+
+
 def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
     """Resolve a single attack turn and return the resulting combat state."""
     enemy_name = encounter.enemy_name
     combat = _resolve_encounter_state(encounter)
+
+    if combat.enemy_current_health <= 0:
+        character.health = combat.character_health
+        next_enemy_level = max(1, encounter.enemy_level + 1)
+        next_encounter, next_combat = create_new_encounter(character, enemy_level=next_enemy_level)
+        return {
+            'message': (
+                f'You go deeper past the defeated {enemy_name}!\n'
+                'A new enemy emerges from the shadows!'
+            ),
+            'victory': False,
+            'items_dropped': [],
+            'player_died': False,
+            'encounter': next_encounter,
+            'combat': next_combat,
+            'character': character.to_response(health=combat.character_health).model_dump(),
+        }
+
     effective_damage = character.damage + character.bonus_damage
     player_hits = _combat_damage_roll(effective_damage)
     monster_hits = _combat_damage_roll(combat.enemy_damage)
@@ -95,18 +115,35 @@ def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
     character.health = combat.character_health
     _apply_victory_experience(character, encounter, message_lines)
 
-    db.session.delete(encounter)
-    next_enemy_level = max(1, encounter.enemy_level + 1)
-    next_encounter, next_combat = create_new_encounter(character, enemy_level=next_enemy_level)
-    db.session.commit()
+    character.health = combat.character_health
 
     return {
         'message': '\n'.join(message_lines),
         'victory': True,
         'items_dropped': items_dropped,
         'player_died': False,
-        'encounter': next_encounter,
-        'combat': next_combat,
+        'encounter': encounter,
+        'combat': combat,
+        'character': character.to_response().model_dump(),
+    }
+
+
+def _resolve_home_turn(character, encounter: Encounter) -> dict[str, Any]:
+    """Resolve a go-home action after a victory."""
+    combat = _resolve_encounter_state(encounter)
+    character.health = combat.character_health
+    clear_loot_flags(character)
+    db.session.delete(encounter)
+
+    return {
+        'message': 'You returned home with your spoils!',
+        'victory': False,
+        'items_dropped': [],
+        'player_died': False,
+        'success': True,
+        'damage': 0,
+        'encounter': encounter,
+        'combat': combat,
         'character': character.to_response().model_dump(),
     }
 
@@ -262,6 +299,11 @@ class CombatResource(Resource):
             outcome = _resolve_attack_turn(character, encounter)
         elif action_name == 'run':
             outcome = _resolve_run_turn(character, encounter)
+        elif action_name == 'home':
+            combat_state = _resolve_encounter_state(encounter)
+            if combat_state.enemy_current_health > 0:
+                return json_error('You can only go home after defeating the enemy', 400)
+            outcome = _resolve_home_turn(character, encounter)
         else:
             return json_error('Invalid combat action', 400)
 

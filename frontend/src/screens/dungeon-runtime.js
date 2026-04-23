@@ -27,13 +27,23 @@ export function buildDungeonMarkup(enemy, messageToShow) {
       <div id="dungeon-actions" class="screen-panel screen-panel--dark dungeon-actions-row">
         <div class="screen-button-stack">
           <button type="button" class="dungeon-button dungeon-button-primary" id="attack">⚔️ATTACK</button>
-          <button type="button" class="dungeon-button dungeon-button-escape" id="run">4/6🎲RUN AWAY</button>
+          <button type="button" class="dungeon-button dungeon-button-escape" id="run" data-action="run">4/6🎲RUN AWAY</button>
         </div>
       </div>
 
       <div id="loot" class="screen-panel screen-panel--dark dungeon-loot-section"></div>
     </div>
   `;
+}
+
+/** Update the dungeon action labels without rebuilding the screen. */
+export function updateDungeonActionLabels({ attackLabel, runLabel } = {}) {
+  const attackButton = document.getElementById('attack');
+  const runButton = document.getElementById('run');
+  if (attackButton && attackLabel) attackButton.textContent = attackLabel;
+  if (runButton && runLabel) runButton.textContent = runLabel;
+  if (runButton && runLabel === '🏠GO HOME') runButton.dataset.action = 'home';
+  if (runButton && runLabel === '4/6🎲RUN AWAY') runButton.dataset.action = 'run';
 }
 
 /** Render the loot summary panel inside the dungeon screen. */

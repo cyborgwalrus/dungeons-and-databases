@@ -3,7 +3,7 @@ from unittest.mock import patch
 from backend.db.models import db
 
 
-def test_combat_attack_victory_grants_loot_and_spawns_followup_encounter(client, entities):
+def test_combat_attack_victory_keeps_defeated_enemy_visible(client, entities):
     user = entities.create_user(username='victor', password='secret')
     character = entities.create_character(user, name='Champion', health=120, damage=100)
     token = entities.token_for(user, character)
@@ -22,8 +22,68 @@ def test_combat_attack_victory_grants_loot_and_spawns_followup_encounter(client,
     assert payload['victory'] is True
     assert payload['player_died'] is False
     assert payload['items_dropped']
+    assert payload['encounter'] is not None
     assert payload['combat'] is not None
+    assert payload['combat']['enemy_current_health'] == 0
     assert payload['character']['health'] > 0
+
+
+def test_combat_attack_after_victory_loads_next_enemy(client, entities):
+    user = entities.create_user(username='deepdelver', password='secret')
+    character = entities.create_character(user, name='Champion', health=120, damage=100)
+    token = entities.token_for(user, character)
+
+    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combats.random.choice',
+        side_effect=lambda sequence: sequence[0],
+    ), patch('backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: maximum):
+        encounter_response = client.post('/api/encounters', headers=entities.auth_headers(token))
+        combat_id = encounter_response.get_json()['combat']['id']
+
+        victory_response = client.post(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
+        deeper_response = client.post(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
+
+    assert victory_response.status_code == 200
+    victory_payload = victory_response.get_json()
+    assert victory_payload['victory'] is True
+    assert victory_payload['encounter'] is not None
+    assert victory_payload['combat'] is not None
+
+    assert deeper_response.status_code == 200
+    deeper_payload = deeper_response.get_json()
+    assert deeper_payload['victory'] is False
+    assert deeper_payload['encounter'] is not None
+    assert deeper_payload['combat'] is not None
+    assert deeper_payload['encounter']['id'] != victory_payload['encounter']['id']
+    assert deeper_payload['combat']['id'] != victory_payload['combat']['id']
+
+
+def test_combat_home_after_victory_returns_home_and_clears_loot_flags(client, entities):
+    user = entities.create_user(username='homer', password='secret')
+    character = entities.create_character(user, name='Champion', health=120, damage=100)
+    token = entities.token_for(user, character)
+
+    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combats.random.choice',
+        side_effect=lambda sequence: sequence[0],
+    ), patch('backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: maximum):
+        encounter_response = client.post('/api/encounters', headers=entities.auth_headers(token))
+        combat_id = encounter_response.get_json()['combat']['id']
+        victory_response = client.post(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
+        home_response = client.post(f'/api/combats/{combat_id}/home', headers=entities.auth_headers(token))
+
+    assert victory_response.status_code == 200
+    assert home_response.status_code == 200
+    home_payload = home_response.get_json()
+    assert home_payload['success'] is True
+    assert home_payload['encounter'] is None
+    assert home_payload['combat'] is None
+
+    inventory_response = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
+    assert inventory_response.status_code == 200
+    inventory_items = inventory_response.get_json()
+    assert inventory_items
+    assert all(item['is_loot'] is False for item in inventory_items)
 
 
 def test_combat_attack_survives_when_enemy_lives(client, entities):

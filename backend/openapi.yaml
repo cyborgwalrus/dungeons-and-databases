@@ -578,7 +578,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [attack, run]
+        enum: [attack, run, home]
   responses:
     BadRequest:
       description: Bad request

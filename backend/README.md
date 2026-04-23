@@ -36,7 +36,7 @@ backend/
 |   Character   | `/users/<user:user>/characters` - `GET` `POST`<br>`/characters/<character:character>` - `GET` `PUT` `DELETE`<br>`/characters/<character:character>/select` - `POST`<br>`/characters/<character:character>/full_heal` - `POST`<br>`/characters/<character:character>/equipment` - `GET` `POST`<br>`/characters/<character:character>/equipment/<item:item>` - `DELETE` | Character management, selection, leveling, experience, equipment, and healing |     Yes     |
 |      Item     | `/items` - `POST`<br>`/items/<item:item>` - `GET` `DELETE`                                                                    | Item creation and inventory operations                   |     Yes     |
 |   Encounter   | `/encounters` - `POST`                                                                                     | Dungeon encounter creation                                |     Yes     |
-|     Combat     | `/combats/<combat:combat>/attack` - `POST`<br>`/combats/<combat:combat>/run` - `POST`                      | Dungeon combat actions                                    |     Yes     |
+|     Combat     | `/combats/<combat:combat>/attack` - `POST`<br>`/combats/<combat:combat>/run` - `POST`<br>`/combats/<combat:combat>/home` - `POST` | Dungeon combat actions                                    |     Yes     |
 
 ## Endpoint Details
 
@@ -95,6 +95,7 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 
 - `POST /api/combats/<combat:combat>/attack` - attack the active combat.
 - `POST /api/combats/<combat:combat>/run` - attempt to flee the active combat.
+- `POST /api/combats/<combat:combat>/home` - leave the dungeon after defeating the current enemy.
 
 ## Deployment
 
@@ -102,4 +103,4 @@ The backend container starts with `project/backend/start-backend.sh`, which init
 
 ## API Docs
 
-Swagger UI is available at `/api/docs` through Flasgger, and the OpenAPI document is served from `/api/openapi.yaml`.
+Swagger UI is available at `/api/docs`, and the OpenAPI document is served from `/api/openapi.yaml`.

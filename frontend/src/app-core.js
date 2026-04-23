@@ -8,7 +8,7 @@ import { fetchJson, clearAuthToken, setAuthToken } from './api.js';
 import { formatDungeonMessage } from './helpers.js';
 import { buildScreenShell } from './ui.js';
 import { renderPlayerStatsInto, syncPlayerStatsInDom } from './components/player.js';
-import { buildDungeonMarkup, applyDungeonCombatUpdate, renderLootPanel, showDungeonDefeatScreen } from './screens/dungeon-runtime.js';
+import { buildDungeonMarkup, applyDungeonCombatUpdate, renderLootPanel, showDungeonDefeatScreen, updateDungeonActionLabels } from './screens/dungeon-runtime.js';
 import { state, getCharacterId } from './app-state.js';
 import { renderLogin } from './screens/login.js';
 import { renderCharacterSelect } from './screens/character-select.js';
@@ -85,6 +85,20 @@ async function handleDungeonAttack() {
     setLastDungeonMessage: value => { state.lastDungeonMessage = value; }
   });
 
+  if (dungeonState.victory) {
+    state.dungeonActionMode = 'home';
+    updateDungeonActionLabels({
+      attackLabel: '⚔️GO DEEPER',
+      runLabel: '🏠GO HOME',
+    });
+  } else {
+    state.dungeonActionMode = 'run';
+    updateDungeonActionLabels({
+      attackLabel: '⚔️ATTACK',
+      runLabel: '4/6🎲RUN AWAY',
+    });
+  }
+
   if (dungeonState.player_died) {
     state.activeEncounter = null;
     state.activeCombat = null;
@@ -104,6 +118,22 @@ async function handleDungeonAttack() {
     state.activeCombat = dungeonState.combat;
     updateEnemyPanel(buildDungeonEnemy(dungeonState.encounter, dungeonState.combat));
   }
+}
+
+/** Go home after a victorious dungeon fight. */
+async function handleDungeonHome() {
+  if (!state.activeCombat?.id) return;
+  const res = await fetchJson(`/combats/${state.activeCombat.id}/home`, { method: 'POST' });
+  if (!res.ok || !res.data) return;
+
+  const dungeonState = res.data;
+  if (dungeonState.character) syncPlayerStatsInDom(dungeonState.character);
+
+  state.activeEncounter = null;
+  state.activeCombat = null;
+  state.dungeonActionMode = 'run';
+  resetDungeonLoot(state);
+  navigateTo('/');
 }
 
 /**
@@ -161,6 +191,7 @@ async function handleDungeonRun() {
  */
 async function renderDungeon({ resetRunState = true } = {}) {
   if (resetRunState) resetDungeonLoot(state);
+  state.dungeonActionMode = 'run';
   state.lastDungeonMessage = null;
   root.innerHTML = buildScreenShell({
     className: 'screen-shell--game',
@@ -206,6 +237,10 @@ async function renderDungeon({ resetRunState = true } = {}) {
   });
   document.getElementById('run').addEventListener('click', event => {
     event.preventDefault();
+    if (state.dungeonActionMode === 'home') {
+      handleDungeonHome();
+      return;
+    }
     handleDungeonRun();
   });
 }

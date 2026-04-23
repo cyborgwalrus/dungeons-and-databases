@@ -8,6 +8,7 @@ export const state = {
   lootCounts: {},
   activeEncounter: null,
   activeCombat: null,
+  dungeonActionMode: 'run',
 };
 
 /** Return the active character ID from local state, or null when unavailable. */

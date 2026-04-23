@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from sqlalchemy import Column, Enum as SAEnum
-from sqlalchemy.orm import relationship
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Column, Enum, Field, Relationship, SQLModel
 
 from backend.db.schemas import (
     CharacterEquipmentResponse,
@@ -50,14 +48,12 @@ class User(ModelBase, table=True):
     password: str = Field(max_length=255)
 
     characters: list['Character'] = Relationship(
-        sa_relationship=relationship(
-            'Character', back_populates='user', cascade='all, delete-orphan'
-        )
+        back_populates='user',
+        sa_relationship_kwargs={'cascade': 'all, delete-orphan'},
     )
     items: list['Item'] = Relationship(
-        sa_relationship=relationship(
-            'Item', back_populates='user', cascade='all, delete-orphan'
-        )
+        back_populates='user',
+        sa_relationship_kwargs={'cascade': 'all, delete-orphan'},
     )
 
     def to_response(self) -> UserResponse:
@@ -82,16 +78,14 @@ class Character(ModelBase, table=True):
     health: int = Field(default=100, ge=0)
     damage: int = Field(default=10, ge=0)
 
-    user: User = Relationship(sa_relationship=relationship('User', back_populates='characters'))
+    user: User = Relationship(back_populates='characters')
     equipment: list['CharacterEquipment'] = Relationship(
-        sa_relationship=relationship(
-            'CharacterEquipment', back_populates='character', cascade='all, delete-orphan'
-        )
+        back_populates='character',
+        sa_relationship_kwargs={'cascade': 'all, delete-orphan'},
     )
     encounters: list['Encounter'] = Relationship(
-        sa_relationship=relationship(
-            'Encounter', back_populates='character', cascade='all, delete-orphan'
-        )
+        back_populates='character',
+        sa_relationship_kwargs={'cascade': 'all, delete-orphan'},
     )
 
     @property
@@ -174,17 +168,14 @@ class Encounter(ModelBase, table=True):
     enemy_base_damage: int = Field(ge=0)
     enemy_level: int = Field(default=1, ge=1)
 
-    character: Character = Relationship(
-        sa_relationship=relationship('Character', back_populates='encounters')
-    )
+    character: Character = Relationship(back_populates='encounters')
     combat: 'Combat | None' = Relationship(
-        sa_relationship=relationship(
-            'Combat',
-            back_populates='encounter',
-            uselist=False,
-            cascade='all, delete-orphan',
-            single_parent=True,
-        )
+        back_populates='encounter',
+        sa_relationship_kwargs={
+            'uselist': False,
+            'cascade': 'all, delete-orphan',
+            'single_parent': True,
+        },
     )
 
     @property
@@ -215,10 +206,8 @@ class Combat(ModelBase, table=True):
     enemy_max_health: int = Field(ge=0)
     enemy_damage: int = Field(ge=0)
 
-    encounter: Encounter = Relationship(
-        sa_relationship=relationship('Encounter', back_populates='combat')
-    )
-    character: Character = Relationship(sa_relationship=relationship('Character'))
+    encounter: Encounter = Relationship(back_populates='combat')
+    character: Character = Relationship()
 
     def to_response(self) -> CombatResponse:
         """Return the combat response representation."""
@@ -236,7 +225,7 @@ class Item(ModelBase, table=True):
     item_type_id: str = Field(max_length=80)
     slot: ItemSlot = Field(
         sa_column=Column(
-            SAEnum(
+            Enum(
                 ItemSlot,
                 native_enum=False,
                 validate_strings=True,
@@ -250,15 +239,14 @@ class Item(ModelBase, table=True):
     damage: int = Field(default=0, ge=0)
     is_loot: bool = False
 
-    user: User = Relationship(sa_relationship=relationship('User', back_populates='items'))
+    user: User = Relationship(back_populates='items')
     equipment: 'CharacterEquipment | None' = Relationship(
-        sa_relationship=relationship(
-            'CharacterEquipment',
-            back_populates='item',
-            uselist=False,
-            cascade='all, delete-orphan',
-            single_parent=True,
-        )
+        back_populates='item',
+        sa_relationship_kwargs={
+            'uselist': False,
+            'cascade': 'all, delete-orphan',
+            'single_parent': True,
+        },
     )
 
     @property
@@ -281,7 +269,7 @@ class CharacterEquipment(ModelBase, table=True):
     item_id: int = Field(foreign_key='item.id', unique=True)
     slot: ItemSlot = Field(
         sa_column=Column(
-            SAEnum(
+            Enum(
                 ItemSlot,
                 native_enum=False,
                 validate_strings=True,
@@ -292,10 +280,11 @@ class CharacterEquipment(ModelBase, table=True):
     )
 
     character: Character = Relationship(
-        sa_relationship=relationship('Character', back_populates='equipment')
+        back_populates='equipment'
     )
     item: Item = Relationship(
-        sa_relationship=relationship('Item', back_populates='equipment', uselist=False)
+        back_populates='equipment',
+        sa_relationship_kwargs={'uselist': False},
     )
 
     def to_response(self) -> CharacterEquipmentResponse:
