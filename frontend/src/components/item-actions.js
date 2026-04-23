@@ -5,8 +5,8 @@ export const ITEM_DRAG_MIME = 'application/x-dd-item';
 /** Re-render inventory state after an inventory mutation completes. */
 async function refreshCharacterAfterInventoryChange(opts) {
   const { loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
-  await loadStateAndRenderPartial();
   if (syncPlayerHealthToFull) await syncPlayerHealthToFull();
+  await loadStateAndRenderPartial();
 }
 
 /** Store item metadata on the drag event for later drop handling. */
