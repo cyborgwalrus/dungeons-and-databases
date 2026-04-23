@@ -27,5 +27,6 @@ docker compose up --build
 Notes:
 
 - The frontend reverse proxy forwards `/api` to the backend container, so the browser only talks to `http://localhost:8080`.
+- The shared admin gateway is available at `http://localhost:8080/admin`, with the dashboard at `/admin/dashboard` and Adminer at `/admin/adminer`. Adminer uses the bundled `login-password-less.php` plugin and the same `ADMIN_PASSWORD` as the dashboard.
 - If you run the static frontend without the proxy, set `window.__API_BASE__` yourself or serve it through a proxy that forwards `/api`.
 - The Swagger UI is available at `http://localhost:8080/api/docs` through the same `/api` proxy.

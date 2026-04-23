@@ -39,7 +39,9 @@ app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', '').lower() in {'1', 'true',
 
 # Database configuration
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(basedir, "game.db")}'
+database_path = os.path.join(app.instance_path, 'game.db')
+os.makedirs(app.instance_path, exist_ok=True)
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize database, cache and api
@@ -99,6 +101,7 @@ register_encounter_resources(api)
 register_combat_resources(api)
 
 dashboard.config.init_from(file=str(Path(__file__).with_name('config.cfg')))
+dashboard.config.password = os.environ.get('ADMIN_PASSWORD', dashboard.config.password)
 dashboard.bind(app)
 
 @app.cli.command('clear-db')

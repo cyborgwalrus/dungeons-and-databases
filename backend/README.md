@@ -101,6 +101,17 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 
 The backend container starts with `project/backend/start-backend.sh`, which initializes the database and then runs the API with a WSGI server on port `5000`.
 
+The SQLite database is stored in the container instance volume so the Adminer service can inspect it in both development and production.
+In Adminer, choose the SQLite driver and open `/app/instance/game.db` from the shared volume. The container loads `login-password-less.php` from `adminer/plugins-enabled` and uses `ADMIN_PASSWORD` as the local unlock password.
+
+The dashboard is available behind the shared admin gateway at `/admin/dashboard`, and its login password comes from the `ADMIN_PASSWORD` environment variable.
+Adminer is available at `/admin/adminer` and unlocks through the bundled password-less login plugin.
+
 ## API Docs
 
 Swagger UI is available at `/api/docs`, and the OpenAPI document is served from `/api/openapi.yaml`.
+
+## Admin Tools
+
+- `/admin/dashboard` - Flask Monitoring Dashboard.
+- `/admin/adminer` - Adminer.

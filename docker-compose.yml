@@ -17,6 +17,7 @@ services:
       - "5000:5000"
     environment:
       - SECRET_KEY=supersecretdevkey
+      - ADMIN_PASSWORD=admin
       - FLASK_ENV=development
       - FLASK_DEBUG=1
       - WIPE_DB_ON_RESTART=true
@@ -28,6 +29,19 @@ services:
       - dnd_db:/app/instance
     depends_on:
       - redis
+    networks:
+      - dnd_network
+
+  adminer:
+    image: adminer:4.8.1
+    container_name: dnd_adminer
+    environment:
+      - ADMIN_PASSWORD=admin
+    volumes:
+      - dnd_db:/app/instance
+      - ./backend/adminer/plugins-enabled:/var/www/html/plugins-enabled:ro
+    depends_on:
+      - backend
     networks:
       - dnd_network
 
