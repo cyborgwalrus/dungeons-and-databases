@@ -1,6 +1,6 @@
-"""SQLModel table models for users, characters, encounters, combat, and items."""
+"""SQLModel table models for users, characters, combat, and items."""
 
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar, Optional, cast
 
 from sqlalchemy import UniqueConstraint
 from sqlmodel import Column, Enum, Field, Relationship, SQLModel
@@ -9,7 +9,6 @@ from backend.db.schemas import (
     CharacterEquipmentResponse,
     CharacterResponse,
     CombatResponse,
-    EncounterResponse,
     ItemResponse,
     ItemSlot,
     UserResponse,
@@ -82,10 +81,6 @@ class Character(ModelBase, table=True):
         back_populates='character',
         sa_relationship_kwargs={'cascade': 'all, delete-orphan'},
     )
-    encounters: list['Encounter'] = Relationship(
-        back_populates='character',
-        sa_relationship_kwargs={'cascade': 'all, delete-orphan'},
-    )
 
     @property
     def equipped_items(self):
@@ -152,65 +147,85 @@ class Character(ModelBase, table=True):
         return True
 
 
-class Encounter(ModelBase, table=True):
-    """Active dungeon encounter tied to a character and enemy template."""
+class ItemType(ModelBase, table=True):
+    """Static item template stored in the database."""
 
-    __tablename__: ClassVar[str] = 'encounter'
-    __table_args__ = {'sqlite_autoincrement': True}
+    __tablename__: ClassVar[str] = 'item_type'
 
-    id: int | None = Field(default=None, primary_key=True)
-    character_id: int = Field(foreign_key='character.id', index=True)
-    enemy_template_id: str = Field(max_length=80)
-    enemy_name: str = Field(max_length=80)
-    enemy_description: str | None = Field(default=None, max_length=255)
-    enemy_base_health: int = Field(ge=0)
-    enemy_base_damage: int = Field(ge=0)
-    enemy_level: int = Field(default=1, ge=1)
-
-    character: Character = Relationship(back_populates='encounters')
-    combat: Optional['Combat'] = Relationship(
-        back_populates='encounter',
-        sa_relationship_kwargs={
-            'uselist': False,
-            'cascade': 'all, delete-orphan',
-            'single_parent': True,
-        },
+    id: str = Field(primary_key=True, max_length=80)
+    name: str = Field(max_length=80)
+    slot: ItemSlot = Field(
+        sa_column=Column(
+            Enum(
+                ItemSlot,
+                native_enum=False,
+                validate_strings=True,
+                values_callable=lambda enum_cls: [member.value for member in enum_cls],
+            ),
+            nullable=False,
+        )
     )
+    health: int = Field(default=0, ge=0)
+    damage: int = Field(default=0, ge=0)
 
-    @property
-    def level(self) -> int:
-        """Return the encounter level value exposed by the response model."""
-        return self.enemy_level
 
-    def to_response(self) -> EncounterResponse:
-        """Return the encounter response representation."""
-        return EncounterResponse.model_validate(self)
+class EnemyType(ModelBase, table=True):
+    """Static enemy template stored in the database."""
 
-    def has_combat(self) -> bool:
-        """Return whether the encounter currently has live combat state."""
-        return self.combat is not None
+    __tablename__: ClassVar[str] = 'enemy_type'
+
+    id: str = Field(primary_key=True, max_length=80)
+    name: str = Field(max_length=80)
+    description: str | None = Field(default=None, max_length=255)
+    base_health: int = Field(default=0, ge=0)
+    base_damage: int = Field(default=0, ge=0)
 
 
 class Combat(ModelBase, table=True):
-    """Volatile player combat state attached to a single encounter."""
+    """Volatile player combat state for a dungeon run."""
 
     __tablename__: ClassVar[str] = 'combat'
     __table_args__ = {'sqlite_autoincrement': True}
 
     id: int | None = Field(default=None, primary_key=True)
-    encounter_id: int = Field(foreign_key='encounter.id', unique=True, index=True)
-    character_id: int = Field(foreign_key='character.id', index=True)
+    character_id: int = Field(foreign_key='character.id', index=True, unique=True)
+    enemy_type_id: str = Field(foreign_key='enemy_type.id', max_length=80, index=True)
+    enemy_level: int = Field(default=1, ge=1)
     character_health: int = Field(ge=0)
     enemy_current_health: int = Field(ge=0)
     enemy_max_health: int = Field(ge=0)
     enemy_damage: int = Field(ge=0)
 
-    encounter: Encounter = Relationship(back_populates='combat')
     character: Character = Relationship()
+    enemy_type: EnemyType = Relationship()
 
     def to_response(self) -> CombatResponse:
         """Return the combat response representation."""
         return CombatResponse.model_validate(self)
+
+    @property
+    def enemy_name(self) -> str:
+        """Return the current enemy name from the linked enemy type."""
+        enemy_type = cast(EnemyType | None, getattr(self, 'enemy_type', None))
+        return enemy_type.name if enemy_type else ''
+
+    @property
+    def enemy_description(self) -> str | None:
+        """Return the current enemy description from the linked enemy type."""
+        enemy_type = cast(EnemyType | None, getattr(self, 'enemy_type', None))
+        return enemy_type.description if enemy_type else None
+
+    @property
+    def base_health(self) -> int:
+        """Return the enemy type base health used for scaling."""
+        enemy_type = cast(EnemyType | None, getattr(self, 'enemy_type', None))
+        return enemy_type.base_health if enemy_type else 0
+
+    @property
+    def base_damage(self) -> int:
+        """Return the enemy type base damage used for scaling."""
+        enemy_type = cast(EnemyType | None, getattr(self, 'enemy_type', None))
+        return enemy_type.base_damage if enemy_type else 0
 
 
 class Item(ModelBase, table=True):
@@ -221,7 +236,7 @@ class Item(ModelBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key='user.id', index=True)
     name: str = Field(max_length=80)
-    item_type_id: str = Field(max_length=80)
+    item_type_id: str = Field(foreign_key='item_type.id', max_length=80, index=True)
     slot: ItemSlot = Field(
         sa_column=Column(
             Enum(

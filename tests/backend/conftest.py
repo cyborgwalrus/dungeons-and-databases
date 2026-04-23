@@ -11,8 +11,9 @@ from werkzeug.security import generate_password_hash
 os.environ.setdefault('SECRET_KEY', 'test-secret-key')
 
 from backend.app import app as flask_app
+from backend.db import seed_reference_data
 from backend.db.models import Character, Item, User, db
-from backend.resources.encounters import create_new_encounter
+from backend.resources.encounters import create_new_combat
 from backend.utils.api_response_cache import cache
 from backend.utils.game_utils import add_inventory_item, issue_auth_token, seed_character_loadout
 
@@ -32,6 +33,7 @@ def app(tmp_path_factory):
         db.session.remove()
         db.drop_all()
         db.create_all()
+        seed_reference_data()
         cache.clear()
 
     yield flask_app
@@ -50,6 +52,7 @@ def reset_database(request):
         cache.clear()
         db.drop_all()
         db.create_all()
+        seed_reference_data()
         yield
         db.session.remove()
         cache.clear()
@@ -117,11 +120,11 @@ def entities(request):
         return issue_auth_token(user.id, None if character is None else character.id)
 
     def create_encounter(character: Character, *, enemy_level: int = 1):
-        """Create a matching encounter and combat record for a character."""
-        encounter, combat = create_new_encounter(character, enemy_level=enemy_level)
-        if encounter is None or combat is None:
-            raise AssertionError('Failed to create encounter')
-        return encounter, combat
+        """Create a matching combat record for a character."""
+        combat = create_new_combat(character, level=enemy_level)
+        if combat is None:
+            raise AssertionError('Failed to create combat')
+        return combat
 
     return SimpleNamespace(
         create_user=create_user,

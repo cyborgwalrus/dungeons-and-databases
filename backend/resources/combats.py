@@ -6,15 +6,14 @@ from typing import Any
 from flask import jsonify
 from flask_restful import Resource
 
-from backend.db.models import Combat, Encounter, db
-import backend.db.reference_data.item_types as item_types
-from backend.resources.encounters import create_new_encounter
+from backend.db.models import Combat, db
+from backend.resources.encounters import create_new_combat
 from backend.utils.api_response_cache import (
     invalidate_user_characters_cache,
     invalidate_user_inventory_cache,
 )
-from backend.utils.game_utils import add_inventory_item
-from backend.utils.route_helpers import json_error
+from backend.utils.game_utils import add_inventory_item, get_item_types
+from backend.utils.route_helpers import json_error, require_current_character
 
 
 def _combat_damage_roll(max_damage: int) -> int:
@@ -67,18 +66,18 @@ def _run_failure_message(dice_roll: int, enemy_name: str, damage_taken: int, def
     )
 
 
-def _victory_outcome(character, encounter: Encounter, player_hits: int) -> tuple[list[str], list[dict[str, Any]]]:
+def _victory_outcome(character, combat: Combat, player_hits: int) -> tuple[list[str], list[dict[str, Any]]]:
     """Build the complete victory message list and loot drops for a combat round."""
-    message_lines = _attack_victory_message(encounter.enemy_name, player_hits)
+    message_lines = _attack_victory_message(combat.enemy_name, player_hits)
 
-    items_dropped = drop_loot(encounter)
+    items_dropped = drop_loot(combat)
     if items_dropped:
         item_names = ', '.join(item['name'] for item in items_dropped)
         message_lines.append(f'You found {item_names}!')
         for item in items_dropped:
             add_inventory_item(character, item['id'], level=item['level'])
 
-    _apply_victory_experience(character, encounter, message_lines)
+    _apply_victory_experience(character, combat, message_lines)
     return message_lines, items_dropped
 
 
@@ -87,32 +86,17 @@ def check_character_death(health: int) -> bool:
     return health <= 0
 
 
-def _resolve_encounter_state(encounter: Encounter) -> Combat:
-    """Return the combat state for a populated encounter."""
-    if encounter.combat:
-        return encounter.combat
-    raise RuntimeError('Combat state is missing')
-
-
-def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
+def _resolve_attack_turn(character, combat: Combat) -> dict[str, Any]:
     """Resolve a single attack turn and return the resulting combat state."""
-    enemy_name = encounter.enemy_name
-    combat = _resolve_encounter_state(encounter)
+    enemy_name = combat.enemy_name
 
     if combat.enemy_current_health <= 0:
-        character.health = combat.character_health
-        next_enemy_level = max(1, encounter.enemy_level + 1)
-        next_encounter, next_combat = create_new_encounter(character, enemy_level=next_enemy_level)
         return {
-            'message': (
-                f'You go deeper past the defeated {enemy_name}!\n'
-                'A new enemy emerges from the shadows!'
-            ),
+            'message': 'You need to go deeper to face the next enemy.',
             'victory': False,
             'items_dropped': [],
             'player_died': False,
-            'encounter': next_encounter,
-            'combat': next_combat,
+            'combat': combat,
             'character': character.to_response(health=combat.character_health).model_dump(),
         }
 
@@ -131,7 +115,6 @@ def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
                 'victory': False,
                 'items_dropped': [],
                 'player_died': True,
-                'encounter': encounter,
                 'combat': combat,
                 'character': character.to_response(health=combat.character_health).model_dump(),
             }
@@ -141,30 +124,67 @@ def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
             'victory': False,
             'items_dropped': [],
             'player_died': False,
-            'encounter': encounter,
             'combat': combat,
             'character': character.to_response(health=combat.character_health).model_dump(),
         }
 
     character.health = combat.character_health
-    message_lines, items_dropped = _victory_outcome(character, encounter, player_hits)
+    message_lines, items_dropped = _victory_outcome(character, combat, player_hits)
 
     return {
         'message': '\n'.join(message_lines),
         'victory': True,
         'items_dropped': items_dropped,
         'player_died': False,
-        'encounter': encounter,
         'combat': combat,
         'character': character.to_response().model_dump(),
     }
 
 
-def _resolve_home_turn(character, encounter: Encounter) -> dict[str, Any]:
-    """Resolve a go-home action after a victory."""
-    combat = _resolve_encounter_state(encounter)
+def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
+    """Delete the cleared combat and generate the next dungeon fight."""
+    enemy_name = combat.enemy_name
+    if combat.enemy_current_health > 0:
+        return {
+            'message': 'You can only go deeper after defeating the enemy.',
+            'victory': False,
+            'items_dropped': [],
+            'player_died': False,
+            'combat': combat,
+            'character': character.to_response(health=combat.character_health).model_dump(),
+        }
+
     character.health = combat.character_health
-    db.session.delete(encounter)
+    next_level = max(1, combat.enemy_level + 1)
+    db.session.delete(combat)
+    next_combat = create_new_combat(character, level=next_level)
+    if not next_combat:
+        return {
+            'message': 'No enemy types available',
+            'victory': False,
+            'items_dropped': [],
+            'player_died': False,
+            'combat': None,
+            'character': character.to_response(health=character.health).model_dump(),
+        }
+
+    return {
+        'message': (
+            f'You go deeper past the defeated {enemy_name}!\n'
+            'A new enemy emerges from the shadows!'
+        ),
+        'victory': False,
+        'items_dropped': [],
+        'player_died': False,
+        'combat': next_combat,
+        'character': character.to_response(health=combat.character_health).model_dump(),
+    }
+
+
+def _resolve_home_turn(character, combat: Combat) -> dict[str, Any]:
+    """Resolve a go-home action after a victory."""
+    character.health = combat.character_health
+    db.session.delete(combat)
 
     return {
         'message': 'You returned home with your spoils!',
@@ -173,21 +193,19 @@ def _resolve_home_turn(character, encounter: Encounter) -> dict[str, Any]:
         'player_died': False,
         'success': True,
         'damage': 0,
-        'encounter': encounter,
         'combat': combat,
         'character': character.to_response().model_dump(),
     }
 
 
-def _resolve_run_turn(character, encounter: Encounter) -> dict[str, Any]:
+def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
     """Resolve a run attempt and return the resulting combat state."""
-    enemy_name = encounter.enemy_name
-    combat = _resolve_encounter_state(encounter)
+    enemy_name = combat.enemy_name
     dice_roll = random.randint(1, 6)
 
     if dice_roll >= 4:
         character.health = combat.character_health
-        db.session.delete(encounter)
+        db.session.delete(combat)
         return {
             'message': _run_escape_message(dice_roll),
             'victory': False,
@@ -196,7 +214,6 @@ def _resolve_run_turn(character, encounter: Encounter) -> dict[str, Any]:
             'success': True,
             'damage': 0,
             'dice_roll': dice_roll,
-            'encounter': encounter,
             'combat': combat,
             'character': character.to_response().model_dump(),
         }
@@ -213,7 +230,6 @@ def _resolve_run_turn(character, encounter: Encounter) -> dict[str, Any]:
             'success': False,
             'damage': damage_taken,
             'dice_roll': dice_roll,
-            'encounter': encounter,
             'combat': combat,
             'character': character.to_response().model_dump(),
         }
@@ -226,16 +242,14 @@ def _resolve_run_turn(character, encounter: Encounter) -> dict[str, Any]:
         'success': False,
         'damage': damage_taken,
         'dice_roll': dice_roll,
-        'encounter': encounter,
         'combat': combat,
         'character': character.to_response(health=combat.character_health).model_dump(),
     }
 
 
-def _apply_victory_experience(character, encounter: Encounter, message_lines: list[str]) -> None:
+def _apply_victory_experience(character, combat: Combat, message_lines: list[str]) -> None:
     """Grant XP for a victory and append any level-up messages."""
-    enemy_level = encounter.enemy_level if encounter.enemy_level else 1
-    experience_gained = 20 + (enemy_level * 10)
+    experience_gained = 20 + (max(1, combat.enemy_level) * 10)
     character.gain_experience(experience_gained)
     message_lines.append(f'You gained {experience_gained} XP!')
 
@@ -248,14 +262,14 @@ def _apply_victory_experience(character, encounter: Encounter, message_lines: li
         message_lines.append(f'Next level at {character.experience_to_next_level} XP.')
 
 
-def drop_loot(encounter: Encounter) -> list[dict[str, Any]]:
+def drop_loot(combat: Combat) -> list[dict[str, Any]]:
     """Create loot drops for a defeated encounter."""
     items_dropped: list[dict[str, Any]] = []
-    all_items = item_types.get_all()
+    all_items = get_item_types()
     if not all_items:
         return items_dropped
 
-    monster_level = max(1, encounter.enemy_level or 1)
+    monster_level = max(1, combat.enemy_level or 1)
     num_items = min(3, 1 + max(0, (monster_level - 1) // 4))
     for _ in range(num_items):
         item_type = random.choice(all_items)
@@ -272,17 +286,9 @@ def drop_loot(encounter: Encounter) -> list[dict[str, Any]]:
 def build_combat_response(outcome: dict[str, Any]) -> Any:
     """Build the JSON payload returned by combat endpoints."""
     character = outcome['character']
-    encounter = outcome['encounter']
     combat = outcome['combat']
     payload: dict[str, Any] = {
         'character': character,
-        'encounter': (
-            None
-            if outcome['player_died']
-            or outcome.get('success', False)
-            or encounter is None
-            else encounter.to_response().model_dump()
-        ),
         'combat': (
             None
             if outcome['player_died']
@@ -308,31 +314,51 @@ def build_combat_response(outcome: dict[str, Any]) -> Any:
 class CombatResource(Resource):
     """Resolve a single combat action."""
 
-    def post(self, combat: Combat, action: str):
-        """Resolve a combat action for the requested combat row."""
+    def post(self, combat: Combat | None = None, action: str | None = None):
+        """Create a new combat row for the current character."""
+        if combat is not None or action is not None:
+            return json_error('Invalid combat action', 400)
+
+        character, error_response = require_current_character()
+        if error_response:
+            return error_response
+
+        assert character is not None
+
+        combat = create_new_combat(character)
+        if not combat:
+            return json_error('No enemy types available', 404)
+
+        return {
+            'combat': combat.to_response().model_dump(),
+            'character': character.to_response().model_dump(),
+        }, 201
+
+    def get(self, combat: Combat, action: str | None = None):
+        """Return combat state or resolve a combat action for the requested row."""
+        if action is None:
+            return combat.to_response().model_dump()
+
         character = combat.character
         if not character:
             return json_error('Character not found', 404)
 
-        encounter = combat.encounter
-        if not encounter:
-            return json_error('Encounter not found', 404)
-
         action_name = (action or '').lower().strip()
         if action_name == 'attack':
-            outcome = _resolve_attack_turn(character, encounter)
+            outcome = _resolve_attack_turn(character, combat)
+        elif action_name == 'deeper':
+            outcome = _resolve_deeper_turn(character, combat)
         elif action_name == 'run':
-            outcome = _resolve_run_turn(character, encounter)
+            outcome = _resolve_run_turn(character, combat)
         elif action_name == 'home':
-            combat_state = _resolve_encounter_state(encounter)
-            if combat_state.enemy_current_health > 0:
+            if combat.enemy_current_health > 0:
                 return json_error('You can only go home after defeating the enemy', 400)
-            outcome = _resolve_home_turn(character, encounter)
+            outcome = _resolve_home_turn(character, combat)
         else:
             return json_error('Invalid combat action', 400)
 
         if outcome['player_died']:
-            db.session.delete(encounter)
+            db.session.delete(combat)
         elif outcome['victory']:
             character.health = outcome['character']['health']
         else:
@@ -349,4 +375,9 @@ class CombatResource(Resource):
 
 def register_combat_resources(api):
     """Register combat routes on the provided API instance."""
-    api.add_resource(CombatResource, '/combats/<combat:combat>/<string:action>')
+    api.add_resource(
+        CombatResource,
+        '/combats',
+        '/combats/<combat:combat>',
+        '/combats/<combat:combat>/<string:action>',
+    )

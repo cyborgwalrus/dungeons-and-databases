@@ -6,7 +6,6 @@ export const state = {
   equipped: [],
   lastDungeonMessage: null,
   lootCounts: {},
-  activeEncounter: null,
   activeCombat: null,
   dungeonActionMode: 'run',
 };

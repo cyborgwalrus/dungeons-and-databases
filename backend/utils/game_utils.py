@@ -1,12 +1,19 @@
-"""Authentication, inventory, and loadout helpers for the backend."""
+"""Authentication, inventory, loadout, and reference-data helpers for the backend."""
 
+from functools import lru_cache
+import json
+from pathlib import Path
 from typing import Any
 
 from flask import current_app, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-import backend.db.reference_data.item_types as item_types
 from backend.db.models import Character, Item, User as UserModel, db
+
+
+_REFERENCE_DATA_DIR = Path(__file__).resolve().parents[1] / 'db'
+_ITEM_TYPES_FILE = _REFERENCE_DATA_DIR / 'item_types.json'
+_ENEMY_TYPES_FILE = _REFERENCE_DATA_DIR / 'enemy_types.json'
 
 
 AUTH_TOKEN_SALT = 'dungeons-and-databases-auth-token'
@@ -19,6 +26,54 @@ DEFAULT_LOADOUT_ITEM_IDS = [
     'ruby_necklace',
     'silver_ring',
 ]
+
+
+@lru_cache(maxsize=1)
+def load_item_type_seed_data() -> tuple[dict[str, Any], ...]:
+    """Load the item type seed records from the JSON source file."""
+    return tuple(json.loads(_ITEM_TYPES_FILE.read_text(encoding='utf-8')))
+
+
+@lru_cache(maxsize=1)
+def load_enemy_type_seed_data() -> tuple[dict[str, Any], ...]:
+    """Load the enemy type seed records from the JSON source file."""
+    return tuple(json.loads(_ENEMY_TYPES_FILE.read_text(encoding='utf-8')))
+
+
+def get_item_type(item_type_id: str | None) -> dict[str, Any] | None:
+    """Return one item template by id or ``None`` when missing."""
+    if item_type_id is None:
+        return None
+    normalized_id = str(item_type_id).strip()
+    if not normalized_id:
+        return None
+    for template in load_item_type_seed_data():
+        if template['id'] == normalized_id:
+            return dict(template)
+    return None
+
+
+def get_item_types() -> list[dict[str, Any]]:
+    """Return all item templates as a new list."""
+    return [dict(template) for template in load_item_type_seed_data()]
+
+
+def get_enemy_type(enemy_type_id: str | None) -> dict[str, Any] | None:
+    """Return one enemy template by id or ``None`` when missing."""
+    if enemy_type_id is None:
+        return None
+    normalized_id = str(enemy_type_id).strip()
+    if not normalized_id:
+        return None
+    for template in load_enemy_type_seed_data():
+        if template['id'] == normalized_id:
+            return dict(template)
+    return None
+
+
+def get_enemy_types() -> list[dict[str, Any]]:
+    """Return all enemy templates as a new list."""
+    return [dict(template) for template in load_enemy_type_seed_data()]
 
 
 def get_auth_serializer() -> URLSafeTimedSerializer:
@@ -119,7 +174,7 @@ def get_player() -> Character | None:
 def seed_character_loadout(character: Character) -> None:
     """Populate a new character with the default starter equipment."""
     for item_type_id in DEFAULT_LOADOUT_ITEM_IDS:
-        item_type = item_types.get(item_type_id)
+        item_type = get_item_type(item_type_id)
         if item_type:
             add_inventory_item(character, item_type['id'])
 
@@ -139,7 +194,7 @@ def add_inventory_item(
     level: int = 1,
 ) -> Item | None:
     """Create an inventory item from item type data and attach it to a player."""
-    item_type = item_types.get(item_id)
+    item_type = get_item_type(item_id)
     if not item_type:
         return None
 

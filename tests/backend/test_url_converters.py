@@ -87,7 +87,7 @@ def test_combat_converter_requires_active_character_match(entities, monkeypatch)
     owner = entities.create_user(username='combat-owner', password='secret')
     owner_character = entities.create_character(owner, name='Fighter', seed_loadout=False)
     other_character = entities.create_character(owner, name='Alt Fighter', seed_loadout=False)
-    _, combat = entities.create_encounter(owner_character)
+    combat = entities.create_encounter(owner_character)
     converter = CombatConverter(Map())
 
     monkeypatch.setattr(url_converters, 'get_current_user', lambda: owner)

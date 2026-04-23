@@ -54,14 +54,13 @@ function updateEnemyPanel(enemy) {
   }
 }
 
-/** Merge static encounter data with live combat state for display purposes. */
-function buildDungeonEnemy(encounter, combat) {
+/** Build the enemy view model directly from the combat payload. */
+function buildDungeonEnemy(combat) {
   return {
-    ...(encounter || {}),
     ...(combat || {}),
-    name: encounter?.enemy_name || encounter?.name || combat?.name || 'None',
-    description: encounter?.enemy_description || encounter?.description || '',
-    level: encounter?.level || combat?.level || '',
+    name: combat?.enemy_name || combat?.name || 'None',
+    description: combat?.enemy_description || combat?.description || '',
+    level: combat?.enemy_level || combat?.level || '',
     health: combat?.enemy_current_health ?? combat?.health ?? 0,
     max_health: combat?.enemy_max_health ?? combat?.max_health ?? 0,
     damage: combat?.enemy_damage ?? combat?.damage ?? 0,
@@ -74,7 +73,8 @@ function buildDungeonEnemy(encounter, combat) {
  */
 async function handleDungeonAttack() {
   if (!state.activeCombat?.id) return;
-  const res = await fetchJson(`/combats/${state.activeCombat.id}/attack`, { method: 'POST' });
+  const action = state.dungeonActionMode === 'deeper' ? 'deeper' : 'attack';
+  const res = await fetchJson(`/combats/${state.activeCombat.id}/${action}`);
   if (!res.ok || !res.data) return;
 
   const dungeonState = res.data;
@@ -86,7 +86,7 @@ async function handleDungeonAttack() {
   });
 
   if (dungeonState.victory) {
-    state.dungeonActionMode = 'home';
+    state.dungeonActionMode = 'deeper';
     updateDungeonActionLabels({
       attackLabel: '⚔️GO DEEPER',
       runLabel: '🏠GO HOME',
@@ -100,7 +100,6 @@ async function handleDungeonAttack() {
   }
 
   if (dungeonState.player_died) {
-    state.activeEncounter = null;
     state.activeCombat = null;
     showDungeonDefeatScreen({
       message: dungeonState.message || 'Defeat!\nYou have been defeated by the enemy!\nYou lost the loot from this dungeon run...',
@@ -113,23 +112,21 @@ async function handleDungeonAttack() {
   }
 
   if (dungeonState.character) syncPlayerStatsInDom(dungeonState.character);
-  if (dungeonState.encounter && dungeonState.combat) {
-    state.activeEncounter = dungeonState.encounter;
+  if (dungeonState.combat) {
     state.activeCombat = dungeonState.combat;
-    updateEnemyPanel(buildDungeonEnemy(dungeonState.encounter, dungeonState.combat));
+    updateEnemyPanel(buildDungeonEnemy(dungeonState.combat));
   }
 }
 
 /** Go home after a victorious dungeon fight. */
 async function handleDungeonHome() {
   if (!state.activeCombat?.id) return;
-  const res = await fetchJson(`/combats/${state.activeCombat.id}/home`, { method: 'POST' });
+  const res = await fetchJson(`/combats/${state.activeCombat.id}/home`);
   if (!res.ok || !res.data) return;
 
   const dungeonState = res.data;
   if (dungeonState.character) syncPlayerStatsInDom(dungeonState.character);
 
-  state.activeEncounter = null;
   state.activeCombat = null;
   state.dungeonActionMode = 'run';
   resetDungeonLoot(state);
@@ -142,7 +139,7 @@ async function handleDungeonHome() {
  */
 async function handleDungeonRun() {
   if (!state.activeCombat?.id) return;
-  const res = await fetchJson(`/combats/${state.activeCombat.id}/run`, { method: 'POST' });
+  const res = await fetchJson(`/combats/${state.activeCombat.id}/run`);
   if (!res.ok || !res.data) return;
 
   const dungeonState = res.data;
@@ -157,7 +154,6 @@ async function handleDungeonRun() {
   }
 
   if (dungeonState.player_died) {
-    state.activeEncounter = null;
     state.activeCombat = null;
     showDungeonDefeatScreen({
       message: dungeonState.message || 'Defeat!\nYou have been defeated by the enemy!\nYou lost the loot from this dungeon run...',
@@ -169,14 +165,12 @@ async function handleDungeonRun() {
     return;
   }
 
-  if (dungeonState.encounter && dungeonState.combat) {
-    state.activeEncounter = dungeonState.encounter;
+  if (dungeonState.combat) {
     state.activeCombat = dungeonState.combat;
-    updateEnemyPanel(buildDungeonEnemy(dungeonState.encounter, dungeonState.combat));
+    updateEnemyPanel(buildDungeonEnemy(dungeonState.combat));
   }
 
   if (dungeonState.success) {
-    state.activeEncounter = null;
     state.activeCombat = null;
     setTimeout(async () => {
       resetDungeonLoot(state);
@@ -212,12 +206,11 @@ async function renderDungeon({ resetRunState = true } = {}) {
     state.player = playerResponse.data;
   }
 
-  // The dungeon view always starts from the server-authoritative encounter state.
-  const encounterResponse = await fetchJson('/encounters', { method: 'POST' });
-  const encounterPayload = encounterResponse.ok ? encounterResponse.data : null;
-  const enemy = buildDungeonEnemy(encounterPayload?.encounter, encounterPayload?.combat);
-  state.activeEncounter = encounterPayload?.encounter || null;
-  state.activeCombat = encounterPayload?.combat || null;
+  // The dungeon view always starts from the server-authoritative combat state.
+  const combatResponse = await fetchJson('/combats', { method: 'POST' });
+  const combatPayload = combatResponse.ok ? combatResponse.data : null;
+  const enemy = buildDungeonEnemy(combatPayload?.combat);
+  state.activeCombat = combatPayload?.combat || null;
 
   const preface = `A wild ${enemy.name || 'creature'} appears! ${enemy.description || ''}`;
   const messageToShow = state.lastDungeonMessage || preface;
@@ -237,7 +230,7 @@ async function renderDungeon({ resetRunState = true } = {}) {
   });
   document.getElementById('run').addEventListener('click', event => {
     event.preventDefault();
-    if (state.dungeonActionMode === 'home') {
+    if (event.currentTarget?.dataset.action === 'home') {
       handleDungeonHome();
       return;
     }

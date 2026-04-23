@@ -11,14 +11,14 @@ import flask_monitoringdashboard as dashboard
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 
+from backend.db import clear_db, init_db
 from backend.db.models import db
 from backend.resources.authentication import register_auth_resources
 from backend.resources.characters import register_character_resources
 from backend.resources.combats import register_combat_resources
-from backend.resources.encounters import register_encounter_resources
 from backend.resources.items import register_item_resources
 from backend.resources.users import register_user_resources
-from backend.utils import cache, init_cache
+from backend.utils.app_cache import init_cache
 from backend.utils.url_converters import (
     CombatConverter,
     CharacterConverter,
@@ -93,34 +93,33 @@ def openapi_yaml():
     """Return the OpenAPI document used by Swagger UI."""
     return send_from_directory(basedir, 'openapi.yaml', mimetype='text/yaml')
 
-register_auth_resources(api)
-register_user_resources(api)
-register_character_resources(api)
-register_item_resources(api)
-register_encounter_resources(api)
-register_combat_resources(api)
 
-dashboard.config.init_from(file=str(Path(__file__).with_name('config.cfg')))
-dashboard.config.password = os.environ.get('ADMIN_PASSWORD', dashboard.config.password)
-dashboard.bind(app)
+def register_db_commands(app: Flask) -> None:
+    """Register database maintenance commands on the Flask app."""
 
-@app.cli.command('clear-db')
-def clear_db():
-    """Drop the database tables and clear cached state."""
-    with app.app_context():
+    @app.cli.command('clear-db')
+    def clear_db_command() -> None:
         try:
-            db.session.remove()
-            db.drop_all()
-            cache.clear()
+            clear_db()
             print('Database cleared')
         except (OSError, SQLAlchemyError) as error:
             print('Failed to clear database:', error)
 
+    @app.cli.command('init-db')
+    def init_db_command() -> None:
+        try:
+            init_db()
+            print('Database initialized')
+        except (OSError, SQLAlchemyError) as error:
+            print('Failed to initialize database:', error)
 
-@app.cli.command('init-db')
-def init_db():
-    """Create the database tables and clear cached state."""
-    with app.app_context():
-        db.create_all()
-        cache.clear()
-        print('Database initialized')
+register_auth_resources(api)
+register_user_resources(api)
+register_character_resources(api)
+register_item_resources(api)
+register_combat_resources(api)
+register_db_commands(app)
+
+dashboard.config.init_from(file=str(Path(__file__).with_name('config.cfg')))
+dashboard.config.password = os.environ.get('ADMIN_PASSWORD', dashboard.config.password)
+dashboard.bind(app)
