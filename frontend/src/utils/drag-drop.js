@@ -3,6 +3,8 @@
  * Centralizes the drag/drop event handling patterns used across inventory, equipment, and trash zones.
  */
 
+const DEFAULT_DRAG_MIME = 'application/x-dd-item';
+
 /**
  * Setup a drag-drop zone with standardized event handlers.
  * Reduces repeated code across equip.js and inventory.js.
@@ -21,10 +23,12 @@ export function setupDragDropZone(element, config) {
   }
 
   const activeClass = config.activeClass || 'dropzone-active';
+  const dragMIME = config.dragMIME || DEFAULT_DRAG_MIME;
 
   element.ondragover = (event) => {
-    const payload = config.validatePayload(event);
-    if (!payload) return;
+    const dragTypes = event.dataTransfer?.types ? Array.from(event.dataTransfer.types) : [];
+    const acceptsDrag = dragTypes.includes(dragMIME) || Boolean(config.validatePayload(event));
+    if (!acceptsDrag) return;
     event.preventDefault();
     element.classList.add(activeClass);
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
