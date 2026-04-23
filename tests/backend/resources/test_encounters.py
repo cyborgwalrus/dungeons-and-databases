@@ -6,7 +6,7 @@ def test_combat_creation_returns_combat_payload(client, entities):
     character = entities.create_character(user, name='Fighter', health=120, damage=12)
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]):
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]):
         response = client.post('/api/combats', headers=entities.auth_headers(token))
 
     assert response.status_code == 201
@@ -21,7 +21,7 @@ def test_combat_creation_returns_404_when_enemy_catalog_is_empty(client, entitie
     character = entities.create_character(user, name='Wanderer')
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.encounters.get_enemy_types', return_value=[]):
+    with patch('backend.resources.combats.get_enemy_types', return_value=[]):
         response = client.post('/api/combats', headers=entities.auth_headers(token))
 
     assert response.status_code == 404

@@ -421,6 +421,9 @@
 .dungeon-message-victory-text {
   color: #ffd166;
 }
+.dungeon-message-sneak-text {
+  color: #9aa3b2;
+}
 .dungeon-message-run-text {
   color: #ffd166;
 }
@@ -462,6 +465,10 @@
 }
 .dungeon-message-player {
   color: #6ee7ff;
+  font-weight: 700;
+}
+.dungeon-message-sneak {
+  color: #9aa3b2;
   font-weight: 700;
 }
 .dungeon-message-enemy {

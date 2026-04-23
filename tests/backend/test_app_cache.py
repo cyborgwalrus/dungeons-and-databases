@@ -2,7 +2,7 @@
 
 from flask import Flask
 
-from backend.utils import app_cache
+import backend.utils.app_init as app_cache
 
 
 def test_init_cache_uses_redis_url_configuration(monkeypatch):

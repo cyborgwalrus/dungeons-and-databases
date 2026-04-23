@@ -8,7 +8,7 @@ def test_combat_attack_victory_keeps_defeated_enemy_visible(client, entities):
     character = entities.create_character(user, name='Champion', health=120, damage=100)
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
         'backend.resources.combats.random.choice',
         side_effect=lambda sequence: sequence[0],
     ), patch('backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: maximum):
@@ -36,7 +36,7 @@ def test_combat_deeper_after_victory_loads_next_enemy(client, entities):
     character = entities.create_character(user, name='Champion', health=120, damage=100)
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
         'backend.resources.combats.random.choice',
         side_effect=lambda sequence: sequence[0],
     ), patch('backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: maximum):
@@ -64,7 +64,7 @@ def test_combat_home_after_victory_returns_home_and_keeps_loot(client, entities)
     character = entities.create_character(user, name='Champion', health=120, damage=100)
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
         'backend.resources.combats.random.choice',
         side_effect=lambda sequence: sequence[0],
     ), patch('backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: maximum):
@@ -92,7 +92,7 @@ def test_combat_attack_survives_when_enemy_lives(client, entities):
     token = entities.token_for(user, character)
     initial_health = character.health
 
-    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
         'backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: minimum
     ):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
@@ -114,7 +114,7 @@ def test_combat_run_failure_survives_and_keeps_combat_active(client, entities):
     token = entities.token_for(user, character)
     initial_health = character.health
 
-    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
         'backend.resources.combats.random.randint', side_effect=[1, 2]
     ):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
@@ -139,7 +139,7 @@ def test_combat_victory_levels_up_character_and_emits_next_level_message(client,
     character.experience = 95
     db.session.commit()
 
-    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
         'backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]
     ), patch('backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: maximum):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
@@ -162,7 +162,7 @@ def test_combat_run_success_leaves_inventory_untouched(client, entities):
     token = entities.token_for(user, character)
     loot_item = entities.create_inventory_item(character, 'steel_sword')
 
-    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
         'backend.resources.combats.random.randint', return_value=6
     ):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
@@ -187,7 +187,7 @@ def test_combat_run_failure_can_defeat_character_and_keep_inventory(client, enti
     token = entities.token_for(user, character)
     entities.create_inventory_item(character, 'steel_sword')
 
-    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
         'backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: minimum
     ):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
@@ -216,7 +216,7 @@ def test_combat_rejects_invalid_action_and_missing_combat(client, entities):
     assert invalid_action.status_code == 404
     assert invalid_action.get_json()['error'] == 'Combat not found'
 
-    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]):
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
 
     combat_id = combat_response.get_json()['combat']['id']
@@ -230,7 +230,7 @@ def test_combat_routes_require_authentication(client, entities):
     character = entities.create_character(user, name='Scout')
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]):
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
 
     combat_id = combat_response.get_json()['combat']['id']

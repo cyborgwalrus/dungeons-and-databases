@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy.orm import selectinload
 
 from backend.db.models import Character, CharacterEquipment, Item, User
-from backend.utils.app_cache import cache
+from backend.utils.app_init import cache
 
 
 _CHARACTER_EQUIPMENT_OPTIONS = selectinload(

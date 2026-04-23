@@ -7,7 +7,7 @@ from flask import jsonify
 from flask_restful import Resource
 
 from backend.db.models import Combat, db
-from backend.resources.encounters import create_new_combat
+from backend.utils.game_utils import get_enemy_types, get_player
 from backend.utils.api_response_cache import (
     invalidate_user_characters_cache,
     invalidate_user_inventory_cache,
@@ -16,59 +16,110 @@ from backend.utils.game_utils import add_inventory_item, get_item_types
 from backend.utils.route_helpers import json_error, require_current_character
 
 
+def _scaled_enemy_stats(base_health: int, base_damage: int, level: int) -> tuple[int, int]:
+    """Return the live health and damage values for a seeded enemy."""
+    return base_health + (level * 10), base_damage + (level * 2)
+
+
+def create_new_combat(
+    character=None,
+    *,
+    level: int = 1,
+) -> Combat | None:
+    """Create a fresh combat row for the current player."""
+    character = character or get_player()
+    if character is None:
+        return None
+
+    assert character.id is not None
+
+    Combat.query.filter_by(character_id=character.id).delete(synchronize_session=False)
+    db.session.flush()
+
+    enemy_types_data = get_enemy_types()
+    enemy_type = random.choice(enemy_types_data) if enemy_types_data else None
+    if not enemy_type:
+        db.session.rollback()
+        return None
+
+    level = max(1, int(level))
+    enemy_health, enemy_damage = _scaled_enemy_stats(
+        enemy_type['base_health'],
+        enemy_type['base_damage'],
+        level,
+    )
+
+    combat = Combat(
+        character_id=character.id,
+        enemy_type_id=enemy_type['id'],
+        enemy_level=level,
+        character_health=character.health,
+        enemy_current_health=enemy_health,
+        enemy_max_health=enemy_health,
+        enemy_damage=enemy_damage,
+    )
+    db.session.add(combat)
+    db.session.commit()
+    return combat
+
+
 def _combat_damage_roll(max_damage: int) -> int:
     """Roll a bounded combat damage value for one turn."""
     return random.randint(max(1, max_damage // 2), max(1, max_damage))
 
 
-def _attack_victory_message(enemy_name: str, player_hits: int) -> list[str]:
-    """Build the opening victory message for a defeated enemy."""
-    return [
-        'Victory!',
-        f'You dealt {player_hits} damage and defeated the {enemy_name}!',
-    ]
+class MessageBuilder:
+    """Build combat outcome messages."""
 
+    @staticmethod
+    def victory(enemy_name: str, player_hits: int) -> list[str]:
+        """Build the opening victory message for a defeated enemy."""
+        return [
+            'Victory!',
+            f'You dealt {player_hits} damage and defeated the {enemy_name}!',
+        ]
 
-def _attack_survival_message(enemy_name: str, player_hits: int, monster_hits: int) -> str:
-    """Build the message for an attack round where combat continues."""
-    return (
-        f'You dealt {player_hits} damage to {enemy_name}!\n'
-        f'{enemy_name} dealt {monster_hits} damage to you!'
-    )
-
-
-def _attack_defeat_message(enemy_name: str) -> str:
-    """Build the message for a defeated attack round."""
-    return (
-        'Defeat!\n'
-        f'You have been defeated by {enemy_name}!\n'
-        'You lost the loot from this dungeon run...'
-    )
-
-
-def _run_escape_message(dice_roll: int) -> str:
-    """Build the message for a successful escape."""
-    return f'You rolled a {dice_roll}! You successfully escaped and returned home!'
-
-
-def _run_failure_message(dice_roll: int, enemy_name: str, damage_taken: int, defeated: bool) -> str:
-    """Build the message for a failed escape attempt."""
-    if defeated:
+    @staticmethod
+    def attack_round(enemy_name: str, player_hits: int, monster_hits: int) -> str:
+        """Build the message for an attack round where combat continues."""
         return (
-            f'You rolled a {dice_roll} and failed to escape!\n'
-            f'{enemy_name} dealt {damage_taken} damage! '
-            'You lost the loot from this dungeon run and returned to the start...'
+            f'You dealt {player_hits} damage to {enemy_name}!\n'
+            f'{enemy_name} dealt {monster_hits} damage to you!'
         )
 
-    return (
-        f'You rolled a {dice_roll} and failed to escape!\n'
-        f'{enemy_name} caught you and dealt {damage_taken} damage!'
-    )
+    @staticmethod
+    def defeat(enemy_name: str) -> str:
+        """Build the message for a defeated attack round."""
+        return (
+            'Defeat!\n'
+            f'You have been defeated by {enemy_name}!\n'
+            'You lost the loot from this dungeon run...'
+        )
+
+    @staticmethod
+    def escape_success(dice_roll: int) -> str:
+        """Build the message for a successful escape."""
+        return f'You rolled a {dice_roll}! You successfully escaped and returned home!'
+
+    @staticmethod
+    def escape_failure(dice_roll: int, enemy_name: str, damage_taken: int, defeated: bool) -> str:
+        """Build the message for a failed escape attempt."""
+        if defeated:
+            return (
+                f'You rolled a {dice_roll} and failed to escape!\n'
+                f'{enemy_name} dealt {damage_taken} damage! '
+                'You lost the loot from this dungeon run and returned to the start...'
+            )
+
+        return (
+            f'You rolled a {dice_roll} and failed to escape!\n'
+            f'{enemy_name} caught you and dealt {damage_taken} damage!'
+        )
 
 
 def _victory_outcome(character, combat: Combat, player_hits: int) -> tuple[list[str], list[dict[str, Any]]]:
     """Build the complete victory message list and loot drops for a combat round."""
-    message_lines = _attack_victory_message(combat.enemy_name, player_hits)
+    message_lines = MessageBuilder.victory(combat.enemy_name, player_hits)
 
     items_dropped = drop_loot(combat)
     if items_dropped:
@@ -111,7 +162,7 @@ def _resolve_attack_turn(character, combat: Combat) -> dict[str, Any]:
         if check_character_death(combat.character_health):
             character.health = combat.character_health
             return {
-                'message': _attack_defeat_message(enemy_name),
+                'message': MessageBuilder.defeat(enemy_name),
                 'victory': False,
                 'items_dropped': [],
                 'player_died': True,
@@ -120,7 +171,7 @@ def _resolve_attack_turn(character, combat: Combat) -> dict[str, Any]:
             }
 
         return {
-            'message': _attack_survival_message(enemy_name, player_hits, monster_hits),
+            'message': MessageBuilder.attack_round(enemy_name, player_hits, monster_hits),
             'victory': False,
             'items_dropped': [],
             'player_died': False,
@@ -170,6 +221,7 @@ def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
 
     return {
         'message': (
+            'Sneaking!\n'
             f'You go deeper past the defeated {enemy_name}!\n'
             'A new enemy emerges from the shadows!'
         ),
@@ -207,7 +259,7 @@ def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
         character.health = combat.character_health
         db.session.delete(combat)
         return {
-            'message': _run_escape_message(dice_roll),
+            'message': MessageBuilder.escape_success(dice_roll),
             'victory': False,
             'items_dropped': [],
             'player_died': False,
@@ -223,7 +275,7 @@ def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
     if check_character_death(combat.character_health):
         character.health = combat.character_health
         return {
-            'message': _run_failure_message(dice_roll, enemy_name, damage_taken, True),
+            'message': MessageBuilder.escape_failure(dice_roll, enemy_name, damage_taken, True),
             'victory': False,
             'items_dropped': [],
             'player_died': True,
@@ -235,7 +287,7 @@ def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
         }
 
     return {
-        'message': _run_failure_message(dice_roll, enemy_name, damage_taken, False),
+        'message': MessageBuilder.escape_failure(dice_roll, enemy_name, damage_taken, False),
         'victory': False,
         'items_dropped': [],
         'player_died': False,
