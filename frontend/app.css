@@ -866,8 +866,8 @@ html, body {
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top, rgba(255, 214, 140, 0.16), transparent 32%),
-    linear-gradient(180deg, #1f1411 0%, #130d0b 100%);
+    url('./assets/background.png') center center / cover no-repeat fixed;
+  /*Image by rawpixel.com on Freepik*/
   color: #f6e9d7;
   font-family: "Trebuchet MS", "Verdana", sans-serif;
 }
@@ -898,6 +898,33 @@ body {
 
 .screen-shell--auth .screen-shell__frame {
   width: min(460px, 100%);
+}
+
+.screen-shell--auth {
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.screen-shell--auth .screen-shell__stack {
+  flex: 1;
+}
+
+.screen-shell--auth .screen-section {
+  flex: 1;
+  justify-content: center;
+}
+
+.screen-shell--auth .screen-stack {
+  width: 100%;
+  align-items: stretch;
+}
+
+.screen-shell--auth .screen-stack > .screen-panel {
+  width: 100%;
+}
+
+.screen-shell--auth .auth-form-wrapper {
+  max-width: none;
 }
 
 .screen-shell__header {
