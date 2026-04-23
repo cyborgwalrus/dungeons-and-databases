@@ -7,7 +7,6 @@ from werkzeug.exceptions import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.db.models import db
-from backend.db.reference_data import load_reference_data
 from backend.resources.authentication import register_auth_resources
 from backend.resources.characters import register_character_resources
 from backend.resources.combats import register_combat_resources
@@ -68,15 +67,13 @@ register_combat_resources(api)
 
 @app.cli.command('init-db')
 def init_db():
-    """Recreate the database and warm the reference-data cache."""
-    # Rebuild DB tables, warm reference data, and clear cached lookups.
+    """Recreate the database."""
     with app.app_context():
         db.session.remove()
         db.drop_all()
         db.create_all()
-        load_reference_data()
         cache.clear()
-    print('Database initialized (tables recreated and reference data loaded)')
+    print('Database initialized (tables recreated)')
 
 
 @app.cli.command('delete-db')

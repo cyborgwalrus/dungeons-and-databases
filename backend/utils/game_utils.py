@@ -5,7 +5,7 @@ from typing import Any
 from flask import current_app, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from backend.db.reference_data import get_all_item_type_data, get_item_type_data
+import backend.db.reference_data.item_types as item_types
 from backend.db.models import Character, Item, User as UserModel, db
 
 
@@ -118,9 +118,8 @@ def get_player() -> Character | None:
 
 def seed_character_loadout(character: Character) -> None:
     """Populate a new character with the default starter equipment."""
-    item_types_by_id = {item_type['id']: item_type for item_type in get_all_item_type_data()}
     for item_type_id in DEFAULT_LOADOUT_ITEM_IDS:
-        item_type = item_types_by_id.get(item_type_id)
+        item_type = item_types.get(item_type_id)
         if item_type:
             add_inventory_item(character, item_type['id'])
 
@@ -141,7 +140,7 @@ def add_inventory_item(
     is_loot: bool | None = None,
 ) -> Item | None:
     """Create an inventory item from item type data and attach it to a player."""
-    item_type = get_item_type_data(item_id)
+    item_type = item_types.get(item_id)
     if not item_type:
         return None
 

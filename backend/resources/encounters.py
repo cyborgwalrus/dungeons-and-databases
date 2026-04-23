@@ -6,7 +6,7 @@ from typing import Any
 from flask_restful import Resource
 
 from backend.db.models import Combat, Encounter, db
-from backend.db.reference_data import get_all_enemy_type_data
+import backend.db.reference_data.enemy_types as enemy_types
 from backend.utils.game_utils import get_player
 from backend.utils.route_helpers import json_error, require_current_character
 
@@ -30,8 +30,8 @@ def create_new_encounter(
     if existing_encounter:
         db.session.delete(existing_encounter)
 
-    enemy_types = get_all_enemy_type_data()
-    enemy_type = random.choice(enemy_types) if enemy_types else None
+    enemy_types_data = enemy_types.get_all()
+    enemy_type = random.choice(enemy_types_data) if enemy_types_data else None
     if not enemy_type:
         return None, None
 

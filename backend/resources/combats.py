@@ -7,7 +7,7 @@ from flask import jsonify
 from flask_restful import Resource
 
 from backend.db.models import Combat, Encounter, db
-from backend.db.reference_data import get_all_item_type_data
+import backend.db.reference_data.item_types as item_types
 from backend.resources.encounters import create_new_encounter
 from backend.utils.api_response_cache import (
     invalidate_user_characters_cache,
@@ -190,7 +190,7 @@ def _apply_victory_experience(character, encounter: Encounter, message_lines: li
 def drop_loot(encounter: Encounter) -> list[dict[str, Any]]:
     """Create loot drops for a defeated encounter."""
     items_dropped: list[dict[str, Any]] = []
-    all_items = get_all_item_type_data()
+    all_items = item_types.get_all()
     if not all_items:
         return items_dropped
 
@@ -275,7 +275,8 @@ class CombatResource(Resource):
             character.health = outcome['character']['health']
 
         db.session.commit()
-        invalidate_user_characters_cache(character.user_id, [character.id])
+        character_ids = [character.id] if character.id is not None else None
+        invalidate_user_characters_cache(character.user_id, character_ids)
         if outcome['victory'] or outcome['player_died'] or outcome.get('success', False):
             invalidate_user_inventory_cache(character.user_id)
 

@@ -1,4 +1,4 @@
-FROM python:3.11-slim
+FROM python:3.12-slim
 
 WORKDIR /
 
@@ -12,5 +12,5 @@ WORKDIR /app
 
 EXPOSE 5000
 
-# Default to running the startup script which handles DB init/seed and runs the server
+# Default to running the startup script which handles DB init/seed and launches Gunicorn
 CMD ["/app/backend/start-backend.sh"]

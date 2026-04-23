@@ -16,7 +16,6 @@ services:
       - "5000:5000"
     environment:
       - SECRET_KEY=supersecretdevkey
-      - FLASK_APP=app.py
       - FLASK_ENV=development
       - FLASK_DEBUG=1
       - WIPE_DB_ON_RESTART=true

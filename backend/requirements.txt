@@ -7,5 +7,6 @@ sqlmodel==0.0.38
 itsdangerous==2.2.0
 redis==7.4.0
 Werkzeug==3.1.8
+gunicorn==23.0.0
 pytest==9.0.3
 pytest-cov==7.1.0

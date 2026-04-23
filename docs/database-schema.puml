@@ -1,0 +1,107 @@
+@startuml
+left to right direction
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+
+hide methods
+hide stereotypes
+
+entity "item_types" as item_types {
+  *id : str <<PK>>
+  --
+  name : str
+  slot : enum
+  health : int
+  damage : int
+}
+
+note right of item_types
+  In-memory seed data only
+end note
+
+entity "enemy_types" as enemy_types {
+  *id : str <<PK>>
+  --
+  name : str
+  description : str?
+  health : int
+  damage : int
+}
+
+note right of enemy_types
+  In-memory seed data only
+end note
+
+entity "user" as user {
+  *id : int <<PK>>
+  --
+  username : str <<unique>>
+  password : str
+}
+
+entity "character" as character {
+  *id : int <<PK>>
+  --
+  user_id : int <<FK>>
+  name : str
+  level : int
+  experience : int
+  health : int
+  damage : int
+}
+
+entity "item" as item {
+  *id : int <<PK>>
+  --
+  user_id : int <<FK>>
+  name : str
+  item_type_id : str
+  slot : enum
+  level : int
+  health : int
+  damage : int
+  is_loot : bool
+}
+
+entity "character_equipment" as character_equipment {
+  *id : int <<PK>>
+  --
+  character_id : int <<FK>>
+  item_id : int <<FK, unique>>
+  slot : enum
+}
+
+entity "encounter" as encounter {
+  *id : int <<PK>>
+  --
+  character_id : int <<FK>>
+  enemy_template_id : str
+  enemy_name : str
+  enemy_description : str?
+  enemy_base_health : int
+  enemy_base_damage : int
+  enemy_level : int
+}
+
+entity "combat" as combat {
+  *id : int <<PK>>
+  --
+  encounter_id : int <<FK, unique>>
+  character_id : int <<FK>>
+  character_health : int
+  enemy_current_health : int
+  enemy_max_health : int
+  enemy_damage : int
+}
+
+user ||--o{ character : owns
+user ||--o{ item : owns
+item_types ||--o{ item : seeds
+character ||--o{ character_equipment : equips
+item ||--o| character_equipment : assigned to
+enemy_types ||--o{ encounter : seeds
+character ||--o{ encounter : starts
+encounter ||--o| combat : has state
+character ||--o{ combat : participates in
+
+@enduml

@@ -2,23 +2,26 @@
 
 ## Database Design and Implementation
 
-![alt text](docs/database-schema.png)
+### Database entities
+
+![Database schema](../../docs/database-schema.png)
+*Rendered from [docs/database-schema.puml](../../docs/database-schema.puml)*
 
 ## Database Schema
 
-Template data for items and enemies now lives in JSON files under [reference_data](reference_data) and is loaded into memory at startup. The database stores only the runtime copies on `Item`, `Encounter`, and `Combat`.
+Template data for items and enemies lives in Python modules under [reference_data](reference_data). The data is kept in memory as module-level seed structures and the database stores the runtime copies on `Item`, `Encounter`, and `Combat`.
 
 ### File Organization
 
 - `models.py`: SQLAlchemy ORM model definitions for all entities with table relationships and helper methods
-- `reference_data/__init__.py`: JSON-backed item and enemy templates plus memoized accessors
+- `reference_data/item_types.py` and `reference_data/enemy_types.py`: in-memory seed data and lookup helpers for item and enemy templates
 
 ### Data Reset in development mode
 
-If the Flask app is running in development mode using `FLASK_ENV=development`, the database is automatically wiped and reseeded on every application restart. This allows for rapid iteration without manual cleanup. In production mode, the database persists across restarts. To manually reset the database in any environment, use the following Flask CLI commands:
+If the Flask app is running in development mode using `FLASK_ENV=development`, the database is automatically wiped and recreated on every application restart. This allows for rapid iteration without manual cleanup. In production mode, the database persists across restarts. To manually reset the database in any environment, use the following Flask CLI commands:
 
 ```bash
-# Create tables and load seed data
+# Create tables
 flask init-db
 
 # Drop all tables and remove the database file
@@ -29,23 +32,13 @@ flask delete-db
 
 ### User
 
-The User table represents a player account. Each user has a unique username and password used for authentication. Users receive an API token upon signup or signin for subsequent authenticated requests. Each user can own multiple characters and one shared inventory.
+The User table represents a player account. Each user has a unique username and password used for authentication. Each user can own multiple characters and multiple items.
 
 User | Type | Description | Relations
 -- | -- | -- | --
 id | int | User ID | PK
 username | string | Username | unique
 password | string | Hashed password | -
-
-### UserInventory
-
-Each user owns exactly one inventory. This inventory stores unequipped items that can be shared across all of the user's characters. Items move between the user's shared inventory and character equipment via equip or unequip operations.
-
-UserInventory | Type | Description | Relations
--- | -- | -- | --
-id | int | Inventory ID | PK
-user_id | int | Owning user | FK User.id (unique)
-items | relationship | Items in this inventory | Item.inventory_id -> UserInventory.id
 
 ### Character
 
@@ -71,7 +64,7 @@ bonus_damage | property | Total damage from equipped items | calculated
 
 ### Item template data
 
-Item templates are stored in [reference_data/item_types.json](reference_data/item_types.json). Each template uses a human-readable slug such as `steel_sword` or `iron_shield`, and the loader copies the selected template values into `Item` rows when items are created.
+Item templates are stored in [reference_data/item_types.py](reference_data/item_types.py) as a Python tuple of dictionaries. Each template uses a human-readable slug such as `steel_sword` or `iron_shield`, and the helper functions copy the selected template values into `Item` rows when items are created.
 
 Each item template contains:
 
@@ -87,9 +80,9 @@ Each Item row represents an actual item instance owned by a player. Items are cr
 
 - An item level that scales the base health and damage from the template
 - An `is_loot` flag indicating whether the item was dropped during the current dungeon run
-- A reference to the owning UserInventory when not equipped
+- A direct `user_id` reference to the owning user
 
-When a character is defeated during a dungeon run, all items with `is_loot=true` are deleted. Successfully looted items are permanently added to the user's inventory.
+When a character is defeated during a dungeon run, all items with `is_loot=true` are deleted. Successfully looted items are permanently added to the owning user's item collection.
 
 Item | Type | Description | Relations
 -- | -- | -- | --
@@ -99,12 +92,12 @@ level | int | Item level (scales damage and health from base) | -
 health | int | Effective health | -
 damage | int | Effective damage | -
 item_type_id | string | Reference template slug | -
-inventory_id | int | Owning user's inventory (null if equipped) | FK UserInventory.id (nullable)
+user_id | int | Owning user | FK User.id
 is_loot | boolean | Marked as loot from current dungeon run | -
 
 ### CharacterEquipment
 
-CharacterEquipment links an item to a character's equipment slot. Each character can equip one item per slot (weapon, armor, shield, helmet, ring, necklace). Equipping moves an item out of the shared inventory into this table; unequipping reverses the process.
+CharacterEquipment links an item to a character's equipment slot. Each character can equip one item per slot (weapon, armor, shield, helmet, ring, necklace). Equipping assigns the item to this table; unequipping removes the row.
 
 CharacterEquipment | Type | Description | Relations
 -- | -- | -- | --
@@ -118,7 +111,7 @@ slot | enum | Equipment slot | validated against the template data
 An Encounter represents an active dungeon combat scenario. When a player enters the dungeon:
 
 1. An Encounter is created and linked to the character
-2. An enemy template is randomly selected from JSON and its stats are scaled to the current `enemy_level`
+2. An enemy template is randomly selected from the in-memory seed data and its stats are scaled to the current `enemy_level`
 3. The encounter stores the template slug, enemy display data, and base stats directly on the row
 4. After victory, a new Encounter is created at a higher `enemy_level` based on character progression
 5. Defeating an enemy grants experience based on `enemy_level`, not the base template
@@ -128,7 +121,7 @@ The `enemy_level` increases with each victory, scaled by the character's level f
 Encounter | Type | Description | Relations
 -- | -- | -- | --
 id | int | Encounter ID | PK
-character_id | int | Player character | FK Character.id (unique)
+character_id | int | Player character | FK Character.id
 enemy_template_id | string | Enemy template slug | -
 enemy_name | string | Enemy name | -
 enemy_description | string | Enemy description | -
@@ -152,12 +145,6 @@ enemy_current_health | int | Current enemy health | -
 enemy_max_health | int | Maximum enemy health for the fight | -
 enemy_damage | int | Enemy damage for the fight | -
 
-### Enemy template data
-
-Enemy templates are stored in [reference_data/enemy_types.json](reference_data/enemy_types.json). The runtime encounter stores the selected template slug plus the display data and base stats copied from the JSON record.
-
----
-
 ### Item Stacking and Level
 
 Items do not merge or stack, so each Item object is independent. Item level scales damage and health linearly from the base template values. The formula applied during item creation is:
@@ -171,17 +158,17 @@ effective_value = base_value + (item_level - 1) * base_value * 0.25
 Key relationships to understand:
 
 - User ↔ Character: One-to-many. Deleting a user cascades to all characters.
-- User ↔ UserInventory: One-to-one. Each user has exactly one shared inventory.
-- UserInventory ↔ Item: One-to-many. Items belong to a user's inventory until equipped.
+- User ↔ Item: One-to-many. Each user owns all of their item rows.
 - Character ↔ CharacterEquipment: One-to-many. Equipment rows link items to character slots.
 - Character ↔ Encounter: One-to-many. A character can have zero or one active encounter; old encounters are deleted when new ones are created.
-- Template JSON ↔ Item: Items copy their template data at creation time.
-- Template JSON ↔ Encounter: Encounters copy their selected template data at creation time.
+- Character ↔ Combat: One-to-many over time. Combat rows track the live state for a character in an encounter.
+- Template seed data ↔ Item: Items copy their template data at creation time.
+- Template seed data ↔ Encounter: Encounters copy their selected template data at creation time.
 
 ### Cascade Behavior
 
 Deletions cascade automatically:
 
-- Deleting a User deletes all related Characters, UserInventory, CharacterEquipment, and Encounters
+- Deleting a User deletes all related Characters, Items, CharacterEquipment, and Encounters
 - Deleting a Character deletes its CharacterEquipment and Encounters
-- Deleting a UserInventory deletes all Items in that inventory
+- Deleting an Encounter deletes its Combat row

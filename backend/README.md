@@ -96,3 +96,6 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 - `POST /api/combats/<combat:combat>/attack` - attack the active combat.
 - `POST /api/combats/<combat:combat>/run` - attempt to flee the active combat.
 
+## Deployment
+
+The backend container starts with `project/backend/start-backend.sh`, which initializes the database and then runs the API with a WSGI server on port `5000`.

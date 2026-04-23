@@ -16,7 +16,6 @@ services:
       - "5000:5000"
     environment:
       - SECRET_KEY=supersecretdevkey
-      - FLASK_APP=app.py
       - FLASK_ENV=production
       - WIPE_DB_ON_RESTART=false
       - CACHE_TYPE=RedisCache

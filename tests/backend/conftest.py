@@ -12,7 +12,6 @@ os.environ.setdefault('SECRET_KEY', 'test-secret-key')
 
 from backend.app import app as flask_app
 from backend.db.models import Character, Item, User, db
-from backend.db.reference_data import load_reference_data
 from backend.resources.encounters import create_new_encounter
 from backend.utils.api_response_cache import cache
 from backend.utils.game_utils import add_inventory_item, issue_auth_token, seed_character_loadout
@@ -33,7 +32,6 @@ def app(tmp_path_factory):
         db.session.remove()
         db.drop_all()
         db.create_all()
-        load_reference_data()
         cache.clear()
 
     yield flask_app
@@ -52,7 +50,6 @@ def reset_database(request):
         cache.clear()
         db.drop_all()
         db.create_all()
-        load_reference_data()
         yield
         db.session.remove()
         cache.clear()
