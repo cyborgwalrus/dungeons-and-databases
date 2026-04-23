@@ -13,7 +13,7 @@ from backend.utils.api_response_cache import (
     invalidate_user_characters_cache,
     invalidate_user_inventory_cache,
 )
-from backend.utils.game_utils import add_inventory_item, clear_loot_flags, destroy_loot_items
+from backend.utils.game_utils import add_inventory_item
 from backend.utils.route_helpers import json_error
 
 
@@ -76,7 +76,7 @@ def _victory_outcome(character, encounter: Encounter, player_hits: int) -> tuple
         item_names = ', '.join(item['name'] for item in items_dropped)
         message_lines.append(f'You found {item_names}!')
         for item in items_dropped:
-            add_inventory_item(character, item['id'], level=item['level'], is_loot=True)
+            add_inventory_item(character, item['id'], level=item['level'])
 
     _apply_victory_experience(character, encounter, message_lines)
     return message_lines, items_dropped
@@ -85,14 +85,6 @@ def _victory_outcome(character, encounter: Encounter, player_hits: int) -> tuple
 def check_character_death(health: int) -> bool:
     """Return whether the character has died."""
     return health <= 0
-
-
-def _destroy_active_loot_and_encounter(character) -> None:
-    """Delete active loot and the encounter after defeat or retreat."""
-    destroy_loot_items(character)
-    encounter = character.encounters[0] if character.encounters else None
-    if encounter:
-        db.session.delete(encounter)
 
 
 def _resolve_encounter_state(encounter: Encounter) -> Combat:
@@ -172,7 +164,6 @@ def _resolve_home_turn(character, encounter: Encounter) -> dict[str, Any]:
     """Resolve a go-home action after a victory."""
     combat = _resolve_encounter_state(encounter)
     character.health = combat.character_health
-    clear_loot_flags(character)
     db.session.delete(encounter)
 
     return {
@@ -341,18 +332,16 @@ class CombatResource(Resource):
             return json_error('Invalid combat action', 400)
 
         if outcome['player_died']:
-            _destroy_active_loot_and_encounter(character)
+            db.session.delete(encounter)
         elif outcome['victory']:
             character.health = outcome['character']['health']
-        elif outcome.get('success', False):
-            clear_loot_flags(character)
         else:
             character.health = outcome['character']['health']
 
         db.session.commit()
         character_ids = [character.id] if character.id is not None else None
         invalidate_user_characters_cache(character.user_id, character_ids)
-        if outcome['victory'] or outcome['player_died'] or outcome.get('success', False):
+        if outcome['victory']:
             invalidate_user_inventory_cache(character.user_id)
 
         return build_combat_response(outcome)

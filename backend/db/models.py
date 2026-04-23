@@ -236,7 +236,6 @@ class Item(ModelBase, table=True):
     level: int = Field(default=1, ge=1)
     health: int = Field(default=0, ge=0)
     damage: int = Field(default=0, ge=0)
-    is_loot: bool = False
 
     user: User = Relationship(back_populates='items')
     equipment: Optional['CharacterEquipment'] = Relationship(

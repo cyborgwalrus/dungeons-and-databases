@@ -79,10 +79,9 @@ Each item template contains:
 Each Item row represents an actual item instance owned by a player. Items are created from JSON templates and include:
 
 - An item level that scales the base health and damage from the template
-- An `is_loot` flag indicating whether the item was dropped during the current dungeon run
 - A direct `user_id` reference to the owning user
 
-When a character is defeated during a dungeon run, all items with `is_loot=true` are deleted. Successfully looted items are permanently added to the owning user's item collection.
+Items are permanently added to the owning user's item collection when they are created.
 
 Item | Type | Description | Relations
 -- | -- | -- | --
@@ -93,7 +92,6 @@ health | int | Effective health | -
 damage | int | Effective damage | -
 item_type_id | string | Reference template slug | -
 user_id | int | Owning user | FK User.id
-is_loot | boolean | Marked as loot from current dungeon run | -
 
 ### CharacterEquipment
 

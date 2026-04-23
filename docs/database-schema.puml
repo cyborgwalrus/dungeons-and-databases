@@ -60,7 +60,6 @@ entity "item" as item {
   level : int
   health : int
   damage : int
-  is_loot : bool
 }
 
 entity "character_equipment" as character_equipment {

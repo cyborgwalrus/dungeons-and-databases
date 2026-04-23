@@ -137,14 +137,11 @@ def add_inventory_item(
     item_id: str,
     *,
     level: int = 1,
-    is_loot: bool | None = None,
 ) -> Item | None:
     """Create an inventory item from item type data and attach it to a player."""
     item_type = item_types.get(item_id)
     if not item_type:
         return None
-
-    loot_flag = False if is_loot is None else is_loot
 
     inventory_item = Item(
         name=item_type['name'],
@@ -154,7 +151,6 @@ def add_inventory_item(
         level=max(1, int(level)),
         health=_scaled_bonus(item_type['health'] or 0, level),
         damage=_scaled_bonus(item_type['damage'] or 0, level),
-        is_loot=loot_flag,
     )
     db.session.add(inventory_item)
     return inventory_item
@@ -180,20 +176,3 @@ def remove_inventory_item(player: Character, item_id: int | str) -> Item | None:
     return inventory_item
 
 
-def clear_loot_flags(player: Character) -> None:
-    """Clear the loot marker from any items currently held by the player."""
-    if not player.user:
-        return
-    for item in Item.query.filter_by(user_id=player.user_id, is_loot=True).all():
-        item.is_loot = False
-
-
-def destroy_loot_items(player: Character) -> None:
-    """Delete all loot items from the player's inventory."""
-    if not player.user:
-        return
-    loot_items = Item.query.filter_by(user_id=player.user_id, is_loot=True).all()
-    for item in loot_items:
-        if item.is_equipped:
-            continue
-        db.session.delete(item)

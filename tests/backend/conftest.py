@@ -101,9 +101,8 @@ def entities(request):
         item_type_id: str = 'steel_sword',
         *,
         level: int = 1,
-        is_loot: bool = False,
     ) -> Item:
-        item = add_inventory_item(character, item_type_id, level=level, is_loot=is_loot)
+        item = add_inventory_item(character, item_type_id, level=level)
         if item is None:
             raise AssertionError(f'Failed to create inventory item {item_type_id!r}')
         db.session.commit()

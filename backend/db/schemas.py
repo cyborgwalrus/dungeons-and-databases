@@ -120,7 +120,6 @@ class ItemResponse(ModelSchema):
     item_type_id: str
     level: int
     slot: str | None
-    is_loot: bool
     health: int
     damage: int
 

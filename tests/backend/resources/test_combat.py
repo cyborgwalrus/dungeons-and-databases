@@ -58,7 +58,7 @@ def test_combat_attack_after_victory_loads_next_enemy(client, entities):
     assert deeper_payload['combat']['id'] != victory_payload['combat']['id']
 
 
-def test_combat_home_after_victory_returns_home_and_clears_loot_flags(client, entities):
+def test_combat_home_after_victory_returns_home_and_keeps_loot(client, entities):
     user = entities.create_user(username='homer', password='secret')
     character = entities.create_character(user, name='Champion', health=120, damage=100)
     token = entities.token_for(user, character)
@@ -83,7 +83,7 @@ def test_combat_home_after_victory_returns_home_and_clears_loot_flags(client, en
     assert inventory_response.status_code == 200
     inventory_items = inventory_response.get_json()
     assert inventory_items
-    assert all(item['is_loot'] is False for item in inventory_items)
+    assert len(inventory_items) == 1
 
 
 def test_combat_attack_survives_when_enemy_lives(client, entities):
@@ -160,11 +160,11 @@ def test_combat_victory_levels_up_character_and_emits_next_level_message(client,
     assert payload['character']['health'] > initial_health
 
 
-def test_combat_run_success_clears_loot_flags(client, entities):
+def test_combat_run_success_leaves_inventory_untouched(client, entities):
     user = entities.create_user(username='runner', password='secret')
     character = entities.create_character(user, name='Scout', health=80, damage=10)
     token = entities.token_for(user, character)
-    loot_item = entities.create_inventory_item(character, 'steel_sword', is_loot=True)
+    loot_item = entities.create_inventory_item(character, 'steel_sword')
 
     with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
         'backend.resources.combats.random.randint', return_value=6
@@ -184,14 +184,13 @@ def test_combat_run_success_clears_loot_flags(client, entities):
     inventory_items = inventory_response.get_json()
     assert len(inventory_items) == 1
     assert inventory_items[0]['id'] == loot_item.id
-    assert inventory_items[0]['is_loot'] is False
 
 
-def test_combat_run_failure_can_defeat_character_and_clear_loot(client, entities):
+def test_combat_run_failure_can_defeat_character_and_keep_inventory(client, entities):
     user = entities.create_user(username='loser', password='secret')
     character = entities.create_character(user, name='Fragile', health=1, damage=10)
     token = entities.token_for(user, character)
-    entities.create_inventory_item(character, 'steel_sword', is_loot=True)
+    entities.create_inventory_item(character, 'steel_sword')
 
     with patch('backend.resources.encounters.random.choice', side_effect=lambda sequence: sequence[0]), patch(
         'backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: minimum
@@ -209,7 +208,9 @@ def test_combat_run_failure_can_defeat_character_and_clear_loot(client, entities
 
     inventory_response = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
     assert inventory_response.status_code == 200
-    assert inventory_response.get_json() == []
+    inventory_items = inventory_response.get_json()
+    assert len(inventory_items) == 1
+    assert inventory_items[0]['id'] == 1
 
 
 def test_combat_rejects_invalid_action_and_missing_combat(client, entities):

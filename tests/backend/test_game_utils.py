@@ -81,28 +81,15 @@ def test_game_utils_inventory_helpers(entities):
     db.session.commit()
     assert game_utils.remove_inventory_item(owner_character, equipped_item.id) is None
 
-    entities.create_inventory_item(owner_character, 'ruby_necklace', is_loot=True)
-    plain_item = entities.create_inventory_item(owner_character, 'linen_armor', is_loot=False)
-    game_utils.clear_loot_flags(owner_character)
-    db.session.commit()
-
-    fresh_owner = Character.query.get(owner_character.id)
-    assert fresh_owner is not None
-    assert all(not item.is_loot for item in fresh_owner.user.items)
-
-    fresh_loot = entities.create_inventory_item(owner_character, 'silver_ring', is_loot=True)
-    game_utils.destroy_loot_items(owner_character)
+    plain_item = entities.create_inventory_item(owner_character, 'linen_armor')
     db.session.commit()
 
     remaining_ids = {
         item.id for item in Character.query.get(owner_character.id).user.items
     }
-    assert fresh_loot.id not in remaining_ids
     assert plain_item.id in remaining_ids
     assert equipped_item.id in remaining_ids
     assert game_utils.remove_inventory_item(
         SimpleNamespace(user=None, user_id=owner.id),
         1,
     ) is None
-    game_utils.clear_loot_flags(SimpleNamespace(user=None))
-    game_utils.destroy_loot_items(SimpleNamespace(user=None))

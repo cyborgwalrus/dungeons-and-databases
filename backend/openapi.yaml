@@ -807,7 +807,7 @@ components:
           type: integer
     ItemResponse:
       type: object
-      required: [id, name, item_type_id, level, slot, is_loot, health, damage]
+      required: [id, name, item_type_id, level, slot, health, damage]
       properties:
         id:
           type: integer
@@ -820,8 +820,6 @@ components:
         slot:
           type: string
           nullable: true
-        is_loot:
-          type: boolean
         health:
           type: integer
         damage:

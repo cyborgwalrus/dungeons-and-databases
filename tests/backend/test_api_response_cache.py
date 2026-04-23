@@ -26,7 +26,7 @@ def test_api_response_cache_reads_through(entities):
     character = entities.create_character(owner, name='Keeper', seed_loadout=False)
 
     equipped_item = entities.create_inventory_item(character, 'steel_sword')
-    hidden_item = entities.create_inventory_item(character, 'iron_shield', is_loot=True)
+    hidden_item = entities.create_inventory_item(character, 'iron_shield')
 
     assert route_helpers.equip_item(character, equipped_item) is None
     db.session.commit()
@@ -58,7 +58,7 @@ def test_api_response_cache_invalidation(entities, monkeypatch):
     character = entities.create_character(owner, name='Keeper', seed_loadout=False)
 
     equipped_item = entities.create_inventory_item(character, 'steel_sword')
-    entities.create_inventory_item(character, 'iron_shield', is_loot=True)
+    entities.create_inventory_item(character, 'iron_shield')
 
     assert route_helpers.equip_item(character, equipped_item) is None
     db.session.commit()
