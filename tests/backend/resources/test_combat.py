@@ -138,6 +138,7 @@ def test_combat_run_failure_survives_and_keeps_combat_active(client, entities):
 def test_combat_victory_levels_up_character_and_emits_next_level_message(client, entities):
     user = entities.create_user(username='champion', password='secret')
     character = entities.create_character(user, name='Hero', health=90, damage=100)
+    initial_health = character.health
     token = entities.token_for(user, character)
     character.experience = 95
     db.session.commit()
@@ -156,6 +157,7 @@ def test_combat_victory_levels_up_character_and_emits_next_level_message(client,
     assert 'Next level at 150 XP.' in payload['message']
     assert payload['character']['level'] == 2
     assert payload['character']['experience'] == 25
+    assert payload['character']['health'] > initial_health
 
 
 def test_combat_run_success_clears_loot_flags(client, entities):

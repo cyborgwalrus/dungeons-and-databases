@@ -2,6 +2,7 @@
 
 from typing import Any, ClassVar, Optional
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Column, Enum, Field, Relationship, SQLModel
 
 from backend.db.schemas import (
@@ -261,6 +262,9 @@ class CharacterEquipment(ModelBase, table=True):
     """Join model linking a character to a single equipped item slot."""
 
     __tablename__: ClassVar[str] = 'character_equipment'
+    __table_args__ = (
+        UniqueConstraint('character_id', 'slot', name='uq_character_equipment_character_slot'),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     character_id: int = Field(foreign_key='character.id', index=True)
