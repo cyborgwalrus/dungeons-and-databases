@@ -8,6 +8,7 @@ from werkzeug.exceptions import NotFound, Unauthorized
 from werkzeug.routing import BaseConverter
 
 from backend.db.models import Combat, Character, Item, User
+from backend.db.session import db
 from backend.utils.game_utils import get_current_user, get_player
 
 
@@ -39,7 +40,7 @@ class UserConverter(OwnedModelConverter):
 
     def to_python(self, value: str) -> User:
         user_id = self._parse_int(value)
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         current_user = get_current_user()
         if not current_user:
             raise Unauthorized(description='Unauthorized')
@@ -57,7 +58,7 @@ class CharacterConverter(OwnedModelConverter):
 
     def to_python(self, value: str) -> Character:
         character_id = self._parse_int(value)
-        character = Character.query.get(character_id)
+        character = db.session.get(Character, character_id)
         current_user = get_current_user()
         if not current_user:
             raise Unauthorized(description='Unauthorized')
@@ -75,7 +76,7 @@ class ItemConverter(OwnedModelConverter):
 
     def to_python(self, value: str) -> Item:
         item_id = self._parse_int(value)
-        item = Item.query.get(item_id)
+        item = db.session.get(Item, item_id)
         current_user = get_current_user()
         if not current_user:
             raise Unauthorized(description='Unauthorized')
@@ -93,7 +94,7 @@ class CombatConverter(OwnedModelConverter):
 
     def to_python(self, value: str) -> Combat:
         combat_id = self._parse_int(value)
-        combat = Combat.query.get(combat_id)
+        combat = db.session.get(Combat, combat_id)
         current_user = get_current_user()
         if not current_user:
             raise Unauthorized(description='Unauthorized')

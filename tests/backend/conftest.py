@@ -12,7 +12,8 @@ os.environ.setdefault('SECRET_KEY', 'test-secret-key')
 
 from backend.app import app as flask_app
 from backend.db import seed_reference_data
-from backend.db.models import Character, Item, User, db
+from backend.db.models import Character, Item, User
+from backend.db.session import db
 from backend.resources.combats import create_new_combat
 from backend.utils.api_response_cache import cache
 from backend.utils.game_utils import add_inventory_item, issue_auth_token, seed_character_loadout

@@ -4,7 +4,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from backend.db.models import Character, db
+from backend.db.models import Character
+from backend.db.session import db
 from backend.utils import game_utils, route_helpers
 
 
@@ -84,9 +85,9 @@ def test_game_utils_inventory_helpers(entities):
     plain_item = entities.create_inventory_item(owner_character, 'linen_armor')
     db.session.commit()
 
-    remaining_ids = {
-        item.id for item in Character.query.get(owner_character.id).user.items
-    }
+    remaining_character = db.session.get(Character, owner_character.id)
+    assert remaining_character is not None
+    remaining_ids = {item.id for item in remaining_character.user.items}
     assert plain_item.id in remaining_ids
     assert equipped_item.id in remaining_ids
     assert game_utils.remove_inventory_item(

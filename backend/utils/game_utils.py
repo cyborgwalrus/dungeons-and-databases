@@ -7,8 +7,10 @@ from typing import Any
 
 from flask import current_app, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from sqlalchemy import select
 
-from backend.db.models import Character, Item, User as UserModel, db
+from backend.db.models import Character, Item, User as UserModel
+from backend.db.session import db
 
 
 _REFERENCE_DATA_DIR = Path(__file__).resolve().parents[1] / 'db'
@@ -147,7 +149,7 @@ def get_current_user() -> UserModel | None:
     if not payload:
         return None
 
-    user = UserModel.query.get(payload['user_id'])
+    user = db.session.get(UserModel, payload['user_id'])
     return user
 
 
@@ -161,7 +163,7 @@ def get_player() -> Character | None:
     if character_id is None:
         return None
 
-    character = Character.query.get(character_id)
+    character = db.session.get(Character, character_id)
     if not character:
         return None
 
@@ -216,14 +218,18 @@ def remove_inventory_item(player: Character, item_id: int | str) -> Item | None:
     if not player.user:
         return None
 
-    inventory_item = Item.query.filter_by(user_id=player.user_id, id=item_id).first()
+    inventory_item = db.session.execute(
+        select(Item).where(Item.user_id == player.user_id, Item.id == item_id),
+    ).scalar_one_or_none()
     if inventory_item and inventory_item.is_equipped:
         return None
     if not inventory_item:
-        inventory_item = Item.query.filter_by(
-            user_id=player.user_id,
-            item_type_id=str(item_id),
-        ).first()
+        inventory_item = db.session.execute(
+            select(Item).where(
+                Item.user_id == player.user_id,
+                Item.item_type_id == str(item_id),
+            ),
+        ).scalar_one_or_none()
         if not inventory_item or inventory_item.is_equipped:
             return None
 

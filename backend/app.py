@@ -8,7 +8,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
 
 from backend.db import clear_db as clear_db_database, init_db as init_db_database
-from backend.db.models import db
+from backend.db.session import db
 from backend.resources.authentication import register_auth_resources
 from backend.resources.characters import register_character_resources
 from backend.resources.combats import register_combat_resources

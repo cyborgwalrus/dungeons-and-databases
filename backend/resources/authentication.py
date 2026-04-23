@@ -2,9 +2,11 @@
 
 from flask import request
 from flask_restful import Resource
+from sqlalchemy import select
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from backend.db.models import User, db
+from backend.db.models import User
+from backend.db.session import db
 from backend.db.schemas import AuthCredentials
 from backend.utils.game_utils import get_current_user, get_player, issue_auth_token
 from backend.utils.route_helpers import json_error, validate_payload
@@ -21,7 +23,9 @@ class SignupResource(Resource):
             return error_response
         assert credentials is not None
 
-        if User.query.filter_by(username=credentials.username).first():
+        if db.session.execute(
+            select(User).where(User.username == credentials.username),
+        ).scalar_one_or_none():
             return json_error('username already exists', 409)
 
         user = User(
@@ -51,7 +55,9 @@ class SigninResource(Resource):
             return error_response
         assert credentials is not None
 
-        user = User.query.filter_by(username=credentials.username).first()
+        user = db.session.execute(
+            select(User).where(User.username == credentials.username),
+        ).scalar_one_or_none()
         if not user:
             return json_error('invalid username or password', 401)
 

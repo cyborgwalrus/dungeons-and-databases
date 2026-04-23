@@ -2,9 +2,11 @@
 
 from typing import Any
 
+from sqlalchemy import select
 from pydantic import ValidationError
 
-from backend.db.models import Character, EquipmentSlot, Item, User, db
+from backend.db.models import Character, EquipmentSlot, Item, User
+from backend.db.session import db
 from backend.utils.game_utils import get_current_user, get_player
 
 
@@ -30,7 +32,7 @@ def require_current_user_id(user_id: int) -> tuple[User | None, tuple[Any, int] 
 def get_character(character_id: int | None = None) -> Character | None:
     """Return a specific character or the active player character."""
     if character_id is not None:
-        return Character.query.get(character_id)
+        return db.session.get(Character, character_id)
 
     return get_player()
 
@@ -50,7 +52,7 @@ def require_character_owner(character_id: int) -> tuple[Character | None, tuple[
         return None, error_response
     assert user is not None
 
-    character = Character.query.get(character_id)
+    character = db.session.get(Character, character_id)
     if not character:
         return None, json_error('Character not found', 404)
     if character.user_id != user.id:
@@ -60,7 +62,9 @@ def require_character_owner(character_id: int) -> tuple[Character | None, tuple[
 
 def get_item(character: Character, item_id: int) -> Item | None:
     """Return an item from the character's shared inventory by ID."""
-    item = Item.query.filter_by(user_id=character.user_id, id=item_id).first()
+    item = db.session.execute(
+        select(Item).where(Item.user_id == character.user_id, Item.id == item_id),
+    ).scalar_one_or_none()
     if not item or item.is_equipped:
         return None
     return item
@@ -88,10 +92,12 @@ def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
     assert character.id is not None
     assert item.id is not None
 
-    existing_equipment = EquipmentSlot.query.filter_by(
-        character_id=character.id,
-        slot_type=slot_type,
-    ).first()
+    existing_equipment = db.session.execute(
+        select(EquipmentSlot).where(
+            EquipmentSlot.character_id == character.id,
+            EquipmentSlot.slot_type == slot_type,
+        ),
+    ).scalar_one_or_none()
     if existing_equipment:
         existing_equipment.item = item
         existing_equipment.item_id = item.id
@@ -113,10 +119,12 @@ def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
 
 def unequip_item(character: Character, item_id: int) -> tuple[Any, int] | None:
     """Return an equipped item to the character's inventory."""
-    equipment = EquipmentSlot.query.filter_by(
-        character_id=character.id,
-        item_id=item_id,
-    ).first()
+    equipment = db.session.execute(
+        select(EquipmentSlot).where(
+            EquipmentSlot.character_id == character.id,
+            EquipmentSlot.item_id == item_id,
+        ),
+    ).scalar_one_or_none()
     if not equipment:
         return json_error('Equipment not found', 404)
     db.session.delete(equipment)

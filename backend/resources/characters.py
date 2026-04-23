@@ -3,7 +3,8 @@
 from flask import request
 from flask_restful import Resource
 
-from backend.db.models import Character, db
+from backend.db.models import Character
+from backend.db.session import db
 from backend.db.schemas import CharacterCreateRequest, CharacterUpdateRequest, ItemSelectionRequest
 from backend.utils.game_utils import (
     get_player as get_current_character,

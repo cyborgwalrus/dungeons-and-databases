@@ -5,8 +5,10 @@ from typing import Any
 
 from flask import jsonify
 from flask_restful import Resource
+from sqlalchemy import delete
 
-from backend.db.models import Combat, db
+from backend.db.models import Combat
+from backend.db.session import db
 from backend.utils.game_utils import get_enemy_types, get_player
 from backend.utils.api_response_cache import (
     invalidate_user_characters_cache,
@@ -33,7 +35,7 @@ def create_new_combat(
 
     assert character.id is not None
 
-    Combat.query.filter_by(character_id=character.id).delete(synchronize_session=False)
+    db.session.execute(delete(Combat).where(Combat.character_id == character.id))
     db.session.flush()
 
     enemy_types_data = get_enemy_types()

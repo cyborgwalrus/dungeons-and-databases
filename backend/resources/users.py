@@ -2,8 +2,10 @@
 
 from flask import request
 from flask_restful import Resource
+from sqlalchemy import select
 
-from backend.db.models import Item, User, db
+from backend.db.models import Item, User
+from backend.db.session import db
 from backend.db.schemas import UserUpdateRequest
 from backend.utils.api_response_cache import (
     get_cached_user_data,
@@ -62,7 +64,7 @@ class UserItemsResource(Resource):
         assert user.id is not None
         inventory_items = [
             item
-            for item in Item.query.all()
+            for item in db.session.scalars(select(Item))
             if item.user_id == user.id and not item.is_equipped
         ]
         deleted_count = 0

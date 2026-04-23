@@ -5,9 +5,11 @@ from __future__ import annotations
 from collections.abc import Iterable
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from backend.db.models import Character, EquipmentSlot, Item, User
+from backend.db.session import db
 from backend.utils.app_init import cache
 
 
@@ -17,23 +19,26 @@ _CHARACTER_EQUIPMENT_OPTIONS = selectinload(
 
 
 def _load_user_state(user_id: int) -> User | None:
-    return User.query.get(user_id)
+    return db.session.get(User, user_id)
 
 
 def _load_user_characters_state(user_id: int) -> User | None:
-    return User.query.options(
-        selectinload(User.characters).options(_CHARACTER_EQUIPMENT_OPTIONS),
-    ).get(user_id)
+    return db.session.get(
+        User,
+        user_id,
+        options=[selectinload(User.characters).options(_CHARACTER_EQUIPMENT_OPTIONS)],
+    )
 
 
 def _load_user_inventory_state(user_id: int) -> User | None:
-    return User.query.get(user_id)
+    return db.session.get(User, user_id)
 
 
 def _load_character_state(character_id: int, user_id: int) -> Character | None:
-    return Character.query.options(
-        _CHARACTER_EQUIPMENT_OPTIONS,
-    ).filter_by(id=character_id, user_id=user_id).first()
+    character = db.session.get(Character, character_id, options=[_CHARACTER_EQUIPMENT_OPTIONS])
+    if character is None or character.user_id != user_id:
+        return None
+    return character
 
 
 @cache.memoize(timeout=600)
@@ -60,11 +65,15 @@ def get_cached_user_inventory_data(user_id: int) -> list[dict[str, Any]]:
         return []
     equipped_item_ids = {
         equipment.item_id
-        for equipment in EquipmentSlot.query.join(Item).filter(Item.user_id == user_id).all()
+        for equipment in db.session.scalars(
+            select(EquipmentSlot)
+            .join(Item)
+            .where(Item.user_id == user_id),
+        )
     }
     return [
         item.to_response().model_dump()
-        for item in Item.query.filter_by(user_id=user_id).all()
+        for item in db.session.scalars(select(Item).where(Item.user_id == user_id))
         if item.id not in equipped_item_ids
     ]
 
@@ -107,8 +116,11 @@ def _invalidate_character_snapshots(
 
     if character_ids is None:
         character_ids = [
-            character.id
-            for character in Character.query.filter_by(user_id=user_id).all()
+            character_id
+            for character_id in db.session.scalars(
+                select(Character.id).where(Character.user_id == user_id),
+            )
+            if character_id is not None
         ]
 
     for character_id in character_ids:

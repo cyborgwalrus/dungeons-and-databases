@@ -5,7 +5,8 @@ from typing import cast
 
 from flask import request
 
-from backend.db.models import Character, Item, db
+from backend.db.models import Character, Item
+from backend.db.session import db
 from backend.utils import route_helpers
 
 
@@ -192,7 +193,7 @@ def test_route_helpers_item_mutators(entities):
 
     assert route_helpers.equip_item(owner_character, second_item) is None
     db.session.commit()
-    fresh_character = Character.query.get(owner_character.id)
+    fresh_character = db.session.get(Character, owner_character.id)
     assert fresh_character is not None
     assert len(fresh_character.equipment) == 1
     assert fresh_character.equipment[0].item.id == second_item.id

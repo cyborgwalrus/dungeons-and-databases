@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from backend.db.models import EnemyType, ItemType, db
+from backend.db.models import EnemyType, ItemType
+from backend.db.session import db
 from backend.utils.app_init import cache
 from backend.utils.game_utils import load_enemy_type_seed_data, load_item_type_seed_data
 

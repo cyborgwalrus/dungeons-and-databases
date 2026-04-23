@@ -5,7 +5,8 @@ from __future__ import annotations
 from flask import request
 from flask_restful import Resource
 
-from backend.db.models import Item, db
+from backend.db.models import Item
+from backend.db.session import db
 from backend.db.schemas import ItemCreateRequest
 from backend.utils.game_utils import add_inventory_item
 from backend.utils.route_helpers import json_error, require_current_character, validate_payload

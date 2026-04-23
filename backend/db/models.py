@@ -12,22 +12,9 @@ from backend.db.schemas import (
     ItemResponse,
     UserResponse,
 )
-from backend.db.session import db
-
-
-class _QueryDescriptor:
-    """Expose a legacy-style query interface backed by the active SQLModel session."""
-
-    def __get__(self, instance, owner):
-        if db.session is None:
-            raise RuntimeError('Database session is not initialized')
-        return db.session.query(owner)
-
 
 class ModelBase(SQLModel):
     """Common base model with a compatibility query property."""
-
-    query: ClassVar[Any] = _QueryDescriptor()
     model_config: ClassVar[Any] = {
         'arbitrary_types_allowed': True,
         'from_attributes': True,
