@@ -22,6 +22,66 @@ def _combat_damage_roll(max_damage: int) -> int:
     return random.randint(max(1, max_damage // 2), max(1, max_damage))
 
 
+def _attack_victory_message(enemy_name: str, player_hits: int) -> list[str]:
+    """Build the opening victory message for a defeated enemy."""
+    return [
+        'Victory!',
+        f'You dealt {player_hits} damage and defeated the {enemy_name}!',
+    ]
+
+
+def _attack_survival_message(enemy_name: str, player_hits: int, monster_hits: int) -> str:
+    """Build the message for an attack round where combat continues."""
+    return (
+        f'You dealt {player_hits} damage to {enemy_name}!\n'
+        f'{enemy_name} dealt {monster_hits} damage to you!'
+    )
+
+
+def _attack_defeat_message(enemy_name: str) -> str:
+    """Build the message for a defeated attack round."""
+    return (
+        'Defeat!\n'
+        f'You have been defeated by {enemy_name}!\n'
+        'You lost the loot from this dungeon run...'
+    )
+
+
+def _run_escape_message(dice_roll: int) -> str:
+    """Build the message for a successful escape."""
+    return f'You rolled a {dice_roll}! You successfully escaped and returned home!'
+
+
+def _run_failure_message(dice_roll: int, enemy_name: str, damage_taken: int, defeated: bool) -> str:
+    """Build the message for a failed escape attempt."""
+    if defeated:
+        return (
+            f'You rolled a {dice_roll} and failed to escape!\n'
+            f'{enemy_name} dealt {damage_taken} damage! '
+            'You lost the loot from this dungeon run and returned to the start...'
+        )
+
+    return (
+        f'You rolled a {dice_roll} and failed to escape!\n'
+        f'{enemy_name} caught you and dealt {damage_taken} damage!'
+    )
+
+
+def _victory_outcome(character, encounter: Encounter, player_hits: int) -> tuple[list[str], list[dict[str, Any]]]:
+    """Build the complete victory message list and loot drops for a combat round."""
+    message_lines = _attack_victory_message(encounter.enemy_name, player_hits)
+
+    items_dropped = drop_loot(encounter)
+    if items_dropped:
+        item_names = ', '.join(item['name'] for item in items_dropped)
+        message_lines.append(f'You found {item_names}!')
+        for item in items_dropped:
+            add_inventory_item(character, item['id'], level=item['level'], is_loot=True)
+
+    _apply_victory_experience(character, encounter, message_lines)
+    return message_lines, items_dropped
+
+
 def check_character_death(health: int) -> bool:
     """Return whether the character has died."""
     return health <= 0
@@ -75,11 +135,7 @@ def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
         if check_character_death(combat.character_health):
             character.health = combat.character_health
             return {
-                'message': (
-                    'Defeat!\n'
-                    f'You have been defeated by {enemy_name}!\n'
-                    'You lost the loot from this dungeon run...'
-                ),
+                'message': _attack_defeat_message(enemy_name),
                 'victory': False,
                 'items_dropped': [],
                 'player_died': True,
@@ -89,10 +145,7 @@ def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
             }
 
         return {
-            'message': (
-                f'You dealt {player_hits} damage to {enemy_name}!\n'
-                f'{enemy_name} dealt {monster_hits} damage to you!'
-            ),
+            'message': _attack_survival_message(enemy_name, player_hits, monster_hits),
             'victory': False,
             'items_dropped': [],
             'player_died': False,
@@ -101,21 +154,8 @@ def _resolve_attack_turn(character, encounter: Encounter) -> dict[str, Any]:
             'character': character.to_response(health=combat.character_health).model_dump(),
         }
 
-    message_lines = [
-        'Victory!',
-        f'You dealt {player_hits} damage and defeated the {enemy_name}!',
-    ]
-    items_dropped = drop_loot(encounter)
-    if items_dropped:
-        item_names = ', '.join(item['name'] for item in items_dropped)
-        message_lines.append(f'You found {item_names}!')
-        for item in items_dropped:
-            add_inventory_item(character, item['id'], level=item['level'], is_loot=True)
-
     character.health = combat.character_health
-    _apply_victory_experience(character, encounter, message_lines)
-
-    character.health = combat.character_health
+    message_lines, items_dropped = _victory_outcome(character, encounter, player_hits)
 
     return {
         'message': '\n'.join(message_lines),
@@ -158,7 +198,7 @@ def _resolve_run_turn(character, encounter: Encounter) -> dict[str, Any]:
         character.health = combat.character_health
         db.session.delete(encounter)
         return {
-            'message': f'You rolled a {dice_roll}! You successfully escaped and returned home!',
+            'message': _run_escape_message(dice_roll),
             'victory': False,
             'items_dropped': [],
             'player_died': False,
@@ -175,11 +215,7 @@ def _resolve_run_turn(character, encounter: Encounter) -> dict[str, Any]:
     if check_character_death(combat.character_health):
         character.health = combat.character_health
         return {
-            'message': (
-                f'You rolled a {dice_roll} and failed to escape!\n'
-                f'{enemy_name} dealt {damage_taken} damage! '
-                'You lost the loot from this dungeon run and returned to the start...'
-            ),
+            'message': _run_failure_message(dice_roll, enemy_name, damage_taken, True),
             'victory': False,
             'items_dropped': [],
             'player_died': True,
@@ -192,10 +228,7 @@ def _resolve_run_turn(character, encounter: Encounter) -> dict[str, Any]:
         }
 
     return {
-        'message': (
-            f'You rolled a {dice_roll} and failed to escape!\n'
-            f'{enemy_name} caught you and dealt {damage_taken} damage!'
-        ),
+        'message': _run_failure_message(dice_roll, enemy_name, damage_taken, False),
         'victory': False,
         'items_dropped': [],
         'player_died': False,
