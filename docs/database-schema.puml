@@ -1,25 +1,22 @@
-@startuml
+@startuml database-schema
 left to right direction
 skinparam shadowing false
 skinparam classAttributeIconSize 0
 
 hide methods
 hide stereotypes
+hide circle
 
-entity "item_types" as item_types {
+entity "item_type" as item_type {
   *id : str <<PK>>
   --
   name : str
-  slot : enum
+  slot_type : str
   health : int
   damage : int
 }
 
-note right of item_types
-  In-memory seed data only
-end note
-
-entity "enemy_types" as enemy_types {
+entity "enemy_type" as enemy_type {
   *id : str <<PK>>
   --
   name : str
@@ -27,10 +24,6 @@ entity "enemy_types" as enemy_types {
   health : int
   damage : int
 }
-
-note right of enemy_types
-  In-memory seed data only
-end note
 
 entity "user" as user {
   *id : int <<PK>>
@@ -56,37 +49,26 @@ entity "item" as item {
   user_id : int <<FK>>
   name : str
   item_type_id : str
-  slot : enum
+  slot_type : str
   level : int
   health : int
   damage : int
 }
 
-entity "character_equipment" as character_equipment {
+entity "equipment_slot" as equipment_slot {
   *id : int <<PK>>
   --
   character_id : int <<FK>>
   item_id : int <<FK, unique>>
-  slot : enum
-}
-
-entity "encounter" as encounter {
-  *id : int <<PK>>
-  --
-  character_id : int <<FK>>
-  enemy_template_id : str
-  enemy_name : str
-  enemy_description : str?
-  enemy_base_health : int
-  enemy_base_damage : int
-  enemy_level : int
+  slot_type : str
 }
 
 entity "combat" as combat {
   *id : int <<PK>>
   --
-  encounter_id : int <<FK, unique>>
   character_id : int <<FK>>
+  enemy_type_id : str <<FK>>
+  enemy_level : int
   character_health : int
   enemy_current_health : int
   enemy_max_health : int
@@ -95,12 +77,10 @@ entity "combat" as combat {
 
 user ||--o{ character : owns
 user ||--o{ item : owns
-item_types ||--o{ item : seeds
-character ||--o{ character_equipment : equips
-item ||--o| character_equipment : assigned to
-enemy_types ||--o{ encounter : seeds
-character ||--o{ encounter : starts
-encounter ||--o| combat : has state
+item_type ||--o{ item : seeds
+character ||--o{ equipment_slot : equips
+item ||--o| equipment_slot : assigned to
+enemy_type ||--o{ combat : seeds
 character ||--o{ combat : participates in
 
 @enduml

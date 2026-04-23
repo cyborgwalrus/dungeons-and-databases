@@ -2,22 +2,10 @@
 
 from __future__ import annotations
 
-from enum import Enum
 from typing import ClassVar
 
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
-
-
-class ItemSlot(str, Enum):
-    """Equipment slot categories used by items and character gear."""
-
-    WEAPON = 'weapon'
-    SHIELD = 'shield'
-    ARMOR = 'armor'
-    HELMET = 'helmet'
-    RING = 'ring'
-    NECKLACE = 'necklace'
 
 
 class ModelSchema(SQLModel):  # pylint: disable=too-few-public-methods
@@ -113,13 +101,13 @@ class ItemResponse(ModelSchema):
     name: str
     item_type_id: str
     level: int
-    slot: str | None
+    slot_type: str | None
     health: int
     damage: int
 
 
-class CharacterEquipmentResponse(ModelSchema):
+class EquipmentSlotResponse(ModelSchema):
     id: int
     character_id: int
     item_id: int
-    slot: str | None
+    slot_type: str | None

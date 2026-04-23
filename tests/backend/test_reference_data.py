@@ -21,7 +21,7 @@ def test_reference_data_helpers_return_expected_records():
     assert item_template == {
         'id': 'steel_sword',
         'name': 'Steel Sword',
-        'slot': 'weapon',
+        'slot_type': 'weapon',
         'health': 0,
         'damage': 10,
     }

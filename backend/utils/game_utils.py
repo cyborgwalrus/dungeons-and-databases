@@ -201,7 +201,7 @@ def add_inventory_item(
     inventory_item = Item(
         name=item_type['name'],
         item_type_id=item_type['id'],
-        slot=item_type['slot'],
+        slot_type=item_type['slot_type'],
         user_id=player.user_id,
         level=max(1, int(level)),
         health=_scaled_bonus(item_type['health'] or 0, level),

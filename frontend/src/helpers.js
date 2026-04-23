@@ -5,7 +5,7 @@
  * @returns {string} Emoji icon representing the item.
  */
 export function makeIcon(i) {
-  const slot = (i.slot || '').toLowerCase();
+  const slot = (i.slot_type || '').toLowerCase();
   if (slot === 'helmet') return '🪖';
   if (slot === 'armor') return '👕';
   if (slot === 'weapon') return '🗡️';
@@ -23,7 +23,7 @@ export function makeIcon(i) {
  * @returns {string} Canonical item type string.
  */
 export function getItemType(i) {
-  const slot = (i.slot || '').toLowerCase();
+  const slot = (i.slot_type || '').toLowerCase();
   if (slot === 'shield') return 'shield';
   if (slot === 'helmet') return 'helmet';
   if (slot === 'necklace') return 'necklace';

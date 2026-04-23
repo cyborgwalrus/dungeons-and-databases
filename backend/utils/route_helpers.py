@@ -4,13 +4,8 @@ from typing import Any
 
 from pydantic import ValidationError
 
-from backend.db.models import Character, CharacterEquipment, Item, User, db
+from backend.db.models import Character, EquipmentSlot, Item, User, db
 from backend.utils.game_utils import get_current_user, get_player
-
-
-def _slot_value(slot: Any) -> Any:
-    """Return a stable representation for enum-backed slot values."""
-    return slot.value if hasattr(slot, 'value') else slot
 
 
 def require_current_user() -> tuple[User | None, tuple[Any, int] | None]:
@@ -86,31 +81,31 @@ def require_item(
 
 def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
     """Move an inventory item into the character's equipment set."""
-    slot = _slot_value(item.slot)
-    if not slot:
+    slot_type = item.slot_type
+    if not slot_type:
         return json_error('Item cannot be equipped', 400)
 
     assert character.id is not None
     assert item.id is not None
 
-    existing_equipment = CharacterEquipment.query.filter_by(
+    existing_equipment = EquipmentSlot.query.filter_by(
         character_id=character.id,
-        slot=slot,
+        slot_type=slot_type,
     ).first()
     if existing_equipment:
         existing_equipment.item = item
         existing_equipment.item_id = item.id
-        existing_equipment.slot = slot
+        existing_equipment.slot_type = slot_type
         db.session.add(existing_equipment)
         return None
 
     db.session.add(
-        CharacterEquipment(
+        EquipmentSlot(
             character=character,
             item=item,
             character_id=character.id,
             item_id=item.id,
-            slot=slot,
+            slot_type=slot_type,
         )
     )
     return None
@@ -118,7 +113,7 @@ def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
 
 def unequip_item(character: Character, item_id: int) -> tuple[Any, int] | None:
     """Return an equipped item to the character's inventory."""
-    equipment = CharacterEquipment.query.filter_by(
+    equipment = EquipmentSlot.query.filter_by(
         character_id=character.id,
         item_id=item_id,
     ).first()

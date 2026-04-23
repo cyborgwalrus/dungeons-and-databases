@@ -7,13 +7,13 @@ from typing import Any
 
 from sqlalchemy.orm import selectinload
 
-from backend.db.models import Character, CharacterEquipment, Item, User
+from backend.db.models import Character, EquipmentSlot, Item, User
 from backend.utils.app_init import cache
 
 
 _CHARACTER_EQUIPMENT_OPTIONS = selectinload(
     Character.equipment
-).selectinload(CharacterEquipment.item)
+).selectinload(EquipmentSlot.item)
 
 
 def _load_user_state(user_id: int) -> User | None:
@@ -60,7 +60,7 @@ def get_cached_user_inventory_data(user_id: int) -> list[dict[str, Any]]:
         return []
     equipped_item_ids = {
         equipment.item_id
-        for equipment in CharacterEquipment.query.join(Item).filter(Item.user_id == user_id).all()
+        for equipment in EquipmentSlot.query.join(Item).filter(Item.user_id == user_id).all()
     }
     return [
         item.to_response().model_dump()

@@ -3,14 +3,13 @@
 from typing import Any, ClassVar, Optional, cast
 
 from sqlalchemy import UniqueConstraint
-from sqlmodel import Column, Enum, Field, Relationship, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
 
 from backend.db.schemas import (
-    CharacterEquipmentResponse,
+    EquipmentSlotResponse,
     CharacterResponse,
     CombatResponse,
     ItemResponse,
-    ItemSlot,
     UserResponse,
 )
 from backend.db.session import db
@@ -77,7 +76,7 @@ class Character(ModelBase, table=True):
     damage: int = Field(default=10, ge=0)
 
     user: User = Relationship(back_populates='characters')
-    equipment: list['CharacterEquipment'] = Relationship(
+    equipment: list['EquipmentSlot'] = Relationship(
         back_populates='character',
         sa_relationship_kwargs={'cascade': 'all, delete-orphan'},
     )
@@ -154,17 +153,7 @@ class ItemType(ModelBase, table=True):
 
     id: str = Field(primary_key=True, max_length=80)
     name: str = Field(max_length=80)
-    slot: ItemSlot = Field(
-        sa_column=Column(
-            Enum(
-                ItemSlot,
-                native_enum=False,
-                validate_strings=True,
-                values_callable=lambda enum_cls: [member.value for member in enum_cls],
-            ),
-            nullable=False,
-        )
-    )
+    slot_type: str = Field(max_length=80)
     health: int = Field(default=0, ge=0)
     damage: int = Field(default=0, ge=0)
 
@@ -237,23 +226,13 @@ class Item(ModelBase, table=True):
     user_id: int = Field(foreign_key='user.id', index=True)
     name: str = Field(max_length=80)
     item_type_id: str = Field(foreign_key='item_type.id', max_length=80, index=True)
-    slot: ItemSlot = Field(
-        sa_column=Column(
-            Enum(
-                ItemSlot,
-                native_enum=False,
-                validate_strings=True,
-                values_callable=lambda enum_cls: [member.value for member in enum_cls],
-            ),
-            nullable=False,
-        )
-    )
+    slot_type: str = Field(max_length=80)
     level: int = Field(default=1, ge=1)
     health: int = Field(default=0, ge=0)
     damage: int = Field(default=0, ge=0)
 
     user: User = Relationship(back_populates='items')
-    equipment: Optional['CharacterEquipment'] = Relationship(
+    equipment: Optional['EquipmentSlot'] = Relationship(
         back_populates='item',
         sa_relationship_kwargs={
             'uselist': False,
@@ -272,28 +251,18 @@ class Item(ModelBase, table=True):
         return ItemResponse.model_validate(self)
 
 
-class CharacterEquipment(ModelBase, table=True):
+class EquipmentSlot(ModelBase, table=True):
     """Join model linking a character to a single equipped item slot."""
 
     __tablename__: ClassVar[str] = 'character_equipment'
     __table_args__ = (
-        UniqueConstraint('character_id', 'slot', name='uq_character_equipment_character_slot'),
+        UniqueConstraint('character_id', 'slot_type', name='uq_character_equipment_character_slot'),
     )
 
     id: int | None = Field(default=None, primary_key=True)
     character_id: int = Field(foreign_key='character.id', index=True)
     item_id: int = Field(foreign_key='item.id', unique=True)
-    slot: ItemSlot = Field(
-        sa_column=Column(
-            Enum(
-                ItemSlot,
-                native_enum=False,
-                validate_strings=True,
-                values_callable=lambda enum_cls: [member.value for member in enum_cls],
-            ),
-            nullable=False,
-        )
-    )
+    slot_type: str = Field(max_length=80)
 
     character: Character = Relationship(
         back_populates='equipment'
@@ -303,9 +272,9 @@ class CharacterEquipment(ModelBase, table=True):
         sa_relationship_kwargs={'uselist': False},
     )
 
-    def to_response(self) -> CharacterEquipmentResponse:
+    def to_response(self) -> EquipmentSlotResponse:
         """Return the equipment response representation."""
-        return CharacterEquipmentResponse.model_validate(self)
+        return EquipmentSlotResponse.model_validate(self)
 
     def matches_item(self, item_id: int) -> bool:
         """Return whether this record points to the requested item."""

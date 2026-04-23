@@ -16,11 +16,10 @@ backend/
 │   ├── characters.py            # Character management resources
 │   ├── users.py                 # User account resources
 │   ├── items.py                 # Item management resources
-│   ├── encounters.py            # Encounter creation resource
-│   └── combats.py               # Combat action resource
+│   └── combats.py               # Combat creation and action resource
 ├── utils/                # Utilities and helpers
 │   ├── api_response_cache.py # Cached API payload helpers and invalidation hooks
-│   ├── app_cache.py          # Flask cache configuration
+│   ├── app_init.py           # Flask cache, Swagger, dashboard, and bootstrapping helpers
 │   ├── game_utils.py         # Game logic helpers (tokens, loadouts, combat)
 │   ├── route_helpers.py      # Common route helpers and validation functions
 │   └── url_converters.py     # Werkzeug converters that resolve owned ORM objects
@@ -33,10 +32,9 @@ backend/
 | :------------: | :------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------- | :---------: |
 | Authentication | `/login/signup` - `POST`<br>`/login/signin` - `POST`<br>`/login/signout` - `POST`<br>`/login/me` - `GET`                              | Token-based authentication endpoints                     |     Yes     |
 |     User      | `/users/<user:user>` - `GET` `PUT` `DELETE`<br>`/users/<user:user>/inventory` - `GET` `DELETE`                                     | User account management and shared inventory            |     Yes     |
-|   Character   | `/users/<user:user>/characters` - `GET` `POST`<br>`/characters/<character:character>` - `GET` `PUT` `DELETE`<br>`/characters/<character:character>/select` - `POST`<br>`/characters/<character:character>/full_heal` - `POST`<br>`/characters/<character:character>/equipment` - `GET` `POST`<br>`/characters/<character:character>/equipment/<item:item>` - `DELETE` | Character management, selection, leveling, experience, equipment, and healing |     Yes     |
+|   Character   | `/users/<user:user>/characters` - `GET` `POST`<br>`/characters/<character:character>` - `GET` `PUT` `DELETE`<br>`/characters/<character:character>/select` - `POST`<br>`/characters/<character:character>/full_heal` - `POST`<br>`/characters/<character:character>/equipment` - `GET` `POST`<br>`/characters/<character:character>/equipment/<item:item>` - `DELETE` | Character management, selection, leveling, experience, equipment slots, and healing |     Yes     |
 |      Item     | `/items` - `POST`<br>`/items/<item:item>` - `GET` `DELETE`                                                                    | Item creation and inventory operations                   |     Yes     |
-|   Encounter   | `/encounters` - `POST`                                                                                     | Dungeon encounter creation                                |     Yes     |
-|     Combat     | `/combats/<combat:combat>/attack` - `POST`<br>`/combats/<combat:combat>/run` - `POST`<br>`/combats/<combat:combat>/home` - `POST` | Dungeon combat actions                                    |     Yes     |
+|     Combat     | `/combats` - `POST`<br>`/combats/<combat:combat>` - `GET`<br>`/combats/<combat:combat>/attack` - `GET`<br>`/combats/<combat:combat>/deeper` - `GET`<br>`/combats/<combat:combat>/run` - `GET`<br>`/combats/<combat:combat>/home` - `GET` | Dungeon combat creation, state, and actions               |     Yes     |
 
 ## Endpoint Details
 
@@ -70,11 +68,12 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 - `POST /api/characters/<character:character>/select` - issue a token scoped to the selected character.
 - `POST /api/characters/<character:character>/full_heal` - heal a character to full health.
 
-#### Equipment
+#### Equipment Slots
 
 - `GET /api/characters/<character:character>/equipment` - list equipped items for a character.
-- `POST /api/characters/<character:character>/equipment` - equip an item from the user's shared inventory.
-- `DELETE /api/characters/<character:character>/equipment/<item:item>` - unequip an item and return it to the user's shared inventory.
+- `POST /api/characters/<character:character>/equipment` - equip an item into a character equipment slot from the user's shared inventory.
+- `DELETE /api/characters/<character:character>/equipment/<item:item>` - unequip an item from a character equipment slot and return it to the user's shared inventory.
+- Equipment slot types are stored as plain strings on `slot_type`: `weapon`, `shield`, `armor`, `helmet`, `ring`, and `necklace`.
 
 ### Inventory
 
@@ -87,15 +86,14 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 - `GET /api/items/<item:item>` - fetch one item.
 - `DELETE /api/items/<item:item>` - remove an item.
 
-### Encounters
-
-- `POST /api/encounters` - create a new dungeon encounter and matching combat state for the active character.
-
 ### Combat
 
-- `POST /api/combats/<combat:combat>/attack` - attack the active combat.
-- `POST /api/combats/<combat:combat>/run` - attempt to flee the active combat.
-- `POST /api/combats/<combat:combat>/home` - leave the dungeon after defeating the current enemy.
+- `POST /api/combats` - start a new dungeon combat for the active character.
+- `GET /api/combats/<combat:combat>` - fetch the current combat state.
+- `GET /api/combats/<combat:combat>/attack` - attack the active combat.
+- `GET /api/combats/<combat:combat>/deeper` - move deeper after defeating the current enemy.
+- `GET /api/combats/<combat:combat>/run` - attempt to flee the active combat.
+- `GET /api/combats/<combat:combat>/home` - leave the dungeon after defeating the current enemy.
 
 ## Deployment
 

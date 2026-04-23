@@ -182,7 +182,7 @@ def test_route_helpers_item_mutators(entities):
 
     unequipped_marker = route_helpers.equip_item(
         cast(Character, SimpleNamespace(equipment=[])),
-        cast(Item, SimpleNamespace(slot=None)),
+        cast(Item, SimpleNamespace(slot_type=None)),
     )
     assert unequipped_marker == ({'error': 'Item cannot be equipped'}, 400)
 

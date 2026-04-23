@@ -10,7 +10,6 @@ tags:
   - name: Users
   - name: Characters
   - name: Items
-  - name: Encounters
   - name: Combat
 paths:
   /login/signup:
@@ -350,7 +349,7 @@ paths:
       - $ref: '#/components/parameters/CharacterId'
     get:
       tags: [Characters]
-      summary: List equipped items for a character
+      summary: List equipped items for a character's equipment slots
       security:
         - bearerAuth: []
       responses:
@@ -368,7 +367,7 @@ paths:
           $ref: '#/components/responses/NotFound'
     post:
       tags: [Characters]
-      summary: Equip an item from the shared inventory
+      summary: Equip an item into a character equipment slot
       security:
         - bearerAuth: []
       requestBody:
@@ -400,7 +399,7 @@ paths:
       - $ref: '#/components/parameters/ItemId'
     delete:
       tags: [Characters]
-      summary: Unequip an item
+      summary: Unequip an item from a character equipment slot
       security:
         - bearerAuth: []
       responses:
@@ -487,30 +486,49 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
-  /encounters:
+  /combats:
     post:
-      tags: [Encounters]
-      summary: Create a new encounter and combat state
+      tags: [Combat]
+      summary: Start a new dungeon combat for the active character
       security:
         - bearerAuth: []
       responses:
         '201':
-          description: Encounter and combat created
+          description: Combat created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EncounterBootstrapResponse'
+                $ref: '#/components/schemas/CombatBootstrapResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /combats/{combatId}:
+    parameters:
+      - $ref: '#/components/parameters/CombatId'
+    get:
+      tags: [Combat]
+      summary: Fetch one combat state
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Combat state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CombatResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
   /combats/{combatId}/{action}:
     parameters:
       - $ref: '#/components/parameters/CombatId'
       - $ref: '#/components/parameters/CombatAction'
-    post:
+    get:
       tags: [Combat]
-      summary: Resolve a combat action
+      summary: Resolve a combat action for the requested combat
       security:
         - bearerAuth: []
       responses:
@@ -578,7 +596,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [attack, run, home]
+        enum: [attack, deeper, run, home]
   responses:
     BadRequest:
       description: Bad request
@@ -784,8 +802,13 @@ components:
       type: object
       required:
         - id
-        - encounter_id
         - character_id
+        - enemy_type_id
+        - enemy_name
+        - enemy_description
+        - base_health
+        - base_damage
+        - enemy_level
         - character_health
         - enemy_current_health
         - enemy_max_health
@@ -793,9 +816,20 @@ components:
       properties:
         id:
           type: integer
-        encounter_id:
-          type: integer
         character_id:
+          type: integer
+        enemy_type_id:
+          type: string
+        enemy_name:
+          type: string
+        enemy_description:
+          type: string
+          nullable: true
+        base_health:
+          type: integer
+        base_damage:
+          type: integer
+        enemy_level:
           type: integer
         character_health:
           type: integer
@@ -807,7 +841,7 @@ components:
           type: integer
     ItemResponse:
       type: object
-      required: [id, name, item_type_id, level, slot, health, damage]
+      required: [id, name, item_type_id, level, slot_type, health, damage]
       properties:
         id:
           type: integer
@@ -817,8 +851,9 @@ components:
           type: string
         level:
           type: integer
-        slot:
+        slot_type:
           type: string
+          enum: [weapon, shield, armor, helmet, ring, necklace]
           nullable: true
         health:
           type: integer
@@ -880,28 +915,25 @@ components:
           type: string
         character:
           $ref: '#/components/schemas/CharacterResponse'
-    EncounterBootstrapResponse:
+    CombatBootstrapResponse:
       type: object
-      required: [encounter, combat, character]
+      required: [combat, character]
       properties:
-        encounter:
-          $ref: '#/components/schemas/EncounterResponse'
-          nullable: true
         combat:
           $ref: '#/components/schemas/CombatResponse'
-          nullable: true
         character:
           $ref: '#/components/schemas/CharacterResponse'
     DroppedItem:
       type: object
-      required: [id, name, slot, health, damage, level]
+      required: [id, name, slot_type, health, damage, level]
       properties:
         id:
           type: string
         name:
           type: string
-        slot:
+        slot_type:
           type: string
+          enum: [weapon, shield, armor, helmet, ring, necklace]
         health:
           type: integer
         damage:
@@ -912,7 +944,6 @@ components:
       type: object
       required:
         - character
-        - encounter
         - combat
         - message
         - victory
@@ -922,9 +953,6 @@ components:
       properties:
         character:
           $ref: '#/components/schemas/CharacterResponse'
-        encounter:
-          $ref: '#/components/schemas/EncounterResponse'
-          nullable: true
         combat:
           $ref: '#/components/schemas/CombatResponse'
           nullable: true
