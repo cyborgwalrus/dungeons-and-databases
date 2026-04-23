@@ -1,3 +1,21 @@
+from backend.db.models import Character, db
+
+
+def test_character_level_up_increases_stats_more_generously(client, entities):
+    user = entities.create_user(username='leveler', password='secret')
+    character = entities.create_character(user, name='Apprentice', health=100, damage=10)
+
+    with client.application.app_context():
+        character.experience = character.experience_to_next_level
+        leveled = character.level_up()
+        db.session.commit()
+
+    assert leveled is True
+    assert character.level == 2
+    assert character.damage == 14
+    assert character.health == 108
+
+
 def test_character_creation_listing_selection_and_heal_flow(client, entities):
     user = entities.create_user(username='player', password='secret')
     token = entities.token_for(user)
