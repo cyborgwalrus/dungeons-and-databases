@@ -4,7 +4,7 @@ from collections import Counter
 from collections.abc import Callable
 from typing import Any
 
-from backend.db.models import db
+from backend.db.session import db
 from backend.utils import route_helpers
 from backend.utils.api_response_cache import (
     cache,

@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from backend.db.models import db
+from backend.db.session import db
 
 
 def test_combat_attack_victory_keeps_defeated_enemy_visible(client, entities):
