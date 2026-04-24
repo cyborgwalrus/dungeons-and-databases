@@ -1,4 +1,4 @@
-FROM nginxinc/nginx-unprivileged:1.27-alpine
+FROM nginxinc/nginx-unprivileged:1.29.8-alpine-perl
 
 WORKDIR /usr/share/nginx/html
 

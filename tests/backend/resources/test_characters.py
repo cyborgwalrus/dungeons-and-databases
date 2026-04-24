@@ -125,3 +125,63 @@ def test_character_delete_returns_token_when_active_character_is_removed(client,
     assert delete_response.status_code == 200
     assert delete_response.get_json()['message'] == 'Character deleted'
     assert 'token' in delete_response.get_json()
+
+
+def test_character_endpoints_reject_invalid_payloads_and_ownership_errors(client, entities):
+    user = entities.create_user(username='character-user', password='secret')
+    intruder = entities.create_user(username='intruder', password='secret')
+    token = entities.token_for(user)
+    headers = entities.auth_headers(token)
+    intruder_headers = entities.auth_headers(entities.token_for(intruder))
+
+    create_response = client.post(
+        f'/api/users/{user.id}/characters',
+        headers=headers,
+        json={'name': 'Hero', 'level': '2', 'health': '80', 'damage': '15'},
+    )
+    assert create_response.status_code == 201
+    character_id = create_response.get_json()['id']
+
+    invalid_level = client.put(f'/api/characters/{character_id}', headers=headers, json={'level': 0})
+    assert invalid_level.status_code == 400
+    assert invalid_level.get_json()['error'][0]['msg'] == 'Input should be greater than or equal to 1'
+
+    invalid_health = client.put(f'/api/characters/{character_id}', headers=headers, json={'health': -1})
+    assert invalid_health.status_code == 400
+    assert invalid_health.get_json()['error'][0]['msg'] == 'Input should be greater than or equal to 0'
+
+    invalid_damage = client.put(f'/api/characters/{character_id}', headers=headers, json={'damage': -1})
+    assert invalid_damage.status_code == 400
+    assert invalid_damage.get_json()['error'][0]['msg'] == 'Input should be greater than or equal to 0'
+
+    invalid_integer = client.put(f'/api/characters/{character_id}', headers=headers, json={'level': 'bad'})
+    assert invalid_integer.status_code == 400
+    assert invalid_integer.get_json()['error'][0]['msg'] == 'Input should be a valid integer, unable to parse string as an integer'
+
+    missing_character = client.get('/api/characters/999999', headers=headers)
+    assert missing_character.status_code == 404
+    assert missing_character.get_json()['error'] == 'Character not found'
+
+    missing_item_id = client.post(f'/api/characters/{character_id}/equipment', headers=headers, json={})
+    assert missing_item_id.status_code == 400
+    assert missing_item_id.get_json()['error'][0]['msg'] == 'Field required'
+
+    invalid_item_id = client.post(f'/api/characters/{character_id}/equipment', headers=headers, json={'item_id': 0})
+    assert invalid_item_id.status_code == 400
+    assert invalid_item_id.get_json()['error'][0]['msg'] == 'Input should be greater than or equal to 1'
+
+    missing_inventory_item = client.post(
+        f'/api/characters/{character_id}/equipment',
+        headers=headers,
+        json={'item_id': 999999},
+    )
+    assert missing_inventory_item.status_code == 404
+    assert missing_inventory_item.get_json()['error'] == 'Item not found in inventory'
+
+    missing_equipment = client.delete(f'/api/characters/{character_id}/equipment/999999', headers=headers)
+    assert missing_equipment.status_code == 404
+    assert missing_equipment.get_json()['error'] == 'Item not found'
+
+    intruder_character_lookup = client.get(f'/api/characters/{character_id}', headers=intruder_headers)
+    assert intruder_character_lookup.status_code == 401
+    assert intruder_character_lookup.get_json()['error'] == 'Unauthorized'

@@ -57,7 +57,8 @@ def test_session_init_app_replaces_previous_bind_and_cleans_on_teardown(monkeypa
     new_engine = SimpleNamespace(dispose=_counter_callback(calls, 'new_dispose'))
     new_session = SimpleNamespace(remove=_counter_callback(calls, 'new_remove'))
 
-    captured = {'uri': None, 'connect_args': None, 'sessionmaker_kwargs': None}
+    captured = {'uri': None, 'connect_args': None}
+    sessionmaker_kwargs: dict[str, object] = {}
 
     def fake_create_engine(uri, connect_args):
         captured['uri'] = uri
@@ -65,7 +66,8 @@ def test_session_init_app_replaces_previous_bind_and_cleans_on_teardown(monkeypa
         return new_engine
 
     def fake_sessionmaker(**kwargs):
-        captured['sessionmaker_kwargs'] = kwargs
+        sessionmaker_kwargs.clear()
+        sessionmaker_kwargs.update(kwargs)
         return 'factory'
 
     def fake_scoped_session(_factory):
@@ -81,8 +83,8 @@ def test_session_init_app_replaces_previous_bind_and_cleans_on_teardown(monkeypa
     assert calls['old_dispose'] == 1
     assert captured['uri'] == 'postgresql://example/db'
     assert captured['connect_args'] == {}
-    assert captured['sessionmaker_kwargs']['bind'] is new_engine
-    assert captured['sessionmaker_kwargs']['expire_on_commit'] is False
+    assert sessionmaker_kwargs['bind'] is new_engine
+    assert sessionmaker_kwargs['expire_on_commit'] is False
     assert database.session is new_session
     assert database.engine is new_engine
 

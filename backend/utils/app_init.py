@@ -9,7 +9,6 @@ from flasgger import Swagger
 from flask_caching import Cache
 from flask import Flask
 import yaml
-from sqlalchemy.exc import SQLAlchemyError
 
 from backend.utils.url_converters import (
     CombatConverter,
@@ -90,27 +89,6 @@ def init_dashboard(app: Flask) -> None:
     dashboard.config.init_from(file=str(Path(app.root_path).with_name('config.cfg')))
     dashboard.config.password = os.environ.get('ADMIN_PASSWORD', dashboard.config.password)
     dashboard.bind(app)
-
-
-def init_cli(app: Flask) -> None:
-    """Register database maintenance commands on the Flask app."""
-    from backend.db import clear_db, init_db
-
-    @app.cli.command('clear-db')
-    def clear_db_command() -> None:
-        try:
-            clear_db()
-            print('Database cleared')
-        except (OSError, SQLAlchemyError) as error:
-            print('Failed to clear database:', error)
-
-    @app.cli.command('init-db')
-    def init_db_command() -> None:
-        try:
-            init_db()
-            print('Database initialized')
-        except (OSError, SQLAlchemyError) as error:
-            print('Failed to initialize database:', error)
 
 
 def init_converters(app: Flask) -> None:

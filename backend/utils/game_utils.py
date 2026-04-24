@@ -7,7 +7,6 @@ from typing import Any
 
 from flask import current_app, request
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
-from sqlalchemy import select
 
 from backend.db.models import Character, Item, User as UserModel
 from backend.db.session import db
@@ -58,19 +57,6 @@ def get_item_type(item_type_id: str | None) -> dict[str, Any] | None:
 def get_item_types() -> list[dict[str, Any]]:
     """Return all item templates as a new list."""
     return [dict(template) for template in load_item_type_seed_data()]
-
-
-def get_enemy_type(enemy_type_id: str | None) -> dict[str, Any] | None:
-    """Return one enemy template by id or ``None`` when missing."""
-    if enemy_type_id is None:
-        return None
-    normalized_id = str(enemy_type_id).strip()
-    if not normalized_id:
-        return None
-    for template in load_enemy_type_seed_data():
-        if template['id'] == normalized_id:
-            return dict(template)
-    return None
 
 
 def get_enemy_types() -> list[dict[str, Any]]:
@@ -211,29 +197,3 @@ def add_inventory_item(
     )
     db.session.add(inventory_item)
     return inventory_item
-
-
-def remove_inventory_item(player: Character, item_id: int | str) -> Item | None:
-    """Remove an item from the player's inventory by item or type ID."""
-    if not player.user:
-        return None
-
-    inventory_item = db.session.execute(
-        select(Item).where(Item.user_id == player.user_id, Item.id == item_id),
-    ).scalar_one_or_none()
-    if inventory_item and inventory_item.is_equipped:
-        return None
-    if not inventory_item:
-        inventory_item = db.session.execute(
-            select(Item).where(
-                Item.user_id == player.user_id,
-                Item.item_type_id == str(item_id),
-            ),
-        ).scalar_one_or_none()
-        if not inventory_item or inventory_item.is_equipped:
-            return None
-
-    db.session.delete(inventory_item)
-    return inventory_item
-
-

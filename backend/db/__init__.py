@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from backend.db.models import EnemyType, ItemType
 from backend.db.session import db
-from backend.utils.app_init import cache
 from backend.utils.game_utils import load_enemy_type_seed_data, load_item_type_seed_data
+
+
+def _get_cache():
+    from backend.utils.app_init import cache
+
+    return cache
 
 
 def seed_reference_data() -> None:
@@ -21,14 +26,14 @@ def clear_db() -> None:
     """Drop all database objects and clear cached app data."""
     db.session.remove()
     db.drop_all()
-    cache.clear()
+    _get_cache().clear()
 
 
 def init_db() -> None:
     """Create database objects, seed reference data, and clear cached app data."""
     db.create_all()
     seed_reference_data()
-    cache.clear()
+    _get_cache().clear()
 
 
 __all__ = ['clear_db', 'init_db', 'seed_reference_data']

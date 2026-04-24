@@ -1,6 +1,45 @@
+"""Combat resources for resolving dungeon encounters."""
+
 from unittest.mock import patch
 
+from backend.db.models import Combat
 from backend.db.session import db
+
+
+def test_combat_creation_returns_combat_payload(client, entities):
+    user = entities.create_user(username='dungeon-user', password='secret')
+    character = entities.create_character(user, name='Fighter', health=120, damage=12)
+    token = entities.token_for(user, character)
+
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]):
+        response = client.post('/api/combats', headers=entities.auth_headers(token))
+
+    assert response.status_code == 201
+    payload = response.get_json()
+    assert payload['combat']['character_id'] == character.id
+    assert payload['combat']['enemy_level'] == 1
+    assert payload['character']['id'] == character.id
+
+
+def test_combat_creation_returns_404_when_enemy_catalog_is_empty(client, entities):
+    user = entities.create_user(username='stranded', password='secret')
+    character = entities.create_character(user, name='Wanderer')
+    token = entities.token_for(user, character)
+
+    with patch('backend.resources.combats.get_enemy_types', return_value=[]):
+        response = client.post('/api/combats', headers=entities.auth_headers(token))
+
+    assert response.status_code == 404
+    assert response.get_json()['error'] == 'No enemy types available'
+
+
+def test_combat_creation_returns_none_without_character(monkeypatch):
+    """Directly cover the create_new_combat guard when no character is provided."""
+    from backend.resources import combats as combats_module
+
+    monkeypatch.setattr(combats_module, 'get_player', lambda: None)
+
+    assert combats_module.create_new_combat(None) is None
 
 
 def test_combat_attack_victory_keeps_defeated_enemy_visible(client, entities):
@@ -29,6 +68,31 @@ def test_combat_attack_victory_keeps_defeated_enemy_visible(client, entities):
 
     assert detail_response.status_code == 200
     assert detail_response.get_json()['id'] == combat_id
+
+
+def test_combat_attack_after_enemy_defeat_prompts_deeper(client, entities):
+    """Cover the branch where attack is used after the enemy has already been cleared."""
+    user = entities.create_user(username='finisher', password='secret')
+    character = entities.create_character(user, name='Finisher', health=120, damage=100)
+    token = entities.token_for(user, character)
+
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]):
+        combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
+
+    combat_id = combat_response.get_json()['combat']['id']
+
+    combat = db.session.get(Combat, combat_id)
+    assert combat is not None
+    combat.enemy_current_health = 0
+    db.session.commit()
+
+    response = client.get(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
+
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload['message'] == 'You need to go deeper to face the next enemy.'
+    assert payload['victory'] is False
+    assert payload['player_died'] is False
 
 
 def test_combat_deeper_after_victory_loads_next_enemy(client, entities):
@@ -84,6 +148,25 @@ def test_combat_home_after_victory_returns_home_and_keeps_loot(client, entities)
     inventory_items = inventory_response.get_json()
     assert inventory_items
     assert len(inventory_items) == 1
+
+
+def test_combat_prevents_home_and_deeper_before_victory(client, entities):
+    """Cover the precondition branches for home and deeper actions."""
+    user = entities.create_user(username='tactician', password='secret')
+    character = entities.create_character(user, name='Tactician', health=100, damage=100)
+    token = entities.token_for(user, character)
+
+    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]):
+        combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
+        combat_id = combat_response.get_json()['combat']['id']
+
+    home_response = client.get(f'/api/combats/{combat_id}/home', headers=entities.auth_headers(token))
+    deeper_response = client.get(f'/api/combats/{combat_id}/deeper', headers=entities.auth_headers(token))
+
+    assert home_response.status_code == 400
+    assert home_response.get_json()['error'] == 'You can only go home after defeating the enemy'
+    assert deeper_response.status_code == 200
+    assert deeper_response.get_json()['message'] == 'You can only go deeper after defeating the enemy.'
 
 
 def test_combat_attack_survives_when_enemy_lives(client, entities):
@@ -238,3 +321,21 @@ def test_combat_routes_require_authentication(client, entities):
 
     assert response.status_code == 401
     assert response.get_json()['error'] == 'Unauthorized'
+
+
+def test_register_combat_resources_registers_all_routes():
+    """Cover the combat route registration helper."""
+    from backend.resources.combats import register_combat_resources
+
+    calls = []
+
+    class FakeApi:
+        def add_resource(self, resource, *routes):
+            calls.append((resource.__name__, routes))
+
+    register_combat_resources(FakeApi())
+
+    assert calls[0][0] == 'CombatResource'
+    assert '/combats' in calls[0][1]
+    assert '/combats/<combat:combat>' in calls[0][1]
+    assert '/combats/<combat:combat>/<string:action>' in calls[0][1]

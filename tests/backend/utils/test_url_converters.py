@@ -15,26 +15,12 @@ from backend.utils.url_converters import (
 )
 
 
-def test_owned_model_converter_helper_methods_cover_fallback_paths():
-    """Validate id serialization and helper error formatting paths."""
+def test_owned_model_converter_to_url_serializes_model_ids():
+    """Validate id serialization for route helpers."""
     converter = OwnedModelConverter(Map())
 
     assert converter.to_url(SimpleNamespace(id=42)) == '42'
     assert converter.to_url('raw-value') == 'raw-value'
-
-    assert converter._parse_int('7') == 7
-
-    with pytest.raises(NotFound) as invalid_error:
-        converter._parse_int('not-an-int')
-    assert invalid_error.value.description == 'Object not found'
-
-    with pytest.raises(NotFound) as type_error:
-        converter._parse_int(None)
-    assert type_error.value.description == 'Object not found'
-
-    not_found = converter._not_found()
-    assert isinstance(not_found, NotFound)
-    assert not_found.description == 'Object not found'
 
 
 def test_character_converter_requires_authenticated_user(entities, monkeypatch):

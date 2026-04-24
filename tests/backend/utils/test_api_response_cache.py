@@ -43,13 +43,20 @@ def test_api_response_cache_reads_through(entities):
     assert len(inventory_payload) == 1
     assert inventory_payload[0]['id'] == hidden_item.id
 
-    character_payload = get_cached_character_data(character.id, owner.id)
-    assert character_payload is not None
-    assert character_payload['id'] == character.id
+    assert get_cached_character_data(character.id, owner.id) == character.to_response().model_dump()
 
     equipment_payload = get_cached_character_equipment_data(character.id, owner.id)
     assert len(equipment_payload) == 1
     assert equipment_payload[0]['id'] == equipped_item.id
+
+
+def test_api_response_cache_returns_empty_payloads_for_missing_rows():
+    """Validate that cache helpers handle missing database rows cleanly."""
+    assert get_cached_user_data(999999) is None
+    assert get_cached_user_characters_data(999999) == []
+    assert get_cached_user_inventory_data(999999) == []
+    assert get_cached_character_data(999999, 999999) is None
+    assert get_cached_character_equipment_data(999999, 999999) == []
 
 
 def test_api_response_cache_invalidation(entities, monkeypatch):
@@ -74,14 +81,16 @@ def test_api_response_cache_invalidation(entities, monkeypatch):
     invalidate_user_inventory_cache(owner.id)
     invalidate_user_characters_cache(owner.id, [character.id])
     invalidate_user_state_cache(owner.id)
+    invalidate_user_characters_cache(owner.id)
+    invalidate_user_state_cache(owner.id)
 
     function_names = [function.__name__ for function, _ in memoized_calls]
     assert Counter(function_names) == Counter(
         {
-            'get_cached_user_data': 2,
-            'get_cached_user_inventory_data': 2,
-            'get_cached_user_characters_data': 2,
-            'get_cached_character_data': 2,
-            'get_cached_character_equipment_data': 2,
+            'get_cached_user_data': 3,
+            'get_cached_user_inventory_data': 3,
+            'get_cached_user_characters_data': 4,
+            'get_cached_character_data': 4,
+            'get_cached_character_equipment_data': 4,
         }
     )
