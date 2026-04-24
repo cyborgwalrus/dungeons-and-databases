@@ -21,12 +21,27 @@ class UserResource(Resource):
     """Read, update, or delete a user profile."""
 
     def get(self, user: User):
-        """Read, update, or delete a user profile."""
+        """Read a user profile.
+
+        Args:
+            user: The user resolved from the route.
+
+        Returns:
+            The cached serialized user profile.
+        """
         assert user.id is not None
         return get_cached_user_data(user.id)
 
     def put(self, user: User):
-        """Update a user's profile fields."""
+        """Update a user's profile fields.
+
+        Args:
+            user: The user resolved from the route.
+
+        Returns:
+            The updated serialized user profile, or a JSON error response when
+            the payload is invalid.
+        """
         assert user.id is not None
         data = request.get_json(silent=True) or {}
         payload, error_response = validate_payload(UserUpdateRequest, data)
@@ -42,7 +57,14 @@ class UserResource(Resource):
         return user.to_response().model_dump()
 
     def delete(self, user: User):
-        """Delete the authenticated user's account."""
+        """Delete the authenticated user's account.
+
+        Args:
+            user: The user resolved from the route.
+
+        Returns:
+            A confirmation message after the account is removed.
+        """
         assert user.id is not None
         character_ids = [character.id for character in user.characters if character.id is not None]
         db.session.delete(user)
@@ -55,12 +77,26 @@ class UserItemsResource(Resource):
     """List or clear the user's shared inventory."""
 
     def get(self, user: User):
-        """List or clear the user's shared inventory."""
+        """List the user's shared inventory.
+
+        Args:
+            user: The user resolved from the route.
+
+        Returns:
+            The cached serialized inventory list.
+        """
         assert user.id is not None
         return get_cached_user_inventory_data(user.id)
 
     def delete(self, user: User):
-        """Remove all items from the user's shared inventory."""
+        """Remove all unequipped items from the user's shared inventory.
+
+        Args:
+            user: The user resolved from the route.
+
+        Returns:
+            A confirmation message after the inventory is cleared.
+        """
         assert user.id is not None
         inventory_items = [
             item

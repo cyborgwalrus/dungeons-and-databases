@@ -39,6 +39,19 @@ class UserConverter(OwnedModelConverter):
     model_name = 'user'
 
     def to_python(self, value: str) -> User:
+        """Resolve a user ID from the route and enforce authentication.
+
+        Args:
+            value: The raw route segment containing the user ID.
+
+        Returns:
+            The authenticated user row that matches the route parameter.
+
+        Raises:
+            NotFound: If the user ID does not exist.
+            Unauthorized: If the request is not authenticated or the route ID
+                does not belong to the current user.
+        """
         user_id = self._parse_int(value)
         user = db.session.get(User, user_id)
         current_user = get_current_user()
@@ -57,6 +70,19 @@ class CharacterConverter(OwnedModelConverter):
     model_name = 'character'
 
     def to_python(self, value: str) -> Character:
+        """Resolve a character ID from the route and enforce ownership.
+
+        Args:
+            value: The raw route segment containing the character ID.
+
+        Returns:
+            The character row owned by the authenticated user.
+
+        Raises:
+            NotFound: If the character ID does not exist.
+            Unauthorized: If the request is not authenticated or the character
+                does not belong to the current user.
+        """
         character_id = self._parse_int(value)
         character = db.session.get(Character, character_id)
         current_user = get_current_user()
@@ -75,6 +101,19 @@ class ItemConverter(OwnedModelConverter):
     model_name = 'item'
 
     def to_python(self, value: str) -> Item:
+        """Resolve an inventory item ID from the route and enforce ownership.
+
+        Args:
+            value: The raw route segment containing the item ID.
+
+        Returns:
+            The inventory item row owned by the authenticated user.
+
+        Raises:
+            NotFound: If the item ID does not exist.
+            Unauthorized: If the request is not authenticated or the item does
+                not belong to the current user.
+        """
         item_id = self._parse_int(value)
         item = db.session.get(Item, item_id)
         current_user = get_current_user()
@@ -93,6 +132,19 @@ class CombatConverter(OwnedModelConverter):
     model_name = 'combat'
 
     def to_python(self, value: str) -> Combat:
+        """Resolve a combat ID from the route and enforce character ownership.
+
+        Args:
+            value: The raw route segment containing the combat ID.
+
+        Returns:
+            The combat row attached to the active character.
+
+        Raises:
+            NotFound: If the combat or active character does not exist.
+            Unauthorized: If the combat does not belong to the active
+                character.
+        """
         combat_id = self._parse_int(value)
         combat = db.session.get(Combat, combat_id)
         current_user = get_current_user()

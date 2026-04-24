@@ -19,10 +19,12 @@ _CHARACTER_EQUIPMENT_OPTIONS = selectinload(
 
 
 def _load_user_state(user_id: int) -> User | None:
+    """Load the user row used to build the cached profile snapshot."""
     return db.session.get(User, user_id)
 
 
 def _load_user_characters_state(user_id: int) -> User | None:
+    """Load a user with character and equipment relationships preloaded."""
     return db.session.get(
         User,
         user_id,
@@ -31,10 +33,12 @@ def _load_user_characters_state(user_id: int) -> User | None:
 
 
 def _load_user_inventory_state(user_id: int) -> User | None:
+    """Load the user row used to build the cached inventory snapshot."""
     return db.session.get(User, user_id)
 
 
 def _load_character_state(character_id: int, user_id: int) -> Character | None:
+    """Load a character snapshot for the owning user."""
     character = db.session.get(Character, character_id, options=[_CHARACTER_EQUIPMENT_OPTIONS])
     if character is None or character.user_id != user_id:
         return None
@@ -112,6 +116,7 @@ def _invalidate_character_snapshots(
     user_id: int,
     character_ids: Iterable[int] | None = None,
 ) -> None:
+    """Invalidate cached character lists and per-character snapshots."""
     cache.delete_memoized(get_cached_user_characters_data, user_id)
 
     if character_ids is None:

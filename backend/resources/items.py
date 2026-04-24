@@ -17,7 +17,12 @@ class ItemListResource(Resource):
     """Create one or more inventory items for the current character."""
 
     def post(self):
-        """Create one or more inventory items for the current character."""
+        """Create one or more inventory items for the current character.
+
+        Returns:
+            The created inventory items, or a JSON error response when the
+            request payload is invalid or an item type cannot be found.
+        """
         character, error_response = require_current_character()
         if error_response:
             return error_response
@@ -52,13 +57,29 @@ class ItemResource(Resource):
     """Read or delete a single inventory item."""
 
     def get(self, item: Item):
-        """Read or delete a single inventory item."""
+        """Return a single inventory item when it is not equipped.
+
+        Args:
+            item: The inventory item resolved from the route.
+
+        Returns:
+            The serialized inventory item, or a JSON error response when the
+            item is currently equipped.
+        """
         if item.is_equipped:
             return json_error('Item not found', 404)
         return item.to_response().model_dump()
 
     def delete(self, item: Item):
-        """Remove an item from the current character's inventory."""
+        """Remove an item from the current character's inventory.
+
+        Args:
+            item: The inventory item resolved from the route.
+
+        Returns:
+            A success message when the item is removed, or a JSON error
+            response when the item is currently equipped.
+        """
         if item.is_equipped:
             return json_error('Item not in inventory', 404)
 

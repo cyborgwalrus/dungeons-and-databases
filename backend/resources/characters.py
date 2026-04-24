@@ -34,7 +34,15 @@ class CharacterListResource(Resource):
         return get_cached_user_characters_data(user.id)
 
     def post(self, user):
-        """List or create characters for a user."""
+        """Create a new character for the specified user.
+
+        Args:
+            user: The user resolved from the route.
+
+        Returns:
+            The created character payload, or a JSON error response when the
+            request payload is invalid.
+        """
         data = request.get_json(silent=True) or {}
         payload, error_response = validate_payload(CharacterCreateRequest, data)
         if error_response:
@@ -61,11 +69,19 @@ class CharacterResource(Resource):
     """Retrieve, update, or delete a single character."""
 
     def get(self, character):
-        """Retrieve, update, or delete a single character."""
+        """Retrieve a single character."""
         return get_cached_character_data(character.id, character.user_id)
 
     def delete(self, character):
-        """Delete a character and clear the active token if needed."""
+        """Delete a character and clear the active token if needed.
+
+        Args:
+            character: The character resolved from the route.
+
+        Returns:
+            A confirmation message, and a new token when the deleted character
+            was the active one.
+        """
         active_character = get_current_character()
 
         db.session.delete(character)
@@ -78,7 +94,15 @@ class CharacterResource(Resource):
         return response
 
     def put(self, character):
-        """Update basic character stats from the request payload."""
+        """Update basic character stats from the request payload.
+
+        Args:
+            character: The character resolved from the route.
+
+        Returns:
+            The updated serialized character, or a JSON error response when
+            the payload is invalid.
+        """
         data = request.get_json(silent=True) or {}
         payload, error_response = validate_payload(CharacterUpdateRequest, data)
         if error_response:
@@ -97,7 +121,14 @@ class CharacterSelectResource(Resource):
     """Set the active character in the auth token."""
 
     def post(self, character):
-        """Set the active character in the auth token."""
+        """Set the active character in the auth token.
+
+        Args:
+            character: The character resolved from the route.
+
+        Returns:
+            The selected character payload and an updated token.
+        """
         token = issue_auth_token(character.user_id, character.id)
         return {
             'message': 'Character selected',
@@ -110,7 +141,14 @@ class CharacterFullHealResource(Resource):
     """Restore a character to full health."""
 
     def post(self, character):
-        """Restore a character to full health."""
+        """Restore a character to full health.
+
+        Args:
+            character: The character resolved from the route.
+
+        Returns:
+            The healed character payload.
+        """
         character.health = character.max_health
         db.session.commit()
         invalidate_user_characters_cache(character.user_id, [character.id])
@@ -122,11 +160,19 @@ class CharacterEquipmentResource(Resource):
     """Inspect and manage a character's equipment."""
 
     def get(self, character):
-        """Inspect and manage a character's equipment."""
+        """Inspect a character's equipment."""
         return get_cached_character_equipment_data(character.id, character.user_id)
 
     def post(self, character):
-        """Equip an item from the character's inventory."""
+        """Equip an item from the character's inventory.
+
+        Args:
+            character: The character resolved from the route.
+
+        Returns:
+            The equipped item payload and updated character snapshot, or a
+            JSON error response when the item cannot be equipped.
+        """
         data = request.get_json(silent=True) or {}
         payload, error_response = validate_payload(ItemSelectionRequest, data)
         if error_response:
@@ -162,7 +208,16 @@ class CharacterEquipmentItemResource(Resource):
     """Remove a single equipped item from a character."""
 
     def delete(self, character, item):
-        """Unequip a worn item and return it to the inventory."""
+        """Unequip a worn item and return it to the inventory.
+
+        Args:
+            character: The character resolved from the route.
+            item: The equipped item resolved from the route.
+
+        Returns:
+            A confirmation message and updated character snapshot, or a JSON
+            error response when the item cannot be unequipped.
+        """
         error_response = unequip_item(character, item.id)
         if error_response:
             return error_response

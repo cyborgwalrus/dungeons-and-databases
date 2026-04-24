@@ -19,7 +19,16 @@ from backend.utils.route_helpers import json_error, require_current_character
 
 
 def _scaled_enemy_stats(base_health: int, base_damage: int, level: int) -> tuple[int, int]:
-    """Return the live health and damage values for a seeded enemy."""
+    """Scale a seeded enemy's health and damage for the requested level.
+
+    Args:
+        base_health: The enemy's base health value from reference data.
+        base_damage: The enemy's base damage value from reference data.
+        level: The combat level used to scale the enemy.
+
+    Returns:
+        A ``(health, damage)`` tuple with level-adjusted values.
+    """
     return base_health + (level * 10), base_damage + (level * 2)
 
 
@@ -28,7 +37,17 @@ def create_new_combat(
     *,
     level: int = 1,
 ) -> Combat | None:
-    """Create a fresh combat row for the current player."""
+    """Create a fresh combat row for the current player.
+
+    Args:
+        character: The character that will enter combat. When omitted, the
+            current player is resolved from the request token.
+        level: The encounter level to generate.
+
+    Returns:
+        The newly created combat row, or ``None`` when no enemy types are
+        available or no current player exists.
+    """
     character = character or get_player()
     if character is None:
         return None
@@ -66,7 +85,14 @@ def create_new_combat(
 
 
 def _combat_damage_roll(max_damage: int) -> int:
-    """Roll a bounded combat damage value for one turn."""
+    """Roll a bounded combat damage value for one turn.
+
+    Args:
+        max_damage: The upper bound for the damage roll.
+
+    Returns:
+        A randomized damage value between half damage and full damage.
+    """
     return random.randint(max(1, max_damage // 2), max(1, max_damage))
 
 
@@ -120,7 +146,17 @@ class MessageBuilder:
 
 
 def _victory_outcome(character, combat: Combat, player_hits: int) -> tuple[list[str], list[dict[str, Any]]]:
-    """Build the complete victory message list and loot drops for a combat round."""
+    """Build the victory response details after defeating an enemy.
+
+    Args:
+        character: The winning character.
+        combat: The combat row that was just resolved.
+        player_hits: The damage dealt by the player on the finishing turn.
+
+    Returns:
+        A tuple containing the message lines to display and the loot drops
+        generated for the victory.
+    """
     message_lines = MessageBuilder.victory(combat.enemy_name, player_hits)
 
     items_dropped = drop_loot(combat)
@@ -140,7 +176,16 @@ def check_character_death(health: int) -> bool:
 
 
 def _resolve_attack_turn(character, combat: Combat) -> dict[str, Any]:
-    """Resolve a single attack turn and return the resulting combat state."""
+    """Resolve a single attack turn and return the resulting combat state.
+
+    Args:
+        character: The active character taking the attack action.
+        combat: The combat row being updated.
+
+    Returns:
+        A structured outcome dictionary containing the updated combat state,
+        character snapshot, message text, and outcome flags.
+    """
     enemy_name = combat.enemy_name
 
     if combat.enemy_current_health <= 0:
@@ -195,7 +240,16 @@ def _resolve_attack_turn(character, combat: Combat) -> dict[str, Any]:
 
 
 def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
-    """Delete the cleared combat and generate the next dungeon fight."""
+    """Advance to the next dungeon fight after defeating the current enemy.
+
+    Args:
+        character: The active character taking the action.
+        combat: The cleared combat row.
+
+    Returns:
+        A structured outcome dictionary for the next combat state or an error
+        response when the next enemy cannot be created.
+    """
     enemy_name = combat.enemy_name
     if combat.enemy_current_health > 0:
         return {
@@ -236,7 +290,16 @@ def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
 
 
 def _resolve_home_turn(character, combat: Combat) -> dict[str, Any]:
-    """Resolve a go-home action after a victory."""
+    """Resolve a go-home action after a victory.
+
+    Args:
+        character: The active character taking the action.
+        combat: The combat row being cleared.
+
+    Returns:
+        A structured outcome dictionary that signals the player returned home
+        successfully.
+    """
     character.health = combat.character_health
     db.session.delete(combat)
 
@@ -253,7 +316,16 @@ def _resolve_home_turn(character, combat: Combat) -> dict[str, Any]:
 
 
 def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
-    """Resolve a run attempt and return the resulting combat state."""
+    """Resolve a run attempt and return the resulting combat state.
+
+    Args:
+        character: The active character taking the run action.
+        combat: The combat row being updated.
+
+    Returns:
+        A structured outcome dictionary containing the escape roll, damage
+        taken when the escape fails, and the updated combat state.
+    """
     enemy_name = combat.enemy_name
     dice_roll = random.randint(1, 6)
 
@@ -302,7 +374,13 @@ def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
 
 
 def _apply_victory_experience(character, combat: Combat, message_lines: list[str]) -> None:
-    """Grant XP for a victory and append any level-up messages."""
+    """Grant victory XP and append any level-up messages.
+
+    Args:
+        character: The character receiving the experience.
+        combat: The combat row that was resolved.
+        message_lines: The message buffer to append experience text to.
+    """
     experience_gained = 20 + (max(1, combat.enemy_level) * 10)
     character.gain_experience(experience_gained)
     message_lines.append(f'You gained {experience_gained} XP!')
@@ -317,7 +395,14 @@ def _apply_victory_experience(character, combat: Combat, message_lines: list[str
 
 
 def drop_loot(combat: Combat) -> list[dict[str, Any]]:
-    """Create loot drops for a defeated encounter."""
+    """Create loot drops for a defeated encounter.
+
+    Args:
+        combat: The defeated combat row used to determine drop scaling.
+
+    Returns:
+        A list of serialized item templates with level adjustments applied.
+    """
     items_dropped: list[dict[str, Any]] = []
     all_items = get_item_types()
     if not all_items:
@@ -338,7 +423,14 @@ def drop_loot(combat: Combat) -> list[dict[str, Any]]:
 
 
 def build_combat_response(outcome: dict[str, Any]) -> Any:
-    """Build the JSON payload returned by combat endpoints."""
+    """Build the JSON payload returned by combat endpoints.
+
+    Args:
+        outcome: The structured combat result returned by the action helpers.
+
+    Returns:
+        A Flask JSON response containing the normalized combat payload.
+    """
     character = outcome['character']
     combat = outcome['combat']
     payload: dict[str, Any] = {
@@ -369,7 +461,18 @@ class CombatResource(Resource):
     """Resolve a single combat action."""
 
     def post(self, combat: Combat | None = None, action: str | None = None):
-        """Create a new combat row for the current character."""
+        """Create a new combat row for the current character.
+
+        Args:
+            combat: Optional combat route parameter; must be absent for this
+                endpoint variant.
+            action: Optional action route parameter; must be absent for this
+                endpoint variant.
+
+        Returns:
+            The newly created combat state and character snapshot, or a JSON
+            error response when combat creation is not possible.
+        """
         if combat is not None or action is not None:
             return json_error('Invalid combat action', 400)
 
@@ -389,7 +492,16 @@ class CombatResource(Resource):
         }, 201
 
     def get(self, combat: Combat, action: str | None = None):
-        """Return combat state or resolve a combat action for the requested row."""
+        """Return combat state or resolve a combat action for the requested row.
+
+        Args:
+            combat: The combat row to inspect or mutate.
+            action: Optional combat action name to resolve.
+
+        Returns:
+            The current combat snapshot, the resolved action payload, or a JSON
+            error response when the action is invalid.
+        """
         if action is None:
             return combat.to_response().model_dump()
 

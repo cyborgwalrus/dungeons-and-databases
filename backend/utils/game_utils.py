@@ -83,7 +83,13 @@ def issue_auth_token(user_id: int, character_id: int | None = None) -> str:
 
 
 def get_request_auth_payload() -> dict[str, Any] | None:
-    """Parse and validate the bearer token from the incoming request."""
+    """Parse and validate the bearer token from the incoming request.
+
+    Returns:
+        The decoded token payload with integer ``user_id`` and optional
+        ``character_id`` values when the request includes a valid bearer token;
+        otherwise ``None``.
+    """
     payload: dict[str, Any] | None = None
     authorization = request.headers.get('Authorization', '').strip()
     if not authorization:
@@ -130,7 +136,12 @@ def get_request_auth_payload() -> dict[str, Any] | None:
 
 
 def get_current_user() -> UserModel | None:
-    """Return the authenticated user associated with the request token."""
+    """Return the authenticated user associated with the request token.
+
+    Returns:
+        The authenticated user row, or ``None`` when the request has no valid
+        token or the user no longer exists.
+    """
     payload = get_request_auth_payload()
     if not payload:
         return None
@@ -140,7 +151,13 @@ def get_current_user() -> UserModel | None:
 
 
 def get_player() -> Character | None:
-    """Return the active character referenced by the request token, if any."""
+    """Return the active character referenced by the request token, if any.
+
+    Returns:
+        The currently selected character when the token includes a valid
+        character reference owned by the authenticated user; otherwise
+        ``None``.
+    """
     payload = get_request_auth_payload()
     if not payload:
         return None
@@ -160,7 +177,11 @@ def get_player() -> Character | None:
 
 
 def seed_character_loadout(character: Character) -> None:
-    """Populate a new character with the default starter equipment."""
+    """Populate a new character with the default starter equipment.
+
+    Args:
+        character: The character to seed with starter items.
+    """
     for item_type_id in DEFAULT_LOADOUT_ITEM_IDS:
         item_type = get_item_type(item_type_id)
         if item_type:
@@ -181,7 +202,17 @@ def add_inventory_item(
     *,
     level: int = 1,
 ) -> Item | None:
-    """Create an inventory item from item type data and attach it to a player."""
+    """Create an inventory item from item type data and attach it to a player.
+
+    Args:
+        player: The character that will receive the item.
+        item_id: The item type identifier to clone into inventory.
+        level: The item level to apply to the generated inventory row.
+
+    Returns:
+        The newly created inventory item, or ``None`` when the item type does
+        not exist.
+    """
     item_type = get_item_type(item_id)
     if not item_type:
         return None

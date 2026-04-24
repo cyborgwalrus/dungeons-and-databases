@@ -48,7 +48,15 @@ def require_current_character() -> tuple[Character | None, tuple[Any, int] | Non
 
 
 def require_character_owner(character_id: int) -> tuple[Character | None, tuple[Any, int] | None]:
-    """Require that the current user owns the requested character."""
+    """Require that the current user owns the requested character.
+
+    Args:
+        character_id: The character ID to verify ownership for.
+
+    Returns:
+        The matching character when the current user owns it, otherwise a
+        standard JSON error response.
+    """
     user, error_response = require_current_user()
     if error_response:
         return None, error_response
@@ -84,7 +92,18 @@ def require_item(
     message: str = 'Item not found',
     status: int = 404,
 ) -> tuple[Item | None, tuple[Any, int] | None]:
-    """Return an item or a standard JSON error response."""
+    """Return an item or a standard JSON error response.
+
+    Args:
+        character: The active character whose shared inventory is being
+            queried.
+        item_id: The inventory item ID to locate.
+        message: The error message to return when the item is missing.
+        status: The HTTP status code to return when the item is missing.
+
+    Returns:
+        The matching inventory item or a standardized JSON error response.
+    """
     item = get_item(character, item_id)
     if not item:
         return None, ({'error': message}, status)
@@ -92,7 +111,16 @@ def require_item(
 
 
 def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
-    """Move an inventory item into the character's equipment set."""
+    """Move an inventory item into the character's equipment set.
+
+    Args:
+        character: The character receiving the equipped item.
+        item: The inventory item to equip.
+
+    Returns:
+        ``None`` when the item can be equipped, otherwise a standardized JSON
+        error response.
+    """
     slot_type = item.slot_type
     if not slot_type:
         return {'error': 'Item cannot be equipped'}, 400
@@ -128,7 +156,16 @@ def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
 
 
 def unequip_item(character: Character, item_id: int) -> tuple[Any, int] | None:
-    """Return an equipped item to the character's inventory."""
+    """Return an equipped item to the character's inventory.
+
+    Args:
+        character: The character that owns the equipped item.
+        item_id: The equipped item ID to remove.
+
+    Returns:
+        ``None`` when the item is successfully unequipped, otherwise a
+        standardized JSON error response.
+    """
     equipment = next(
         (
             candidate
