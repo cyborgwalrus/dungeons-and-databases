@@ -145,6 +145,197 @@ class MessageBuilder:
         )
 
 
+class OutcomeBuilder:
+    """Build structured combat outcomes with shared defaults."""
+
+    def __init__(self, character, combat: Combat | None):
+        self._character = character
+        self._combat = combat
+        self._outcome: dict[str, Any] = {
+            'message': '',
+            'victory': False,
+            'items_dropped': [],
+            'player_died': False,
+            'combat': combat,
+            'character': self._character_snapshot(),
+            'success': False,
+            'damage': 0,
+            'dice_roll': None,
+        }
+
+    def _character_snapshot(self, *, health: int | None = None) -> dict[str, Any]:
+        if health is None:
+            return self._character.to_response().model_dump()
+
+        return self._character.to_response(health=health).model_dump()
+
+    def with_message(self, message: str):
+        self._outcome['message'] = message
+        return self
+
+    def with_victory(self):
+        self._outcome['victory'] = True
+        return self
+
+    def with_defeat(self):
+        self._outcome['player_died'] = True
+        return self
+
+    def with_items_dropped(self, items_dropped: list[dict[str, Any]]):
+        self._outcome['items_dropped'] = items_dropped
+        return self
+
+    def with_combat(self, combat: Combat | None):
+        self._outcome['combat'] = combat
+        return self
+
+    def with_character(self):
+        self._outcome['character'] = self._character_snapshot()
+        return self
+
+    def with_character_health(self, health: int):
+        self._outcome['character'] = self._character_snapshot(health=health)
+        return self
+
+    def with_success(self, damage: int = 0):
+        self._outcome['success'] = True
+        self._outcome['damage'] = damage
+        return self
+
+    def with_failure(self, damage: int):
+        self._outcome['success'] = False
+        self._outcome['damage'] = damage
+        return self
+
+    def with_dice_roll(self, dice_roll: int):
+        self._outcome['dice_roll'] = dice_roll
+        return self
+
+    def build(self) -> dict[str, Any]:
+        return self._outcome
+
+    @classmethod
+    def attack_blocked(cls, character, combat: Combat):
+        return (
+            cls(character, combat)
+            .with_message('You need to go deeper to face the next enemy.')
+            .with_character_health(combat.character_health)
+            .build()
+        )
+
+    @classmethod
+    def attack_defeat(cls, character, combat: Combat, enemy_name: str):
+        return (
+            cls(character, combat)
+            .with_message(MessageBuilder.defeat(enemy_name))
+            .with_defeat()
+            .with_character_health(combat.character_health)
+            .build()
+        )
+
+    @classmethod
+    def attack_round(cls, character, combat: Combat, enemy_name: str, player_hits: int, monster_hits: int):
+        return (
+            cls(character, combat)
+            .with_message(MessageBuilder.attack_round(enemy_name, player_hits, monster_hits))
+            .with_character_health(combat.character_health)
+            .build()
+        )
+
+    @classmethod
+    def victory_outcome(
+        cls,
+        character,
+        combat: Combat,
+        message_lines: list[str],
+        items_dropped: list[dict[str, Any]],
+    ):
+        return (
+            cls(character, combat)
+            .with_message('\n'.join(message_lines))
+            .with_victory()
+            .with_items_dropped(items_dropped)
+            .with_character()
+            .build()
+        )
+
+    @classmethod
+    def deeper_blocked(cls, character, combat: Combat):
+        return (
+            cls(character, combat)
+            .with_message('You can only go deeper after defeating the enemy.')
+            .with_character_health(combat.character_health)
+            .build()
+        )
+
+    @classmethod
+    def deeper_no_enemy(cls, character):
+        return (
+            cls(character, None)
+            .with_message('No enemy types available')
+            .with_combat(None)
+            .with_character()
+            .build()
+        )
+
+    @classmethod
+    def deeper_success(cls, character, combat: Combat, next_combat: Combat, enemy_name: str):
+        return (
+            cls(character, next_combat)
+            .with_message(
+                'Sneaking!\n'
+                f'You go deeper past the defeated {enemy_name}!\n'
+                'A new enemy emerges from the shadows!'
+            )
+            .with_combat(next_combat)
+            .with_character_health(combat.character_health)
+            .build()
+        )
+
+    @classmethod
+    def home_success(cls, character, combat: Combat):
+        return (
+            cls(character, combat)
+            .with_message('You returned home with your spoils!')
+            .with_success()
+            .with_character()
+            .build()
+        )
+
+    @classmethod
+    def run_success(cls, character, combat: Combat, dice_roll: int):
+        return (
+            cls(character, combat)
+            .with_message(MessageBuilder.escape_success(dice_roll))
+            .with_success()
+            .with_dice_roll(dice_roll)
+            .with_character()
+            .build()
+        )
+
+    @classmethod
+    def run_failure(
+        cls,
+        character,
+        combat: Combat,
+        enemy_name: str,
+        dice_roll: int,
+        damage_taken: int,
+        defeated: bool,
+    ):
+        builder = (
+            cls(character, combat)
+            .with_message(MessageBuilder.escape_failure(dice_roll, enemy_name, damage_taken, defeated))
+            .with_failure(damage_taken)
+            .with_dice_roll(dice_roll)
+        )
+
+        if defeated:
+            return builder.with_defeat().with_character().build()
+
+        return builder.with_character_health(combat.character_health).build()
+
+
 def _victory_outcome(character, combat: Combat, player_hits: int) -> tuple[list[str], list[dict[str, Any]]]:
     """Build the victory response details after defeating an enemy.
 
@@ -189,14 +380,7 @@ def _resolve_attack_turn(character, combat: Combat) -> dict[str, Any]:
     enemy_name = combat.enemy_name
 
     if combat.enemy_current_health <= 0:
-        return {
-            'message': 'You need to go deeper to face the next enemy.',
-            'victory': False,
-            'items_dropped': [],
-            'player_died': False,
-            'combat': combat,
-            'character': character.to_response(health=combat.character_health).model_dump(),
-        }
+        return OutcomeBuilder.attack_blocked(character, combat)
 
     effective_damage = character.damage + character.bonus_damage
     player_hits = _combat_damage_roll(effective_damage)
@@ -208,35 +392,14 @@ def _resolve_attack_turn(character, combat: Combat) -> dict[str, Any]:
         combat.character_health = max(0, combat.character_health - monster_hits)
         if check_character_death(combat.character_health):
             character.health = combat.character_health
-            return {
-                'message': MessageBuilder.defeat(enemy_name),
-                'victory': False,
-                'items_dropped': [],
-                'player_died': True,
-                'combat': combat,
-                'character': character.to_response(health=combat.character_health).model_dump(),
-            }
+            return OutcomeBuilder.attack_defeat(character, combat, enemy_name)
 
-        return {
-            'message': MessageBuilder.attack_round(enemy_name, player_hits, monster_hits),
-            'victory': False,
-            'items_dropped': [],
-            'player_died': False,
-            'combat': combat,
-            'character': character.to_response(health=combat.character_health).model_dump(),
-        }
+        return OutcomeBuilder.attack_round(character, combat, enemy_name, player_hits, monster_hits)
 
     character.health = combat.character_health
     message_lines, items_dropped = _victory_outcome(character, combat, player_hits)
 
-    return {
-        'message': '\n'.join(message_lines),
-        'victory': True,
-        'items_dropped': items_dropped,
-        'player_died': False,
-        'combat': combat,
-        'character': character.to_response().model_dump(),
-    }
+    return OutcomeBuilder.victory_outcome(character, combat, message_lines, items_dropped)
 
 
 def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
@@ -252,41 +415,16 @@ def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
     """
     enemy_name = combat.enemy_name
     if combat.enemy_current_health > 0:
-        return {
-            'message': 'You can only go deeper after defeating the enemy.',
-            'victory': False,
-            'items_dropped': [],
-            'player_died': False,
-            'combat': combat,
-            'character': character.to_response(health=combat.character_health).model_dump(),
-        }
+        return OutcomeBuilder.deeper_blocked(character, combat)
 
     character.health = combat.character_health
     next_level = max(1, combat.enemy_level + 1)
     db.session.delete(combat)
     next_combat = create_new_combat(character, level=next_level)
     if not next_combat:
-        return {
-            'message': 'No enemy types available',
-            'victory': False,
-            'items_dropped': [],
-            'player_died': False,
-            'combat': None,
-            'character': character.to_response(health=character.health).model_dump(),
-        }
+        return OutcomeBuilder.deeper_no_enemy(character)
 
-    return {
-        'message': (
-            'Sneaking!\n'
-            f'You go deeper past the defeated {enemy_name}!\n'
-            'A new enemy emerges from the shadows!'
-        ),
-        'victory': False,
-        'items_dropped': [],
-        'player_died': False,
-        'combat': next_combat,
-        'character': character.to_response(health=combat.character_health).model_dump(),
-    }
+    return OutcomeBuilder.deeper_success(character, combat, next_combat, enemy_name)
 
 
 def _resolve_home_turn(character, combat: Combat) -> dict[str, Any]:
@@ -303,16 +441,7 @@ def _resolve_home_turn(character, combat: Combat) -> dict[str, Any]:
     character.health = combat.character_health
     db.session.delete(combat)
 
-    return {
-        'message': 'You returned home with your spoils!',
-        'victory': False,
-        'items_dropped': [],
-        'player_died': False,
-        'success': True,
-        'damage': 0,
-        'combat': combat,
-        'character': character.to_response().model_dump(),
-    }
+    return OutcomeBuilder.home_success(character, combat)
 
 
 def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
@@ -332,45 +461,15 @@ def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
     if dice_roll >= 4:
         character.health = combat.character_health
         db.session.delete(combat)
-        return {
-            'message': MessageBuilder.escape_success(dice_roll),
-            'victory': False,
-            'items_dropped': [],
-            'player_died': False,
-            'success': True,
-            'damage': 0,
-            'dice_roll': dice_roll,
-            'combat': combat,
-            'character': character.to_response().model_dump(),
-        }
+        return OutcomeBuilder.run_success(character, combat, dice_roll)
 
     damage_taken = _combat_damage_roll(combat.enemy_damage)
     combat.character_health = max(0, combat.character_health - damage_taken)
     if check_character_death(combat.character_health):
         character.health = combat.character_health
-        return {
-            'message': MessageBuilder.escape_failure(dice_roll, enemy_name, damage_taken, True),
-            'victory': False,
-            'items_dropped': [],
-            'player_died': True,
-            'success': False,
-            'damage': damage_taken,
-            'dice_roll': dice_roll,
-            'combat': combat,
-            'character': character.to_response().model_dump(),
-        }
+        return OutcomeBuilder.run_failure(character, combat, enemy_name, dice_roll, damage_taken, True)
 
-    return {
-        'message': MessageBuilder.escape_failure(dice_roll, enemy_name, damage_taken, False),
-        'victory': False,
-        'items_dropped': [],
-        'player_died': False,
-        'success': False,
-        'damage': damage_taken,
-        'dice_roll': dice_roll,
-        'combat': combat,
-        'character': character.to_response(health=combat.character_health).model_dump(),
-    }
+    return OutcomeBuilder.run_failure(character, combat, enemy_name, dice_roll, damage_taken, False)
 
 
 def _apply_victory_experience(character, combat: Combat, message_lines: list[str]) -> None:
