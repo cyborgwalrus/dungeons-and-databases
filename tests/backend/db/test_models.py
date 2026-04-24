@@ -1,6 +1,6 @@
 """Tests for backend database model behavior."""
 
-from backend.db.models import Character, EquipmentSlot
+from backend.db.models import Character, Combat, EquipmentSlot
 from backend.db.session import db
 from backend.utils import route_helpers
 
@@ -90,3 +90,18 @@ def test_equipment_slot_and_item_response_helpers(entities):
     assert isinstance(equipment, EquipmentSlot)
     assert equipment.matches_item(item.id) is True
     assert equipment.to_response().item_id == item.id
+
+
+def test_combat_response_includes_enemy_snapshot(entities):
+    """Validate the combat response exposes a nested enemy view model."""
+    user = entities.create_user(username='combat-view', password='secret')
+    character = entities.create_character(user, name='Combatant', seed_loadout=False)
+    combat = entities.create_encounter(character)
+
+    response = combat.to_response()
+
+    assert isinstance(combat, Combat)
+    assert response.enemy.type_id == combat.enemy_type_id
+    assert response.enemy.name == combat.enemy['name']
+    assert response.enemy.health == combat.enemy_current_health
+    assert response.enemy.max_health == combat.enemy_max_health

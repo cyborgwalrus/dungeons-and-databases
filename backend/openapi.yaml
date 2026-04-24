@@ -803,41 +803,48 @@ components:
       required:
         - id
         - character_id
-        - enemy_type_id
-        - enemy_name
-        - enemy_description
-        - base_health
-        - base_damage
-        - enemy_level
         - character_health
-        - enemy_current_health
-        - enemy_max_health
-        - enemy_damage
+        - enemy
       properties:
         id:
           type: integer
         character_id:
           type: integer
-        enemy_type_id:
+        character_health:
+          type: integer
+        enemy:
+          $ref: '#/components/schemas/CombatEnemyResponse'
+    CombatEnemyResponse:
+      type: object
+      required:
+        - type_id
+        - name
+        - description
+        - level
+        - health
+        - max_health
+        - damage
+        - base_health
+        - base_damage
+      properties:
+        type_id:
           type: string
-        enemy_name:
+        name:
           type: string
-        enemy_description:
+        description:
           type: string
           nullable: true
+        level:
+          type: integer
+        health:
+          type: integer
+        max_health:
+          type: integer
+        damage:
+          type: integer
         base_health:
           type: integer
         base_damage:
-          type: integer
-        enemy_level:
-          type: integer
-        character_health:
-          type: integer
-        enemy_current_health:
-          type: integer
-        enemy_max_health:
-          type: integer
-        enemy_damage:
           type: integer
     ItemResponse:
       type: object

@@ -81,19 +81,23 @@ class CharacterResponse(ModelSchema):
     bonus_damage: int
 
 
+class CombatEnemyResponse(ModelSchema):
+    type_id: str
+    name: str
+    description: str | None
+    level: int
+    health: int
+    max_health: int
+    damage: int
+    base_health: int
+    base_damage: int
+
+
 class CombatResponse(ModelSchema):
     id: int
     character_id: int
-    enemy_type_id: str
-    enemy_name: str
-    enemy_description: str | None
-    base_health: int
-    base_damage: int
-    enemy_level: int
     character_health: int
-    enemy_current_health: int
-    enemy_max_health: int
-    enemy_damage: int
+    enemy: CombatEnemyResponse
 
 
 class ItemResponse(ModelSchema):

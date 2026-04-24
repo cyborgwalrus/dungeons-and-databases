@@ -11,13 +11,13 @@ def test_combat_creation_returns_combat_payload(client, entities):
     character = entities.create_character(user, name='Fighter', health=120, damage=12)
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]):
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]):
         response = client.post('/api/combats', headers=entities.auth_headers(token))
 
     assert response.status_code == 201
     payload = response.get_json()
     assert payload['combat']['character_id'] == character.id
-    assert payload['combat']['enemy_level'] == 1
+    assert payload['combat']['enemy']['level'] == 1
     assert payload['character']['id'] == character.id
 
 
@@ -26,7 +26,7 @@ def test_combat_creation_returns_404_when_enemy_catalog_is_empty(client, entitie
     character = entities.create_character(user, name='Wanderer')
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.combats.get_enemy_types', return_value=[]):
+    with patch('backend.resources.combat_engine.get_enemy_types', return_value=[]):
         response = client.post('/api/combats', headers=entities.auth_headers(token))
 
     assert response.status_code == 404
@@ -35,7 +35,7 @@ def test_combat_creation_returns_404_when_enemy_catalog_is_empty(client, entitie
 
 def test_combat_creation_returns_none_without_character(monkeypatch):
     """Directly cover the create_new_combat guard when no character is provided."""
-    from backend.resources import combats as combats_module
+    from backend.resources import combat_engine as combats_module
 
     monkeypatch.setattr(combats_module, 'get_player', lambda: None)
 
@@ -47,10 +47,10 @@ def test_combat_attack_victory_keeps_defeated_enemy_visible(client, entities):
     character = entities.create_character(user, name='Champion', health=120, damage=100)
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
-        'backend.resources.combats.random.choice',
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combat_engine.random.choice',
         side_effect=lambda sequence: sequence[0],
-    ), patch('backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: maximum):
+    ), patch('backend.resources.combat_engine.random.randint', side_effect=lambda minimum, maximum: maximum):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
 
@@ -63,11 +63,14 @@ def test_combat_attack_victory_keeps_defeated_enemy_visible(client, entities):
     assert payload['player_died'] is False
     assert payload['items_dropped']
     assert payload['combat'] is not None
-    assert payload['combat']['enemy_current_health'] == 0
+    assert payload['combat']['enemy']['health'] == 0
+    assert payload['combat']['enemy']['name']
     assert payload['character']['health'] > 0
 
     assert detail_response.status_code == 200
-    assert detail_response.get_json()['id'] == combat_id
+    detail_payload = detail_response.get_json()
+    assert detail_payload['id'] == combat_id
+    assert detail_payload['enemy']['name']
 
 
 def test_combat_attack_after_enemy_defeat_prompts_deeper(client, entities):
@@ -76,7 +79,7 @@ def test_combat_attack_after_enemy_defeat_prompts_deeper(client, entities):
     character = entities.create_character(user, name='Finisher', health=120, damage=100)
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]):
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
 
     combat_id = combat_response.get_json()['combat']['id']
@@ -100,10 +103,10 @@ def test_combat_deeper_after_victory_loads_next_enemy(client, entities):
     character = entities.create_character(user, name='Champion', health=120, damage=100)
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
-        'backend.resources.combats.random.choice',
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combat_engine.random.choice',
         side_effect=lambda sequence: sequence[0],
-    ), patch('backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: maximum):
+    ), patch('backend.resources.combat_engine.random.randint', side_effect=lambda minimum, maximum: maximum):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
 
@@ -114,13 +117,14 @@ def test_combat_deeper_after_victory_loads_next_enemy(client, entities):
     victory_payload = victory_response.get_json()
     assert victory_payload['victory'] is True
     assert victory_payload['combat'] is not None
+    assert victory_payload['combat']['enemy']['level'] == 1
 
     assert deeper_response.status_code == 200
     deeper_payload = deeper_response.get_json()
     assert deeper_payload['victory'] is False
     assert deeper_payload['combat'] is not None
     assert deeper_payload['combat']['id'] != victory_payload['combat']['id']
-    assert deeper_payload['combat']['enemy_level'] == victory_payload['combat']['enemy_level'] + 1
+    assert deeper_payload['combat']['enemy']['level'] == victory_payload['combat']['enemy']['level'] + 1
 
 
 def test_combat_home_after_victory_returns_home_and_keeps_loot(client, entities):
@@ -128,10 +132,10 @@ def test_combat_home_after_victory_returns_home_and_keeps_loot(client, entities)
     character = entities.create_character(user, name='Champion', health=120, damage=100)
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
-        'backend.resources.combats.random.choice',
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combat_engine.random.choice',
         side_effect=lambda sequence: sequence[0],
-    ), patch('backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: maximum):
+    ), patch('backend.resources.combat_engine.random.randint', side_effect=lambda minimum, maximum: maximum):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
         victory_response = client.get(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
@@ -156,7 +160,7 @@ def test_combat_prevents_home_and_deeper_before_victory(client, entities):
     character = entities.create_character(user, name='Tactician', health=100, damage=100)
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]):
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
 
@@ -169,14 +173,35 @@ def test_combat_prevents_home_and_deeper_before_victory(client, entities):
     assert deeper_response.get_json()['message'] == 'You can only go deeper after defeating the enemy.'
 
 
+def test_combat_deeper_returns_404_when_next_enemy_cannot_be_created(client, entities):
+    user = entities.create_user(username='stranded-deeper', password='secret')
+    character = entities.create_character(user, name='Stranded', health=100, damage=100)
+    token = entities.token_for(user, character)
+
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]):
+        combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
+
+    combat_id = combat_response.get_json()['combat']['id']
+    combat = db.session.get(Combat, combat_id)
+    assert combat is not None
+    combat.enemy_current_health = 0
+    db.session.commit()
+
+    with patch('backend.resources.combat_engine.create_new_combat', return_value=None):
+        response = client.get(f'/api/combats/{combat_id}/deeper', headers=entities.auth_headers(token))
+
+    assert response.status_code == 404
+    assert response.get_json()['error'] == 'No enemy types available'
+
+
 def test_combat_attack_survives_when_enemy_lives(client, entities):
     user = entities.create_user(username='scrapper', password='secret')
     character = entities.create_character(user, name='Scout', health=100, damage=10)
     token = entities.token_for(user, character)
     initial_health = character.health
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
-        'backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: minimum
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combat_engine.random.randint', side_effect=lambda minimum, maximum: minimum
     ):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
@@ -197,8 +222,8 @@ def test_combat_run_failure_survives_and_keeps_combat_active(client, entities):
     token = entities.token_for(user, character)
     initial_health = character.health
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
-        'backend.resources.combats.random.randint', side_effect=[1, 2]
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combat_engine.random.randint', side_effect=[1, 2]
     ):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
@@ -222,9 +247,9 @@ def test_combat_victory_levels_up_character_and_emits_next_level_message(client,
     character.experience = 95
     db.session.commit()
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
-        'backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]
-    ), patch('backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: maximum):
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]
+    ), patch('backend.resources.combat_engine.random.randint', side_effect=lambda minimum, maximum: maximum):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
         attack_response = client.get(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
@@ -245,8 +270,8 @@ def test_combat_run_success_leaves_inventory_untouched(client, entities):
     token = entities.token_for(user, character)
     loot_item = entities.create_inventory_item(character, 'steel_sword')
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
-        'backend.resources.combats.random.randint', return_value=6
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combat_engine.random.randint', return_value=6
     ):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
@@ -270,8 +295,8 @@ def test_combat_run_failure_can_defeat_character_and_keep_inventory(client, enti
     token = entities.token_for(user, character)
     entities.create_inventory_item(character, 'steel_sword')
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]), patch(
-        'backend.resources.combats.random.randint', side_effect=lambda minimum, maximum: minimum
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combat_engine.random.randint', side_effect=lambda minimum, maximum: minimum
     ):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
@@ -299,7 +324,7 @@ def test_combat_rejects_invalid_action_and_missing_combat(client, entities):
     assert invalid_action.status_code == 404
     assert invalid_action.get_json()['error'] == 'Combat not found'
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]):
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
 
     combat_id = combat_response.get_json()['combat']['id']
@@ -313,7 +338,7 @@ def test_combat_routes_require_authentication(client, entities):
     character = entities.create_character(user, name='Scout')
     token = entities.token_for(user, character)
 
-    with patch('backend.resources.combats.random.choice', side_effect=lambda sequence: sequence[0]):
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
 
     combat_id = combat_response.get_json()['combat']['id']

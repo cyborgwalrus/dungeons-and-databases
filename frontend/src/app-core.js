@@ -5,7 +5,7 @@
  */
 
 import { fetchJson, clearAuthToken, setAuthToken } from './api.js';
-import { formatDungeonMessage } from './helpers.js';
+import { escapeHtml, formatDungeonMessage } from './helpers.js';
 import { buildScreenShell } from './ui.js';
 import { renderPlayerStatsInto, syncPlayerStatsInDom } from './components/player.js';
 import { buildDungeonMarkup, applyDungeonCombatUpdate, renderLootPanel, showDungeonDefeatScreen, updateDungeonActionLabels } from './screens/dungeon-runtime.js';
@@ -56,15 +56,27 @@ function updateEnemyPanel(enemy) {
 
 /** Build the enemy view model directly from the combat payload. */
 function buildDungeonEnemy(combat) {
-  return {
-    ...(combat || {}),
-    name: combat?.enemy_name,
-    description: combat?.enemy_description,
-    level: combat?.enemy_level,
-    health: combat?.enemy_current_health,
-    max_health: combat?.enemy_max_health,
-    damage: combat?.enemy_damage,
-  };
+  if (!combat?.enemy) {
+    return null;
+  }
+  return { ...combat.enemy };
+}
+
+/** Render a dungeon-specific error state in the content area. */
+function renderDungeonError(message) {
+  const content = document.getElementById('dungeon-content');
+  if (!content) return;
+  content.innerHTML = buildScreenShell({
+    className: 'screen-shell--game',
+    title: 'Dungeons & Databases',
+    subtitle: 'Prepare for combat',
+    sections: [{
+      className: 'screen-panel screen-panel--dark',
+      body: `<div class="dungeon-message"><div class="dungeon-message-frame"><div class="dungeon-message-status dungeon-message-defeat-text">Defeat!</div><div class="dungeon-message-body"><div class="dungeon-message-line">${escapeHtml(message)}</div></div></div></div>`,
+    }],
+  });
+  state.activeCombat = null;
+  state.dungeonActionMode = 'run';
 }
 
 /**
@@ -75,7 +87,17 @@ async function handleDungeonAttack() {
   if (!state.activeCombat?.id) return;
   const action = state.dungeonActionMode === 'deeper' ? 'deeper' : 'attack';
   const res = await fetchJson(`/combats/${state.activeCombat.id}/${action}`);
-  if (!res.ok || !res.data) return;
+  if (!res.ok || !res.data) {
+    if (action === 'deeper' && res.data?.error === 'No enemy types available') {
+      renderDungeonError(res.data.error);
+      return;
+    }
+    if (res.data?.error) {
+      const dungeonMessage = document.getElementById('dungeon-message');
+      if (dungeonMessage) dungeonMessage.innerHTML = formatDungeonMessage(res.data.error);
+    }
+    return;
+  }
 
   const dungeonState = res.data;
   const lootEl = document.getElementById('loot');
@@ -122,7 +144,10 @@ async function handleDungeonAttack() {
 async function handleDungeonHome() {
   if (!state.activeCombat?.id) return;
   const res = await fetchJson(`/combats/${state.activeCombat.id}/home`);
-  if (!res.ok || !res.data) return;
+  if (!res.ok || !res.data) {
+    if (res.data?.error) renderDungeonError(res.data.error);
+    return;
+  }
 
   const dungeonState = res.data;
   if (dungeonState.character) syncPlayerStatsInDom(dungeonState.character);
@@ -140,7 +165,13 @@ async function handleDungeonHome() {
 async function handleDungeonRun() {
   if (!state.activeCombat?.id) return;
   const res = await fetchJson(`/combats/${state.activeCombat.id}/run`);
-  if (!res.ok || !res.data) return;
+  if (!res.ok || !res.data) {
+    if (res.data?.error) {
+      const dungeonMessage = document.getElementById('dungeon-message');
+      if (dungeonMessage) dungeonMessage.innerHTML = formatDungeonMessage(res.data.error);
+    }
+    return;
+  }
 
   const dungeonState = res.data;
   const dungeonMessage = document.getElementById('dungeon-message');
@@ -209,10 +240,24 @@ async function renderDungeon({ resetRunState = true } = {}) {
   // The dungeon view always starts from the server-authoritative combat state.
   const combatResponse = await fetchJson('/combats', { method: 'POST' });
   const combatPayload = combatResponse.ok ? combatResponse.data : null;
+  if (!combatResponse.ok || !combatPayload?.combat) {
+    const errorMessage = combatPayload?.error || 'No enemy types available. Return to town and try again later.';
+    content.innerHTML = buildScreenShell({
+      className: 'screen-shell--game',
+      title: 'Dungeons & Databases',
+      subtitle: 'Prepare for combat',
+      sections: [{
+        className: 'screen-panel screen-panel--dark',
+        body: `<div class="dungeon-message"><div class="dungeon-message-frame"><div class="dungeon-message-status dungeon-message-defeat-text">Defeat!</div><div class="dungeon-message-body"><div class="dungeon-message-line">${escapeHtml(errorMessage)}</div></div></div></div>`,
+      }],
+    });
+    state.activeCombat = null;
+    return;
+  }
   const enemy = buildDungeonEnemy(combatPayload?.combat);
   state.activeCombat = combatPayload?.combat || null;
 
-  const preface = `A wild ${enemy.name || 'creature'} appears! ${enemy.description || ''}`;
+  const preface = `A wild ${enemy?.name || 'creature'} appears! ${enemy?.description || ''}`;
   const messageToShow = state.lastDungeonMessage || preface;
   content.innerHTML = buildDungeonMarkup(enemy, messageToShow);
 

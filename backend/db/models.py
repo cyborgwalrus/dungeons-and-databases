@@ -180,28 +180,20 @@ class Combat(ModelBase, table=True):
         return CombatResponse.model_validate(self)
 
     @property
-    def enemy_name(self) -> str:
-        """Return the current enemy name from the linked enemy type."""
+    def enemy(self) -> dict[str, Any]:
+        """Return a presentation-friendly snapshot of the current enemy."""
         enemy_type = cast(EnemyType | None, getattr(self, 'enemy_type', None))
-        return enemy_type.name if enemy_type else ''
-
-    @property
-    def enemy_description(self) -> str | None:
-        """Return the current enemy description from the linked enemy type."""
-        enemy_type = cast(EnemyType | None, getattr(self, 'enemy_type', None))
-        return enemy_type.description if enemy_type else None
-
-    @property
-    def base_health(self) -> int:
-        """Return the enemy type base health used for scaling."""
-        enemy_type = cast(EnemyType | None, getattr(self, 'enemy_type', None))
-        return enemy_type.base_health if enemy_type else 0
-
-    @property
-    def base_damage(self) -> int:
-        """Return the enemy type base damage used for scaling."""
-        enemy_type = cast(EnemyType | None, getattr(self, 'enemy_type', None))
-        return enemy_type.base_damage if enemy_type else 0
+        return {
+            'type_id': self.enemy_type_id,
+            'name': enemy_type.name if enemy_type else '',
+            'description': enemy_type.description if enemy_type else None,
+            'level': self.enemy_level,
+            'health': self.enemy_current_health,
+            'max_health': self.enemy_max_health,
+            'damage': self.enemy_damage,
+            'base_health': enemy_type.base_health if enemy_type else 0,
+            'base_damage': enemy_type.base_damage if enemy_type else 0,
+        }
 
 
 class Item(ModelBase, table=True):
