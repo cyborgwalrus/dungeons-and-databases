@@ -11,7 +11,11 @@ from backend.utils.api_response_cache import (
 )
 from backend.utils.route_helpers import json_error, require_current_character
 
-from backend.resources.combat_engine import build_combat_response, create_new_combat, resolve_combat_action
+from backend.resources.combat_engine import (
+    build_combat_response,
+    create_new_combat,
+    resolve_combat_action,
+)
 
 
 class CombatResource(Resource):

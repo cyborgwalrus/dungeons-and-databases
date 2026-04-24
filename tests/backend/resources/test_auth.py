@@ -1,4 +1,5 @@
 def test_signup_signin_signout_and_me_without_character(client, entities):
+    """Cover the full auth happy path without an active character."""
     signup_response = client.post(
         '/api/login/signup',
         json={'username': 'alice', 'password': 'secret'},
@@ -27,6 +28,7 @@ def test_signup_signin_signout_and_me_without_character(client, entities):
 
 
 def test_signup_rejects_duplicate_username(client):
+    """Reject duplicate usernames during signup."""
     first_signup = client.post('/api/login/signup', json={'username': 'alice', 'password': 'secret'})
     assert first_signup.status_code == 201
 
@@ -36,6 +38,7 @@ def test_signup_rejects_duplicate_username(client):
 
 
 def test_signin_rejects_invalid_credentials_and_login_me_requires_auth(client, entities):
+    """Reject invalid signin credentials and unauthenticated profile access."""
     user = entities.create_user(username='alice', password='secret')
 
     invalid_username = client.post('/api/login/signin', json={'username': 'missing', 'password': 'secret'})
@@ -52,6 +55,7 @@ def test_signin_rejects_invalid_credentials_and_login_me_requires_auth(client, e
 
 
 def test_auth_resources_reject_missing_required_fields(client):
+    """Reject auth requests with missing required fields."""
     missing_signup_username = client.post('/api/login/signup', json={'password': 'secret'})
     assert missing_signup_username.status_code == 400
     assert missing_signup_username.get_json()['error'][0]['msg'] == 'Field required'

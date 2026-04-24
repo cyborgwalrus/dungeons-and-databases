@@ -8,7 +8,7 @@ from backend.utils.game_utils import load_enemy_type_seed_data, load_item_type_s
 
 
 def _get_cache():
-    from backend.utils.app_init import cache
+    from backend.utils.app_init import cache  # pylint: disable=import-outside-toplevel
 
     return cache
 

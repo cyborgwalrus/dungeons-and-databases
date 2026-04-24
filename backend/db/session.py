@@ -17,6 +17,7 @@ class _Database:
         self.session: Any = None
 
     def init_app(self, app) -> None:
+        """Bind the database engine and session to a Flask application."""
         database_uri = app.config.get('SQLALCHEMY_DATABASE_URI')
         if not database_uri:
             raise RuntimeError('SQLALCHEMY_DATABASE_URI must be set')
@@ -38,11 +39,13 @@ class _Database:
                 self.session.remove()
 
     def create_all(self) -> None:
+        """Create all SQLModel tables for the configured engine."""
         if self.engine is None:
             raise RuntimeError('Database engine is not initialized')
         SQLModel.metadata.create_all(self.engine)
 
     def drop_all(self) -> None:
+        """Drop all SQLModel tables for the configured engine."""
         if self.engine is None:
             raise RuntimeError('Database engine is not initialized')
         SQLModel.metadata.drop_all(self.engine)

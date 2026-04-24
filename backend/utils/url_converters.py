@@ -24,12 +24,14 @@ class OwnedModelConverter(BaseConverter):
         return str(value)
 
     def _parse_int(self, value: str) -> int:
+        """Parse a route value as an integer or raise ``NotFound``."""
         try:
             return int(value)
         except (TypeError, ValueError) as error:
             raise NotFound(description=f'{self.model_name.title()} not found') from error
 
     def _not_found(self) -> NotFound:
+        """Build a standardized not-found error for this model type."""
         return NotFound(description=f'{self.model_name.title()} not found')
 
 

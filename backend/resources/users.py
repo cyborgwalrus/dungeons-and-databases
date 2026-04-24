@@ -1,5 +1,7 @@
 """User profile and inventory resources for the backend API."""
 
+from typing import Any, cast
+
 from flask import request
 from flask_restful import Resource
 from sqlalchemy import delete, select
@@ -98,11 +100,14 @@ class UserItemsResource(Resource):
             A confirmation message after the inventory is cleared.
         """
         assert user.id is not None
+        item_user_id = cast(Any, Item.user_id)
+        item_id = cast(Any, Item.id)
+        equipped_item_id = cast(Any, EquipmentSlot.item_id)
         deleted_count = (
             db.session.execute(
                 delete(Item).where(
-                    Item.user_id == user.id,
-                    ~Item.id.in_(select(EquipmentSlot.item_id)),
+                    item_user_id == user.id,
+                    ~item_id.in_(select(equipped_item_id)),  # pylint: disable=no-member
                 )
             ).rowcount
             or 0

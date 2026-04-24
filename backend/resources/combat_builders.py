@@ -6,6 +6,7 @@ from backend.db.models import Character, Combat
 
 
 def combat_victory_message(enemy_name: str, player_hits: int) -> list[str]:
+    """Build the message shown after defeating an enemy."""
     return [
         'Victory!',
         f'You dealt {player_hits} damage and defeated the {enemy_name}!',
@@ -13,6 +14,7 @@ def combat_victory_message(enemy_name: str, player_hits: int) -> list[str]:
 
 
 def combat_attack_round_message(enemy_name: str, player_hits: int, monster_hits: int) -> str:
+    """Build the message shown after a normal attack exchange."""
     return (
         f'You dealt {player_hits} damage to {enemy_name}!\n'
         f'{enemy_name} dealt {monster_hits} damage to you!'
@@ -20,6 +22,7 @@ def combat_attack_round_message(enemy_name: str, player_hits: int, monster_hits:
 
 
 def combat_defeat_message(enemy_name: str) -> str:
+    """Build the message shown when the player is defeated."""
     return (
         'Defeat!\n'
         f'You have been defeated by {enemy_name}!\n'
@@ -28,10 +31,20 @@ def combat_defeat_message(enemy_name: str) -> str:
 
 
 def combat_escape_success_message(dice_roll: int) -> str:
-    return f'You rolled a {dice_roll}! You successfully escaped and returned home!'
+    """Build the message shown when the player escapes successfully."""
+    return (
+        f'You rolled a {dice_roll}! '
+        'You successfully escaped and returned home!'
+    )
 
 
-def combat_escape_failure_message(dice_roll: int, enemy_name: str, damage_taken: int, defeated: bool) -> str:
+def combat_escape_failure_message(
+    dice_roll: int,
+    enemy_name: str,
+    damage_taken: int,
+    defeated: bool,
+) -> str:
+    """Build the message shown when an escape attempt fails."""
     if defeated:
         return (
             f'You rolled a {dice_roll} and failed to escape!\n'
@@ -46,12 +59,14 @@ def combat_escape_failure_message(dice_roll: int, enemy_name: str, damage_taken:
 
 
 def _character_snapshot(character: Character, *, health: int | None = None) -> dict[str, Any]:
+    """Serialize the character, optionally overriding the reported health."""
     if health is None:
         return character.to_response().model_dump()
     return character.to_response(health=health).model_dump()
 
 
 def _base_outcome(character: Character, combat: Combat | None) -> dict[str, Any]:
+    """Create the shared combat outcome structure."""
     return {
         'message': '',
         'victory': False,
@@ -80,6 +95,7 @@ def _build_outcome(
     include_character: bool = False,
     next_combat: Combat | None = None,
 ) -> dict[str, Any]:
+    """Build a combat outcome payload with the requested overrides."""
     outcome = _base_outcome(character, combat)
     outcome['message'] = message
     outcome['victory'] = victory
@@ -98,6 +114,7 @@ def _build_outcome(
 
 
 def combat_attack_blocked_outcome(character: Character, combat: Combat) -> dict[str, Any]:
+    """Build the outcome for an attack while the enemy is already defeated."""
     return _build_outcome(
         character,
         combat,
@@ -107,6 +124,7 @@ def combat_attack_blocked_outcome(character: Character, combat: Combat) -> dict[
 
 
 def combat_attack_defeat_outcome(character: Character, combat: Combat, enemy_name: str) -> dict[str, Any]:
+    """Build the outcome for an attack that defeats the player."""
     return _build_outcome(
         character,
         combat,
@@ -123,10 +141,15 @@ def combat_attack_round_outcome(
     player_hits: int,
     monster_hits: int,
 ) -> dict[str, Any]:
+    """Build the outcome for a round where both combatants exchange blows."""
     return _build_outcome(
         character,
         combat,
-        message=combat_attack_round_message(enemy_name, player_hits, monster_hits),
+        message=combat_attack_round_message(
+            enemy_name,
+            player_hits,
+            monster_hits,
+        ),
         character_health=combat.character_health,
     )
 
@@ -137,6 +160,7 @@ def combat_victory_outcome(
     message_lines: list[str],
     items_dropped: list[dict[str, Any]],
 ) -> dict[str, Any]:
+    """Build the outcome for a victorious combat."""
     return _build_outcome(
         character,
         combat,
@@ -148,6 +172,7 @@ def combat_victory_outcome(
 
 
 def combat_deeper_blocked_outcome(character: Character, combat: Combat) -> dict[str, Any]:
+    """Build the outcome for trying to go deeper too early."""
     return _build_outcome(
         character,
         combat,
@@ -162,6 +187,7 @@ def combat_deeper_success_outcome(
     next_combat: Combat,
     enemy_name: str,
 ) -> dict[str, Any]:
+    """Build the outcome for advancing to the next enemy."""
     return _build_outcome(
         character,
         combat,
@@ -176,6 +202,7 @@ def combat_deeper_success_outcome(
 
 
 def combat_home_success_outcome(character: Character, combat: Combat) -> dict[str, Any]:
+    """Build the outcome for returning home after victory."""
     return _build_outcome(
         character,
         combat,
@@ -186,6 +213,7 @@ def combat_home_success_outcome(character: Character, combat: Combat) -> dict[st
 
 
 def combat_run_success_outcome(character: Character, combat: Combat, dice_roll: int) -> dict[str, Any]:
+    """Build the outcome for a successful escape attempt."""
     return _build_outcome(
         character,
         combat,
@@ -204,6 +232,7 @@ def combat_run_failure_outcome(
     damage_taken: int,
     defeated: bool,
 ) -> dict[str, Any]:
+    """Build the outcome for a failed escape attempt."""
     return _build_outcome(
         character,
         combat,

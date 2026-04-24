@@ -23,6 +23,7 @@ from backend.utils.game_utils import add_inventory_item, get_enemy_types, get_it
 
 
 def _scaled_enemy_stats(base_health: int, base_damage: int, level: int) -> tuple[int, int]:
+    """Scale enemy stats by dungeon level."""
     return base_health + (level * 10), base_damage + (level * 2)
 
 
@@ -31,6 +32,17 @@ def create_new_combat(
     *,
     level: int = 1,
 ) -> Combat | None:
+    """Create a fresh combat for the active or provided character.
+
+    Args:
+        character: The character entering combat, or ``None`` to use the
+            active character from the request token.
+        level: The dungeon depth used to scale the enemy.
+
+    Returns:
+        The created combat row, or ``None`` when no active character exists or
+        no enemy templates are available.
+    """
     character = character or get_player()
     if character is None:
         return None
@@ -38,7 +50,9 @@ def create_new_combat(
     assert character.id is not None
     character_id = int(character.id)
 
-    db.session.execute(delete(Combat).where(cast(Any, Combat.character_id) == character_id))
+    db.session.execute(
+        delete(Combat).where(cast(Any, Combat.character_id) == character_id)
+    )
     db.session.flush()
 
     enemy_types_data = get_enemy_types()
@@ -69,10 +83,12 @@ def create_new_combat(
 
 
 def _combat_damage_roll(max_damage: int) -> int:
+    """Roll combat damage within the configured damage range."""
     return random.randint(max(1, max_damage // 2), max(1, max_damage))
 
 
 def _victory_outcome(character, combat: Combat, player_hits: int) -> tuple[list[str], list[dict[str, Any]]]:
+    """Build victory messages and award any dropped loot."""
     enemy_name = combat.enemy['name']
     message_lines = combat_victory_message(enemy_name, player_hits)
 
@@ -88,10 +104,12 @@ def _victory_outcome(character, combat: Combat, player_hits: int) -> tuple[list[
 
 
 def check_character_death(health: int) -> bool:
+    """Return whether the character has been reduced to zero health."""
     return health <= 0
 
 
 def _resolve_attack_turn(character, combat: Combat) -> dict[str, Any]:
+    """Resolve the attack action for the current combat."""
     enemy_name = combat.enemy['name']
 
     if combat.enemy_current_health <= 0:
@@ -118,6 +136,7 @@ def _resolve_attack_turn(character, combat: Combat) -> dict[str, Any]:
 
 
 def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
+    """Resolve the deeper action for the current combat."""
     enemy_name = combat.enemy['name']
     if combat.enemy_current_health > 0:
         return combat_deeper_blocked_outcome(character, combat)
@@ -133,6 +152,7 @@ def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
 
 
 def _resolve_home_turn(character, combat: Combat) -> dict[str, Any]:
+    """Resolve the home action for the current combat."""
     character.health = combat.character_health
     db.session.delete(combat)
 
@@ -140,6 +160,7 @@ def _resolve_home_turn(character, combat: Combat) -> dict[str, Any]:
 
 
 def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
+    """Resolve the run action for the current combat."""
     enemy_name = combat.enemy['name']
     dice_roll = random.randint(1, 6)
 
@@ -158,6 +179,7 @@ def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
 
 
 def _apply_victory_experience(character, combat: Combat, message_lines: list[str]) -> None:
+    """Award experience and level-up messages after a victory."""
     experience_gained = 20 + (max(1, combat.enemy_level) * 10)
     character.gain_experience(experience_gained)
     message_lines.append(f'You gained {experience_gained} XP!')
@@ -172,6 +194,7 @@ def _apply_victory_experience(character, combat: Combat, message_lines: list[str
 
 
 def drop_loot(combat: Combat) -> list[dict[str, Any]]:
+    """Generate random item drops for a defeated combat."""
     items_dropped: list[dict[str, Any]] = []
     all_items = get_item_types()
     if not all_items:
@@ -192,6 +215,7 @@ def drop_loot(combat: Combat) -> list[dict[str, Any]]:
 
 
 def build_combat_response(outcome: dict[str, Any]) -> dict[str, Any]:
+    """Convert a combat outcome into the API response shape."""
     character = outcome['character']
     combat = outcome['combat']
     payload: dict[str, Any] = {
@@ -219,6 +243,7 @@ def build_combat_response(outcome: dict[str, Any]) -> dict[str, Any]:
 
 
 def resolve_combat_action(character, combat: Combat, action_name: str) -> dict[str, Any] | None:
+    """Dispatch a combat action name to the matching resolver."""
     action = (action_name or '').lower().strip()
     if action == 'attack':
         return _resolve_attack_turn(character, combat)

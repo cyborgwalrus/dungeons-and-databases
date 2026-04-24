@@ -1,4 +1,5 @@
 def test_character_creation_listing_selection_and_heal_flow(client, entities):
+    """Cover character creation, selection, and healing flows."""
     user = entities.create_user(username='player', password='secret')
     token = entities.token_for(user)
 
@@ -34,6 +35,7 @@ def test_character_creation_listing_selection_and_heal_flow(client, entities):
 
 
 def test_character_update_validation_and_equipment_round_trip(client, entities):
+    """Cover character updates, equip, and unequip flows."""
     user = entities.create_user(username='gear-user', password='secret')
     token = entities.token_for(user)
 
@@ -108,6 +110,7 @@ def test_character_update_validation_and_equipment_round_trip(client, entities):
 
 
 def test_character_delete_returns_token_when_active_character_is_removed(client, entities):
+    """Return a replacement token when deleting the active character."""
     user = entities.create_user(username='deleter', password='secret')
     token = entities.token_for(user)
 
@@ -128,6 +131,7 @@ def test_character_delete_returns_token_when_active_character_is_removed(client,
 
 
 def test_character_endpoints_reject_invalid_payloads_and_ownership_errors(client, entities):
+    """Reject invalid character payloads and ownership violations."""
     user = entities.create_user(username='character-user', password='secret')
     intruder = entities.create_user(username='intruder', password='secret')
     token = entities.token_for(user)

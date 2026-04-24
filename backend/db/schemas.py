@@ -63,11 +63,15 @@ class ItemSelectionRequest(ModelSchema):
 
 
 class UserResponse(ModelSchema):
+    """Serialized user profile returned by the API."""
+
     id: int
     username: str
 
 
 class CharacterResponse(ModelSchema):
+    """Serialized character profile returned by the API."""
+
     id: int
     user_id: int
     name: str
@@ -82,6 +86,8 @@ class CharacterResponse(ModelSchema):
 
 
 class CombatEnemyResponse(ModelSchema):
+    """Serialized combat enemy snapshot returned by the API."""
+
     type_id: str
     name: str
     description: str | None
@@ -94,6 +100,8 @@ class CombatEnemyResponse(ModelSchema):
 
 
 class CombatResponse(ModelSchema):
+    """Serialized combat state returned by the API."""
+
     id: int
     character_id: int
     character_health: int
@@ -101,6 +109,8 @@ class CombatResponse(ModelSchema):
 
 
 class ItemResponse(ModelSchema):
+    """Serialized inventory item returned by the API."""
+
     id: int
     name: str
     item_type_id: str
@@ -111,6 +121,8 @@ class ItemResponse(ModelSchema):
 
 
 class EquipmentSlotResponse(ModelSchema):
+    """Serialized equipment slot returned by the API."""
+
     id: int
     character_id: int
     item_id: int

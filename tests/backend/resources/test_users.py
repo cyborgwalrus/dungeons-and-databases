@@ -1,4 +1,5 @@
 def test_user_endpoints_require_authentication(client, entities):
+    """Require authentication for user endpoints."""
     user = entities.create_user(username='owner', password='secret')
 
     response = client.get(f'/api/users/{user.id}')
@@ -8,6 +9,7 @@ def test_user_endpoints_require_authentication(client, entities):
 
 
 def test_user_endpoints_enforce_ownership_and_allow_profile_updates(client, entities):
+    """Enforce user ownership while allowing profile updates."""
     owner = entities.create_user(username='owner', password='secret')
     intruder = entities.create_user(username='intruder', password='secret')
     owner_token = entities.token_for(owner)
@@ -38,6 +40,7 @@ def test_user_endpoints_enforce_ownership_and_allow_profile_updates(client, enti
 
 
 def test_user_inventory_clear_preserves_equipped_items(client, entities):
+    """Clear only unequipped inventory items."""
     user = entities.create_user(username='inventory-user', password='secret')
     character = entities.create_character(user, name='Keeper', seed_loadout=True)
     token = entities.token_for(user, character)
@@ -75,6 +78,7 @@ def test_user_inventory_clear_preserves_equipped_items(client, entities):
 
 
 def test_user_routes_reject_intruder_access_and_deleted_user_inventory_reads(client, entities):
+    """Reject intruder access and deleted-user inventory lookups."""
     user = entities.create_user(username='profile-user', password='secret')
     observer = entities.create_user(username='observer', password='secret')
     observer_headers = entities.auth_headers(entities.token_for(observer))

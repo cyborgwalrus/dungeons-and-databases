@@ -1,4 +1,5 @@
 def test_item_creation_get_and_delete_supports_batch_payloads(client, entities):
+    """Create, fetch, and delete inventory items with batch payloads."""
     user = entities.create_user(username='item-user', password='secret')
     character = entities.create_character(user, name='Carrier', seed_loadout=False)
     token = entities.token_for(user, character)
@@ -26,6 +27,7 @@ def test_item_creation_get_and_delete_supports_batch_payloads(client, entities):
 
 
 def test_item_resources_validate_payloads_and_equipped_item_guards(client, entities):
+    """Validate item payloads and reject equipped-item mutations."""
     user = entities.create_user(username='item-user', password='secret')
     character = entities.create_character(user, name='Carrier', seed_loadout=False)
     token = entities.token_for(user, character)

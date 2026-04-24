@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 def _extract_timestamp(entry):
+    """Extract the first available timestamp from a chat log entry."""
     timestamp = entry.get('timestamp')
     if timestamp is not None:
         return datetime.fromtimestamp(int(timestamp) / 1000, tz=timezone.utc).isoformat(timespec='seconds')
@@ -22,6 +23,7 @@ def _extract_timestamp(entry):
 
 
 def _infer_user_from_path(file_path: Path):
+    """Infer the prompt author from the source path when possible."""
     parts = list(file_path.resolve().parts)
     for index, part in enumerate(parts[:-1]):
         if part.lower() == 'users' and index + 1 < len(parts):
@@ -30,6 +32,7 @@ def _infer_user_from_path(file_path: Path):
 
 
 def _extract_source_file(entry, input_file):
+    """Extract the originating source file name for a chat entry."""
     for item in entry.get('response') or []:
         title = item.get('generatedTitle')
         if title:
@@ -70,6 +73,7 @@ def _extract_model(entry) -> str:
 
 
 def _extract_prompt_rows(input_file):
+    """Extract prompt rows from a JSON chat log file."""
     with open(input_file, 'r', encoding='utf-8') as file_handle:
         data = json.load(file_handle)
 
@@ -110,6 +114,7 @@ def _extract_prompt_rows(input_file):
 
 
 def _load_existing_timestamps(output_file):
+    """Load the set of already exported prompt row keys."""
     if not output_file.exists():
         return set()
 
@@ -128,6 +133,7 @@ def _load_existing_timestamps(output_file):
 
 
 def _load_existing_rows(output_file):
+    """Load the previously exported rows from the CSV file."""
     if not output_file.exists():
         return []
 

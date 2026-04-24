@@ -7,6 +7,7 @@ from backend.db.session import db
 
 
 def test_combat_creation_returns_combat_payload(client, entities):
+    """Create a combat and return the initial combat payload."""
     user = entities.create_user(username='dungeon-user', password='secret')
     character = entities.create_character(user, name='Fighter', health=120, damage=12)
     token = entities.token_for(user, character)
@@ -22,6 +23,7 @@ def test_combat_creation_returns_combat_payload(client, entities):
 
 
 def test_combat_creation_returns_404_when_enemy_catalog_is_empty(client, entities):
+    """Return 404 when combat creation has no enemy templates."""
     user = entities.create_user(username='stranded', password='secret')
     character = entities.create_character(user, name='Wanderer')
     token = entities.token_for(user, character)
@@ -43,6 +45,7 @@ def test_combat_creation_returns_none_without_character(monkeypatch):
 
 
 def test_combat_attack_victory_keeps_defeated_enemy_visible(client, entities):
+    """Keep the defeated enemy visible in the victory response."""
     user = entities.create_user(username='victor', password='secret')
     character = entities.create_character(user, name='Champion', health=120, damage=100)
     token = entities.token_for(user, character)
@@ -99,6 +102,7 @@ def test_combat_attack_after_enemy_defeat_prompts_deeper(client, entities):
 
 
 def test_combat_deeper_after_victory_loads_next_enemy(client, entities):
+    """Advance to a deeper combat after victory."""
     user = entities.create_user(username='deepdelver', password='secret')
     character = entities.create_character(user, name='Champion', health=120, damage=100)
     token = entities.token_for(user, character)
@@ -128,6 +132,7 @@ def test_combat_deeper_after_victory_loads_next_enemy(client, entities):
 
 
 def test_combat_home_after_victory_returns_home_and_keeps_loot(client, entities):
+    """Return home after victory without losing loot."""
     user = entities.create_user(username='homer', password='secret')
     character = entities.create_character(user, name='Champion', health=120, damage=100)
     token = entities.token_for(user, character)
@@ -174,6 +179,7 @@ def test_combat_prevents_home_and_deeper_before_victory(client, entities):
 
 
 def test_combat_deeper_returns_404_when_next_enemy_cannot_be_created(client, entities):
+    """Return 404 when the next combat cannot be created."""
     user = entities.create_user(username='stranded-deeper', password='secret')
     character = entities.create_character(user, name='Stranded', health=100, damage=100)
     token = entities.token_for(user, character)
@@ -195,6 +201,7 @@ def test_combat_deeper_returns_404_when_next_enemy_cannot_be_created(client, ent
 
 
 def test_combat_attack_survives_when_enemy_lives(client, entities):
+    """Keep combat active when the enemy survives the attack."""
     user = entities.create_user(username='scrapper', password='secret')
     character = entities.create_character(user, name='Scout', health=100, damage=10)
     token = entities.token_for(user, character)
@@ -217,6 +224,7 @@ def test_combat_attack_survives_when_enemy_lives(client, entities):
 
 
 def test_combat_run_failure_survives_and_keeps_combat_active(client, entities):
+    """Keep combat active after a failed escape that does not kill the player."""
     user = entities.create_user(username='dodger', password='secret')
     character = entities.create_character(user, name='Runner', health=80, damage=10)
     token = entities.token_for(user, character)
@@ -240,6 +248,7 @@ def test_combat_run_failure_survives_and_keeps_combat_active(client, entities):
 
 
 def test_combat_victory_levels_up_character_and_emits_next_level_message(client, entities):
+    """Level up the character and emit the next-level message on victory."""
     user = entities.create_user(username='champion', password='secret')
     character = entities.create_character(user, name='Hero', health=90, damage=100)
     initial_health = character.health
@@ -265,6 +274,7 @@ def test_combat_victory_levels_up_character_and_emits_next_level_message(client,
 
 
 def test_combat_run_success_leaves_inventory_untouched(client, entities):
+    """Preserve inventory when the player escapes successfully."""
     user = entities.create_user(username='runner', password='secret')
     character = entities.create_character(user, name='Scout', health=80, damage=10)
     token = entities.token_for(user, character)
@@ -290,6 +300,7 @@ def test_combat_run_success_leaves_inventory_untouched(client, entities):
 
 
 def test_combat_run_failure_can_defeat_character_and_keep_inventory(client, entities):
+    """Handle a failed escape that defeats the character without clearing inventory."""
     user = entities.create_user(username='loser', password='secret')
     character = entities.create_character(user, name='Fragile', health=1, damage=10)
     token = entities.token_for(user, character)
@@ -316,6 +327,7 @@ def test_combat_run_failure_can_defeat_character_and_keep_inventory(client, enti
 
 
 def test_combat_rejects_invalid_action_and_missing_combat(client, entities):
+    """Reject invalid combat actions and missing combat resources."""
     user = entities.create_user(username='bystander', password='secret')
     character = entities.create_character(user, name='Watcher')
     token = entities.token_for(user, character)
@@ -334,6 +346,7 @@ def test_combat_rejects_invalid_action_and_missing_combat(client, entities):
 
 
 def test_combat_routes_require_authentication(client, entities):
+    """Require authentication for combat routes."""
     user = entities.create_user(username='runner', password='secret')
     character = entities.create_character(user, name='Scout')
     token = entities.token_for(user, character)
