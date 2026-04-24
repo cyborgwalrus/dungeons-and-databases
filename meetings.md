@@ -1,66 +1,23 @@
 # Meetings minutes
 
-## Meeting 1.
-* **DATE:**
-* **PARTICIPANTS:**
-* **TEACHER:**
-
-### Action points
-*List here the actions points discussed with assistants*
-
-### Notes
-*Add here notes that you consider important. This is not mandatory*
-
-
-## Meeting 2.
-* **DATE:**
-* **PARTICIPANTS:**
-* **TEACHER:**
-
-### Action points
-*List here the actions points discussed with assistants*
-
-### Notes
-*Add here notes that you consider important. This is not mandatory*
-
-
-## Meeting 3.
-* **DATE:**
-* **PARTICIPANTS:**
-* **TEACHER:**
-
-### Action points
-*List here the actions points discussed with assistants*
-
-### Notes
-*Add here notes that you consider important. This is not mandatory*
-
-
-## Meeting 4.
-* **DATE:**
-* **PARTICIPANTS:**
-* **TEACHER:**
-
-### Action points
-*List here the actions points discussed with assistants*
-
-### Notes
-*Add here notes that you consider important. This is not mandatory*
-
-
 ## Midterm meeting
-* **DATE:**
-* **PARTICIPANTS:**
-* **TEACHER:**
+
+* **DATE:** 10.4.2026
+* **PARTICIPANTS:** Matias
+* **TEACHER:** Ivan
 
 ### Action points
-*List here the actions points discussed with assistants*
+
+- resource oriented architecture
+- generalize the API so that other clients can use it
+- write implemented resource and send by email to Ivan
+- AI is ok if prompts are documented and the code is explainable
 
 ### Notes
 *Add here notes that you consider important. This is not mandatory*
-
 
 ## Final meeting
+
 * **DATE:**
 * **PARTICIPANTS:**
 * **TEACHER:**
@@ -70,6 +27,3 @@
 
 ### Notes
 *Add here notes that you consider important. This is not mandatory*
-
-
-

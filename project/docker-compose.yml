@@ -11,7 +11,6 @@ services:
       - FLASK_ENV=development
     volumes:
       - ./backend:/app
-    # command removed so container will use the image default (runs start-backend.sh)
     networks:
       - dnd_network
 
