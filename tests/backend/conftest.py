@@ -125,6 +125,7 @@ def entities(request):
         combat = create_new_combat(character, level=enemy_level)
         if combat is None:
             raise AssertionError('Failed to create combat')
+        db.session.commit()
         return combat
 
     return SimpleNamespace(

@@ -2,9 +2,9 @@
 
 from flask import request
 from flask_restful import Resource
-from sqlalchemy import select
+from sqlalchemy import delete, select
 
-from backend.db.models import Item, User
+from backend.db.models import EquipmentSlot, Item, User
 from backend.db.session import db
 from backend.db.schemas import UserUpdateRequest
 from backend.utils.api_response_cache import (
@@ -98,15 +98,15 @@ class UserItemsResource(Resource):
             A confirmation message after the inventory is cleared.
         """
         assert user.id is not None
-        inventory_items = [
-            item
-            for item in db.session.scalars(select(Item))
-            if item.user_id == user.id and not item.is_equipped
-        ]
-        deleted_count = 0
-        for item in inventory_items:
-            db.session.delete(item)
-            deleted_count += 1
+        deleted_count = (
+            db.session.execute(
+                delete(Item).where(
+                    Item.user_id == user.id,
+                    ~Item.id.in_(select(EquipmentSlot.item_id)),
+                )
+            ).rowcount
+            or 0
+        )
         if deleted_count:
             db.session.commit()
             invalidate_user_inventory_cache(user.id)

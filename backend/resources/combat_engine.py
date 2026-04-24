@@ -64,7 +64,7 @@ def create_new_combat(
         enemy_damage=enemy_damage,
     )
     db.session.add(combat)
-    db.session.commit()
+    db.session.flush()
     return combat
 
 

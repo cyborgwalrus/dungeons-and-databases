@@ -36,8 +36,6 @@ class _Database:
         def _remove_session(_exception=None):
             if self.session is not None:
                 self.session.remove()
-            if self.engine is not None:
-                self.engine.dispose()
 
     def create_all(self) -> None:
         if self.engine is None:

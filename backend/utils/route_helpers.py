@@ -72,16 +72,11 @@ def require_character_owner(character_id: int) -> tuple[Character | None, tuple[
 
 def get_item(character: Character, item_id: int) -> Item | None:
     """Return an unequipped item from the character's shared inventory by ID."""
-    item = next(
-        (
-            candidate
-            for candidate in db.session.scalars(select(Item))
-            if candidate.user_id == character.user_id
-            and candidate.id == item_id
-            and not candidate.is_equipped
-        ),
-        None,
+    item = db.session.scalar(
+        select(Item).where(Item.user_id == character.user_id, Item.id == item_id)
     )
+    if item is None or item.is_equipped:
+        return None
     return item
 
 
@@ -128,13 +123,11 @@ def equip_item(character: Character, item: Item) -> tuple[Any, int] | None:
     assert character.id is not None
     assert item.id is not None
 
-    existing_equipment = next(
-        (
-            candidate
-            for candidate in db.session.scalars(select(EquipmentSlot))
-            if candidate.character_id == character.id and candidate.slot_type == slot_type
-        ),
-        None,
+    existing_equipment = db.session.scalar(
+        select(EquipmentSlot).where(
+            EquipmentSlot.character_id == character.id,
+            EquipmentSlot.slot_type == slot_type,
+        )
     )
     if existing_equipment:
         existing_equipment.item = item
@@ -166,13 +159,11 @@ def unequip_item(character: Character, item_id: int) -> tuple[Any, int] | None:
         ``None`` when the item is successfully unequipped, otherwise a
         standardized JSON error response.
     """
-    equipment = next(
-        (
-            candidate
-            for candidate in db.session.scalars(select(EquipmentSlot))
-            if candidate.character_id == character.id and candidate.item_id == item_id
-        ),
-        None,
+    equipment = db.session.scalar(
+        select(EquipmentSlot).where(
+            EquipmentSlot.character_id == character.id,
+            EquipmentSlot.item_id == item_id,
+        )
     )
     if not equipment:
         return {'error': 'Equipment not found'}, 404

@@ -43,6 +43,7 @@ class CombatResource(Resource):
         if not combat:
             return json_error('No enemy types available', 404)
 
+        db.session.commit()
         return {
             'combat': combat.to_response().model_dump(),
             'character': character.to_response().model_dump(),

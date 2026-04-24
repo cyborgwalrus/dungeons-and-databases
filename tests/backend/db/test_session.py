@@ -39,7 +39,7 @@ def test_session_create_and_drop_require_initialized_engine():
 
 
 def test_session_init_app_replaces_previous_bind_and_cleans_on_teardown(monkeypatch):
-    """Reinitializing should clean old resources and teardown should clean new ones."""
+    """Reinitializing should clean old resources and teardown should keep the engine alive."""
     app = Flask(__name__)
     app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://example/db'
     database = _Database()
@@ -92,7 +92,7 @@ def test_session_init_app_replaces_previous_bind_and_cleans_on_teardown(monkeypa
         pass
 
     assert calls['new_remove'] == 1
-    assert calls['new_dispose'] == 1
+    assert calls['new_dispose'] == 0
 
 
 def test_session_init_app_uses_sqlite_connect_args(monkeypatch):
