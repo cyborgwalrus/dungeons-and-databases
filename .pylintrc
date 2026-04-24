@@ -1,0 +1,2 @@
+[MASTER]
+init-hook='import sys; from pathlib import Path; repo_root = Path(r"c:\Users\Matias\source\repos\dungeons-and-databases"); sys.path.insert(0, str(repo_root)) if str(repo_root) not in sys.path else None'

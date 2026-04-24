@@ -1,0 +1,976 @@
+openapi: 3.0.3
+info:
+  title: Dungeons & Databases API
+  version: 1.0.0
+  description: OpenAPI specification for the Flask backend.
+servers:
+  - url: /api
+tags:
+  - name: Authentication
+  - name: Users
+  - name: Characters
+  - name: Items
+  - name: Combat
+paths:
+  /login/signup:
+    post:
+      tags: [Authentication]
+      summary: Create a new account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCredentials'
+            examples:
+              signup:
+                value:
+                  username: hero
+                  password: secret123
+      responses:
+        '201':
+          description: Signup completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /login/signin:
+    post:
+      tags: [Authentication]
+      summary: Authenticate an existing account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthCredentials'
+            examples:
+              signin:
+                value:
+                  username: hero
+                  password: secret123
+      responses:
+        '200':
+          description: Signin completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /login/signout:
+    post:
+      tags: [Authentication]
+      summary: Clear the client token
+      responses:
+        '200':
+          description: Signed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+  /login/me:
+    get:
+      tags: [Authentication]
+      summary: Return the authenticated user and active character
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current authentication state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MeResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /users/{userId}:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Users]
+      summary: Fetch one user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Users]
+      summary: Update a user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdateRequest'
+            examples:
+              rename:
+                value:
+                  username: new-name
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Users]
+      summary: Delete a user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /users/{userId}/inventory:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Users]
+      summary: List the shared inventory for a user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Inventory items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ItemResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Users]
+      summary: Clear the shared inventory
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Inventory cleared
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /users/{userId}/characters:
+    parameters:
+      - $ref: '#/components/parameters/UserId'
+    get:
+      tags: [Characters]
+      summary: List characters for a user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Character list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CharacterResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Characters]
+      summary: Create a character for a user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CharacterCreateRequest'
+            examples:
+              create:
+                value:
+                  name: Hero
+                  level: 1
+                  health: 100
+                  damage: 10
+      responses:
+        '201':
+          description: Character created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CharacterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /characters/{characterId}:
+    parameters:
+      - $ref: '#/components/parameters/CharacterId'
+    get:
+      tags: [Characters]
+      summary: Fetch one character
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Character snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CharacterResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Characters]
+      summary: Update a character
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CharacterUpdateRequest'
+            examples:
+              update:
+                value:
+                  level: 2
+                  health: 110
+      responses:
+        '200':
+          description: Updated character
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CharacterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Characters]
+      summary: Delete a character
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Character deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CharacterDeleteResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /characters/{characterId}/select:
+    parameters:
+      - $ref: '#/components/parameters/CharacterId'
+    post:
+      tags: [Characters]
+      summary: Set the active character
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Character selected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CharacterSelectResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /characters/{characterId}/full_heal:
+    parameters:
+      - $ref: '#/components/parameters/CharacterId'
+    post:
+      tags: [Characters]
+      summary: Restore a character to full health
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Healed character
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CharacterResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /characters/{characterId}/equipment:
+    parameters:
+      - $ref: '#/components/parameters/CharacterId'
+    get:
+      tags: [Characters]
+      summary: List equipped items for a character's equipment slots
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Equipped items
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ItemResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Characters]
+      summary: Equip an item into a character equipment slot
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemSelectionRequest'
+            examples:
+              equip:
+                value:
+                  item_id: 42
+      responses:
+        '200':
+          description: Item equipped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EquipItemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /characters/{characterId}/equipment/{itemId}:
+    parameters:
+      - $ref: '#/components/parameters/CharacterId'
+      - $ref: '#/components/parameters/ItemId'
+    delete:
+      tags: [Characters]
+      summary: Unequip an item from a character equipment slot
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Item unequipped
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnequipItemResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /items:
+    post:
+      tags: [Items]
+      summary: Create one or more items for the active character
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemCreateRequest'
+            examples:
+              single:
+                value:
+                  item_type_id: steel_sword
+              legacySingle:
+                value:
+                  item_id: steel_sword
+              batch:
+                value:
+                  - steel_sword
+                  - iron_shield
+      responses:
+        '201':
+          description: Items created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ItemResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /items/{itemId}:
+    parameters:
+      - $ref: '#/components/parameters/ItemId'
+    get:
+      tags: [Items]
+      summary: Fetch one item
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Item details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItemResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Items]
+      summary: Remove an inventory item
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Item removed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /combats:
+    post:
+      tags: [Combat]
+      summary: Start a new dungeon combat for the active character
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Combat created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CombatBootstrapResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /combats/{combatId}:
+    parameters:
+      - $ref: '#/components/parameters/CombatId'
+    get:
+      tags: [Combat]
+      summary: Fetch one combat state
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Combat state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CombatResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /combats/{combatId}/{action}:
+    parameters:
+      - $ref: '#/components/parameters/CombatId'
+      - $ref: '#/components/parameters/CombatAction'
+    get:
+      tags: [Combat]
+      summary: Resolve a combat action for the requested combat
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Combat resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CombatOutcomeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /docs:
+    get:
+      tags: [Docs]
+      summary: Swagger UI entrypoint
+      responses:
+        '200':
+          description: Swagger UI HTML
+          content:
+            text/html:
+              schema:
+                type: string
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    CharacterId:
+      name: characterId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    ItemId:
+      name: itemId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    CombatId:
+      name: combatId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    CombatAction:
+      name: action
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [attack, deeper, run, home]
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Conflict
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          oneOf:
+            - type: string
+            - type: array
+              items: {}
+      required: [error]
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+    AuthCredentials:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 80
+        password:
+          type: string
+          minLength: 1
+          maxLength: 255
+    UserUpdateRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 1
+          maxLength: 80
+          nullable: true
+        password:
+          type: string
+          minLength: 1
+          maxLength: 255
+          nullable: true
+    CharacterCreateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+          nullable: true
+        level:
+          type: integer
+          minimum: 1
+          default: 1
+        health:
+          type: integer
+          minimum: 0
+          default: 100
+        damage:
+          type: integer
+          minimum: 0
+          default: 10
+    CharacterUpdateRequest:
+      type: object
+      properties:
+        health:
+          type: integer
+          minimum: 0
+          nullable: true
+        damage:
+          type: integer
+          minimum: 0
+          nullable: true
+        level:
+          type: integer
+          minimum: 1
+          nullable: true
+    ItemCreateRequest:
+      oneOf:
+        - type: object
+          required: [item_type_id]
+          properties:
+            item_type_id:
+              type: string
+              minLength: 1
+              maxLength: 80
+        - type: object
+          required: [item_id]
+          properties:
+            item_id:
+              type: string
+              minLength: 1
+              maxLength: 80
+        - type: array
+          items:
+            type: string
+    ItemSelectionRequest:
+      type: object
+      required: [item_id]
+      properties:
+        item_id:
+          type: integer
+          minimum: 1
+    UserResponse:
+      type: object
+      required: [id, username]
+      properties:
+        id:
+          type: integer
+        username:
+          type: string
+    CharacterResponse:
+      type: object
+      required:
+        - id
+        - user_id
+        - name
+        - level
+        - experience
+        - experience_to_next_level
+        - max_health
+        - health
+        - damage
+        - bonus_health
+        - bonus_damage
+      properties:
+        id:
+          type: integer
+        user_id:
+          type: integer
+        name:
+          type: string
+        level:
+          type: integer
+        experience:
+          type: integer
+        experience_to_next_level:
+          type: integer
+        max_health:
+          type: integer
+        health:
+          type: integer
+        damage:
+          type: integer
+        bonus_health:
+          type: integer
+        bonus_damage:
+          type: integer
+    EncounterResponse:
+      type: object
+      required:
+        - id
+        - character_id
+        - enemy_template_id
+        - enemy_name
+        - enemy_description
+        - enemy_base_health
+        - enemy_base_damage
+        - level
+      properties:
+        id:
+          type: integer
+        character_id:
+          type: integer
+        enemy_template_id:
+          type: string
+        enemy_name:
+          type: string
+        enemy_description:
+          type: string
+          nullable: true
+        enemy_base_health:
+          type: integer
+        enemy_base_damage:
+          type: integer
+        level:
+          type: integer
+    CombatResponse:
+      type: object
+      required:
+        - id
+        - character_id
+        - enemy_type_id
+        - enemy_name
+        - enemy_description
+        - base_health
+        - base_damage
+        - enemy_level
+        - character_health
+        - enemy_current_health
+        - enemy_max_health
+        - enemy_damage
+      properties:
+        id:
+          type: integer
+        character_id:
+          type: integer
+        enemy_type_id:
+          type: string
+        enemy_name:
+          type: string
+        enemy_description:
+          type: string
+          nullable: true
+        base_health:
+          type: integer
+        base_damage:
+          type: integer
+        enemy_level:
+          type: integer
+        character_health:
+          type: integer
+        enemy_current_health:
+          type: integer
+        enemy_max_health:
+          type: integer
+        enemy_damage:
+          type: integer
+    ItemResponse:
+      type: object
+      required: [id, name, item_type_id, level, slot_type, health, damage]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        item_type_id:
+          type: string
+        level:
+          type: integer
+        slot_type:
+          type: string
+          enum: [weapon, shield, armor, helmet, ring, necklace]
+          nullable: true
+        health:
+          type: integer
+        damage:
+          type: integer
+    AuthSessionResponse:
+      type: object
+      required: [message, user, token]
+      properties:
+        message:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        token:
+          type: string
+    MeResponse:
+      type: object
+      required: [user, character]
+      properties:
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        character:
+          $ref: '#/components/schemas/CharacterResponse'
+          nullable: true
+    CharacterSelectResponse:
+      type: object
+      required: [message, character, token]
+      properties:
+        message:
+          type: string
+        character:
+          $ref: '#/components/schemas/CharacterResponse'
+        token:
+          type: string
+    CharacterDeleteResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+        token:
+          type: string
+          nullable: true
+    EquipItemResponse:
+      type: object
+      required: [message, item, character]
+      properties:
+        message:
+          type: string
+        item:
+          $ref: '#/components/schemas/ItemResponse'
+        character:
+          $ref: '#/components/schemas/CharacterResponse'
+    UnequipItemResponse:
+      type: object
+      required: [message, character]
+      properties:
+        message:
+          type: string
+        character:
+          $ref: '#/components/schemas/CharacterResponse'
+    CombatBootstrapResponse:
+      type: object
+      required: [combat, character]
+      properties:
+        combat:
+          $ref: '#/components/schemas/CombatResponse'
+        character:
+          $ref: '#/components/schemas/CharacterResponse'
+    DroppedItem:
+      type: object
+      required: [id, name, slot_type, health, damage, level]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slot_type:
+          type: string
+          enum: [weapon, shield, armor, helmet, ring, necklace]
+        health:
+          type: integer
+        damage:
+          type: integer
+        level:
+          type: integer
+    CombatOutcomeResponse:
+      type: object
+      required:
+        - character
+        - combat
+        - message
+        - victory
+        - items_dropped
+        - player_died
+        - success
+      properties:
+        character:
+          $ref: '#/components/schemas/CharacterResponse'
+        combat:
+          $ref: '#/components/schemas/CombatResponse'
+          nullable: true
+        message:
+          type: string
+        victory:
+          type: boolean
+        items_dropped:
+          type: array
+          items:
+            $ref: '#/components/schemas/DroppedItem'
+        player_died:
+          type: boolean
+        success:
+          type: boolean
+        dice_roll:
+          type: integer
+          nullable: true
+        damage:
+          type: integer
+          nullable: true

@@ -1,0 +1,51 @@
+[
+  {
+    "id": "goblin",
+    "name": "Goblin",
+    "description": "A weak goblin",
+    "base_health": 20,
+    "base_damage": 5
+  },
+  {
+    "id": "slime",
+    "name": "Slime",
+    "description": "A sticky slime",
+    "base_health": 14,
+    "base_damage": 4
+  },
+  {
+    "id": "skeleton",
+    "name": "Skeleton",
+    "description": "A rattling skeleton",
+    "base_health": 18,
+    "base_damage": 6
+  },
+  {
+    "id": "wolf",
+    "name": "Wolf",
+    "description": "A hungry wolf",
+    "base_health": 22,
+    "base_damage": 7
+  },
+  {
+    "id": "orc",
+    "name": "Orc",
+    "description": "A brutish orc",
+    "base_health": 35,
+    "base_damage": 8
+  },
+  {
+    "id": "bandit",
+    "name": "Bandit",
+    "description": "A road bandit",
+    "base_health": 28,
+    "base_damage": 9
+  },
+  {
+    "id": "mage",
+    "name": "Mage",
+    "description": "A rogue mage",
+    "base_health": 24,
+    "base_damage": 11
+  }
+]

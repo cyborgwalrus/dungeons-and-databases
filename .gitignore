@@ -1,0 +1,10 @@
+*/chat_exports/*.json
+*/chat_sessions/*.jsonl
+__pycache__
+*.db
+node_modules
+.venv
+.pytest_cache
+.vscode
+.coverage
+settings.json

@@ -1,9 +1,0 @@
-{
-  "name": "dungeons-and-databases-frontend",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "devDependencies": {
-    "eslint": "^8.45.0"
-  }
-}

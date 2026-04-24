@@ -1,0 +1,63 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: dnd_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - dnd_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dnd_backend
+    ports:
+      - "5000:5000"
+    environment:
+      - SECRET_KEY=supersecretdevkey
+      - ADMIN_PASSWORD=admin
+      - FLASK_ENV=production
+      - WIPE_DB_ON_RESTART=false
+      - CACHE_TYPE=RedisCache
+      - CACHE_REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - dnd_db:/app/instance
+    depends_on:
+      - redis
+    networks:
+      - dnd_network
+
+  adminer:
+    image: adminer:4.8.1
+    container_name: dnd_adminer
+    environment:
+      - ADMIN_PASSWORD=admin
+    volumes:
+      - dnd_db:/app/instance
+      - ./adminer/plugins-enabled:/var/www/html/plugins-enabled:ro
+    depends_on:
+      - backend
+    networks:
+      - dnd_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: dnd_frontend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - backend
+    networks:
+      - dnd_network
+
+networks:
+  dnd_network:
+    driver: bridge
+
+volumes:
+  dnd_db:
+    driver: local

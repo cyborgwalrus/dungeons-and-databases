@@ -1,0 +1,86 @@
+@startuml database-schema
+left to right direction
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+
+hide methods
+hide stereotypes
+hide circle
+
+entity "item_type" as item_type {
+  *id : str <<PK>>
+  --
+  name : str
+  slot_type : str
+  health : int
+  damage : int
+}
+
+entity "enemy_type" as enemy_type {
+  *id : str <<PK>>
+  --
+  name : str
+  description : str?
+  health : int
+  damage : int
+}
+
+entity "user" as user {
+  *id : int <<PK>>
+  --
+  username : str <<unique>>
+  password : str
+}
+
+entity "character" as character {
+  *id : int <<PK>>
+  --
+  user_id : int <<FK>>
+  name : str
+  level : int
+  experience : int
+  health : int
+  damage : int
+}
+
+entity "item" as item {
+  *id : int <<PK>>
+  --
+  user_id : int <<FK>>
+  name : str
+  item_type_id : str
+  slot_type : str
+  level : int
+  health : int
+  damage : int
+}
+
+entity "equipment_slot" as equipment_slot {
+  *id : int <<PK>>
+  --
+  character_id : int <<FK>>
+  item_id : int <<FK, unique>>
+  slot_type : str
+}
+
+entity "combat" as combat {
+  *id : int <<PK>>
+  --
+  character_id : int <<FK>>
+  enemy_type_id : str <<FK>>
+  enemy_level : int
+  character_health : int
+  enemy_current_health : int
+  enemy_max_health : int
+  enemy_damage : int
+}
+
+user ||--o{ character : owns
+user ||--o{ item : owns
+item_type ||--o{ item : seeds
+character ||--o{ equipment_slot : equips
+item ||--o| equipment_slot : assigned to
+enemy_type ||--o{ combat : seeds
+character ||--o{ combat : participates in
+
+@enduml
