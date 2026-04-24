@@ -1,14 +1,12 @@
 FROM python:3.12-slim
 
-WORKDIR /
-
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r /app/requirements.txt
-
-COPY . /app/backend
-RUN chmod +x /app/backend/start-backend.sh
-
 WORKDIR /app
+
+COPY pyproject.toml /app/pyproject.toml
+COPY backend /app/backend
+
+RUN pip install --no-cache-dir uv && uv sync
+RUN chmod +x /app/backend/start-backend.sh
 
 EXPOSE 5000
 

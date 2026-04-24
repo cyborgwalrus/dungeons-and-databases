@@ -26,6 +26,12 @@ backend/
 └── __init__.py
 ```
 
+## Setup And Testing
+
+Use `uv sync --extra test` from the repository root to create the local virtual environment and install the backend runtime plus test dependencies.
+
+Run the backend tests with `uv run pytest`.
+
 ## The Endpoints Table
 
 | Resource name  | Resource URL                                                                                                                          | Resource description                                     | Implemented |

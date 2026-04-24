@@ -13,6 +13,12 @@ Browser dungeon crawler with a Flask API backend and a static frontend client.
 - Frontend client guide: [frontend/README.md](frontend/README.md)
 - Database schema diagram: [docs/database-schema.puml](docs/database-schema.puml)
 
+## Setup And Tests
+
+Install [uv](https://docs.astral.sh/uv/) and run `uv sync --extra test` from the repository root to create the local `.venv` and install both runtime and test dependencies.
+
+Run the backend test suite with `uv run pytest`.
+
 ## Quick Links
 
 - API docs: `/api/docs`

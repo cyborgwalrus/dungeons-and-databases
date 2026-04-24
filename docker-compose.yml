@@ -9,8 +9,8 @@ services:
 
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     container_name: dnd_backend
     command: /app/backend/start-backend.sh
     ports:
