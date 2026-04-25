@@ -21,6 +21,7 @@ def test_combat_creation_returns_combat_payload(client, entities):
     assert payload['combat']['enemy']['level'] == 1
     assert payload['character']['id'] == character.id
     assert payload['character']['health'] == payload['character']['max_health']
+    assert payload['character']['state'] == 'DUNGEON_COMBAT'
 
 
 def test_combat_creation_returns_404_when_enemy_catalog_is_empty(client, entities):
@@ -100,6 +101,7 @@ def test_combat_attack_after_enemy_defeat_prompts_deeper(client, entities):
     assert payload['message'] == 'You need to go deeper to face the next enemy.'
     assert payload['victory'] is False
     assert payload['player_died'] is False
+    assert payload['character']['state'] == 'DUNGEON_VICTORY'
 
 
 def test_combat_deeper_after_victory_loads_next_enemy(client, entities):
@@ -116,13 +118,14 @@ def test_combat_deeper_after_victory_loads_next_enemy(client, entities):
         combat_id = combat_response.get_json()['combat']['id']
 
         victory_response = client.get(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
-        deeper_response = client.get(f'/api/combats/{combat_id}/deeper', headers=entities.auth_headers(token))
+        deeper_response = client.get(f'/api/combats/{combat_id}/next_combat', headers=entities.auth_headers(token))
 
     assert victory_response.status_code == 200
     victory_payload = victory_response.get_json()
     assert victory_payload['victory'] is True
     assert victory_payload['combat'] is not None
     assert victory_payload['combat']['enemy']['level'] == 1
+    assert victory_payload['character']['state'] == 'DUNGEON_VICTORY'
 
     assert deeper_response.status_code == 200
     deeper_payload = deeper_response.get_json()
@@ -130,6 +133,7 @@ def test_combat_deeper_after_victory_loads_next_enemy(client, entities):
     assert deeper_payload['combat'] is not None
     assert deeper_payload['combat']['id'] != victory_payload['combat']['id']
     assert deeper_payload['combat']['enemy']['level'] == victory_payload['combat']['enemy']['level'] + 1
+    assert deeper_payload['character']['state'] == 'DUNGEON_COMBAT'
 
 
 def test_combat_deeper_keeps_current_health(client, entities):
@@ -151,13 +155,14 @@ def test_combat_deeper_keeps_current_health(client, entities):
     db.session.commit()
 
     with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]):
-        deeper_response = client.get(f'/api/combats/{combat_id}/deeper', headers=entities.auth_headers(token))
+        deeper_response = client.get(f'/api/combats/{combat_id}/next_combat', headers=entities.auth_headers(token))
 
     assert deeper_response.status_code == 200
     payload = deeper_response.get_json()
     assert payload['combat'] is not None
     assert payload['character']['health'] == 37
     assert payload['combat']['character_health'] == 37
+    assert payload['character']['state'] == 'DUNGEON_COMBAT'
 
 
 def test_combat_home_after_victory_returns_home_and_keeps_loot(client, entities):
@@ -173,13 +178,14 @@ def test_combat_home_after_victory_returns_home_and_keeps_loot(client, entities)
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
         victory_response = client.get(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
-        home_response = client.get(f'/api/combats/{combat_id}/home', headers=entities.auth_headers(token))
+        home_response = client.get(f'/api/combats/{combat_id}/go_home', headers=entities.auth_headers(token))
 
     assert victory_response.status_code == 200
     assert home_response.status_code == 200
     home_payload = home_response.get_json()
     assert home_payload['success'] is True
     assert home_payload['combat'] is None
+    assert home_payload['character']['state'] == 'HOME'
 
     inventory_response = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
     assert inventory_response.status_code == 200
@@ -198,8 +204,8 @@ def test_combat_prevents_home_and_deeper_before_victory(client, entities):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
 
-    home_response = client.get(f'/api/combats/{combat_id}/home', headers=entities.auth_headers(token))
-    deeper_response = client.get(f'/api/combats/{combat_id}/deeper', headers=entities.auth_headers(token))
+    home_response = client.get(f'/api/combats/{combat_id}/go_home', headers=entities.auth_headers(token))
+    deeper_response = client.get(f'/api/combats/{combat_id}/next_combat', headers=entities.auth_headers(token))
 
     assert home_response.status_code == 400
     assert home_response.get_json()['error'] == 'You can only go home after defeating the enemy'
@@ -223,7 +229,7 @@ def test_combat_deeper_returns_404_when_next_enemy_cannot_be_created(client, ent
     db.session.commit()
 
     with patch('backend.resources.combat_engine.create_new_combat', return_value=None):
-        response = client.get(f'/api/combats/{combat_id}/deeper', headers=entities.auth_headers(token))
+        response = client.get(f'/api/combats/{combat_id}/next_combat', headers=entities.auth_headers(token))
 
     assert response.status_code == 404
     assert response.get_json()['error'] == 'No enemy types available'
@@ -250,6 +256,7 @@ def test_combat_attack_survives_when_enemy_lives(client, entities):
     assert payload['items_dropped'] == []
     assert payload['combat']['id'] == combat_id
     assert payload['character']['health'] < initial_health
+    assert payload['character']['state'] == 'DUNGEON_COMBAT'
 
 
 def test_combat_run_failure_survives_and_keeps_combat_active(client, entities):
@@ -275,6 +282,7 @@ def test_combat_run_failure_survives_and_keeps_combat_active(client, entities):
     assert 'damage' not in payload
     assert payload['combat']['id'] == combat_id
     assert payload['character']['health'] == initial_health - 2
+    assert payload['character']['state'] == 'DUNGEON_COMBAT'
 
 
 def test_combat_victory_levels_up_character_and_emits_next_level_message(client, entities):
@@ -321,6 +329,7 @@ def test_combat_run_success_leaves_inventory_untouched(client, entities):
     payload = run_response.get_json()
     assert payload['success'] is True
     assert payload['combat'] is None
+    assert payload['character']['state'] == 'HOME'
 
     inventory_response = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
     assert inventory_response.status_code == 200
@@ -353,6 +362,7 @@ def test_combat_run_failure_can_defeat_character_and_keep_inventory(client, enti
     assert payload['player_died'] is True
     assert payload['success'] is False
     assert payload['combat'] is None
+    assert payload['character']['state'] == 'HOME'
 
     inventory_response = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
     assert inventory_response.status_code == 200

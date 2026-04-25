@@ -42,7 +42,7 @@ export function updateDungeonActionLabels({ attackLabel, runLabel } = {}) {
   const runButton = document.getElementById('run');
   if (attackButton && attackLabel) attackButton.textContent = attackLabel;
   if (runButton && runLabel) runButton.textContent = runLabel;
-  if (runButton && runLabel === '🏠GO HOME') runButton.dataset.action = 'home';
+  if (runButton && runLabel === '🏠GO HOME') runButton.dataset.action = 'go_home';
   if (runButton && runLabel === '4/6🎲RUN AWAY') runButton.dataset.action = 'run';
 }
 

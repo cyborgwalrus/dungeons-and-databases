@@ -8,6 +8,7 @@ def test_signup_signin_signout_and_me_without_character(client, entities):
     signup_payload = signup_response.get_json()
     token = signup_payload['token']
     assert signup_payload['user']['username'] == 'alice'
+    assert signup_payload['user']['state'] == 'LOGGED_IN'
 
     signin_response = client.post(
         '/api/login/signin',
@@ -15,11 +16,13 @@ def test_signup_signin_signout_and_me_without_character(client, entities):
     )
     assert signin_response.status_code == 200
     assert signin_response.get_json()['user']['username'] == 'alice'
+    assert signin_response.get_json()['user']['state'] == 'LOGGED_IN'
 
     me_response = client.get('/api/login/me', headers=entities.auth_headers(token))
     assert me_response.status_code == 200
     me_payload = me_response.get_json()
     assert me_payload['user']['username'] == 'alice'
+    assert me_payload['user']['state'] == 'LOGGED_IN'
     assert me_payload['character'] is None
 
     signout_response = client.post('/api/login/signout')

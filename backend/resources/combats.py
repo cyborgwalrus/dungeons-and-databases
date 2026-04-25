@@ -5,6 +5,7 @@ from flask_restful import Resource
 
 from backend.db.models import Combat
 from backend.db.session import db
+from backend.db.enums import CharacterState
 from backend.utils.api_response_cache import (
     invalidate_user_characters_cache,
     invalidate_user_inventory_cache,
@@ -43,6 +44,7 @@ class CombatResource(Resource):
 
         assert character is not None
         character.health = character.max_health
+        character.state = CharacterState.DUNGEON_COMBAT
 
         combat = create_new_combat(character)
         if not combat:

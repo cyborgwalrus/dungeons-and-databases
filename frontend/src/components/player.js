@@ -32,14 +32,19 @@ function formatPlayerHealthText(player, stats, { showCurrentHealth = false } = {
 }
 
 /** Update a vertical health bar element to reflect current/max health. */
-export function syncVerticalHealthBar(player, container = document, barId = 'player-health-bar') {
+export function syncVerticalHealthBar(
+  player,
+  container = document,
+  barId = 'player-health-bar',
+  { showCurrentHealth = true } = {},
+) {
   if (!player) return;
   const stats = getPlayerStatValues(player);
   const bar = container.getElementById ? container.getElementById(barId) : container.querySelector(`#${barId}`);
   if (!bar) return;
 
-  const currentHealth = Number(player.health);
   const maxHealth = Number(stats.maxHealth);
+  const currentHealth = showCurrentHealth ? Number(player.health) : maxHealth;
   const fillRatio = Math.max(0, Math.min(1, currentHealth / maxHealth));
   const fill = bar.querySelector('.vertical-health-bar-fill');
   if (fill) fill.style.height = `${fillRatio * 100}%`;
@@ -82,7 +87,7 @@ export function syncPlayerStatsInDom(player, container = document, options = {})
   if (pxp) pxp.textContent = `${stats.experience} / ${stats.experienceToNextLevel}`;
   if (pbh) pbh.textContent = `+${stats.bonusHealth}`;
   if (pbd) pbd.textContent = `+${stats.bonusDamage}`;
-  syncVerticalHealthBar(player, container);
+  syncVerticalHealthBar(player, container, 'player-health-bar', options);
   syncVerticalXpBar(player, container);
 }
 
@@ -137,6 +142,6 @@ export function renderPlayerStatsInto(container, player, options = {}) {
       <div class="vertical-health-bar vertical-xp-bar" id="player-xp-bar" aria-hidden="true"><div class="vertical-health-bar-fill"></div></div>
     </div>`;
 
-  syncVerticalHealthBar(player, container);
+  syncVerticalHealthBar(player, container, 'player-health-bar', options);
   syncVerticalXpBar(player, container);
 }

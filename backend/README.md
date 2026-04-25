@@ -40,7 +40,7 @@ Run the backend tests with `uv run pytest`.
 |     User      | `/users/<user:user>` - `GET` `PUT` `DELETE`<br>`/users/<user:user>/inventory` - `GET` `DELETE`                                     | User account management and shared inventory            |     Yes     |
 |   Character   | `/users/<user:user>/characters` - `GET` `POST`<br>`/characters/<character:character>` - `GET` `PUT` `DELETE`<br>`/characters/<character:character>/select` - `POST`<br>`/characters/<character:character>/equipment` - `GET` `POST`<br>`/characters/<character:character>/equipment/<item:item>` - `DELETE` | Character management, selection, leveling, experience, and equipment slots |     Yes     |
 |      Item     | `/items` - `POST`<br>`/items/<item:item>` - `GET` `DELETE`                                                                    | Item creation and inventory operations                   |     Yes     |
-|     Combat     | `/combats` - `POST`<br>`/combats/<combat:combat>` - `GET`<br>`/combats/<combat:combat>/attack` - `GET`<br>`/combats/<combat:combat>/deeper` - `GET`<br>`/combats/<combat:combat>/run` - `GET`<br>`/combats/<combat:combat>/home` - `GET` | Dungeon combat creation, state, and actions               |     Yes     |
+|     Combat     | `/combats` - `POST`<br>`/combats/<combat:combat>` - `GET`<br>`/combats/<combat:combat>/attack` - `GET`<br>`/combats/<combat:combat>/next_combat` - `GET`<br>`/combats/<combat:combat>/run` - `GET`<br>`/combats/<combat:combat>/go_home` - `GET` | Dungeon combat creation, state, and actions               |     Yes     |
 
 ## Endpoint Details
 
@@ -78,7 +78,7 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 - `GET /api/characters/<character:character>/equipment` - list equipped items for a character.
 - `POST /api/characters/<character:character>/equipment` - equip an item into a character equipment slot from the user's shared inventory.
 - `DELETE /api/characters/<character:character>/equipment/<item:item>` - unequip an item from a character equipment slot and return it to the user's shared inventory.
-- Equipment slot types are stored as plain strings on `slot_type`: `weapon`, `shield`, `armor`, `helmet`, `ring`, and `necklace`.
+- Equipment slot types use the shared enum system on `slot_type`: `weapon`, `shield`, `armor`, `helmet`, `ring`, and `necklace`.
 
 ### Inventory
 
@@ -96,9 +96,9 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 - `POST /api/combats` - start a new dungeon combat for the active character.
 - `GET /api/combats/<combat:combat>` - fetch the current combat state.
 - `GET /api/combats/<combat:combat>/attack` - attack the active combat.
-- `GET /api/combats/<combat:combat>/deeper` - move deeper after defeating the current enemy.
+- `GET /api/combats/<combat:combat>/next_combat` - move deeper after defeating the current enemy.
 - `GET /api/combats/<combat:combat>/run` - attempt to flee the active combat.
-- `GET /api/combats/<combat:combat>/home` - leave the dungeon after defeating the current enemy.
+- `GET /api/combats/<combat:combat>/go_home` - leave the dungeon after defeating the current enemy.
 
 ## Deployment
 

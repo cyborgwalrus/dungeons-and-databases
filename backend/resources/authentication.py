@@ -8,6 +8,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from backend.db.models import User
 from backend.db.session import db
 from backend.db.schemas import AuthCredentials
+from backend.db.enums import UserState
 from backend.utils.game_utils import get_current_user, get_player, issue_auth_token
 from backend.utils.route_helpers import json_error, validate_payload
 
@@ -37,6 +38,7 @@ class SignupResource(Resource):
         user = User(
             username=credentials.username,
             password=generate_password_hash(credentials.password),
+            state=UserState.LOGGED_IN,
         )
         db.session.add(user)
         db.session.flush()
@@ -80,6 +82,9 @@ class SigninResource(Resource):
 
         if not password_matches:
             return json_error('invalid username or password', 401)
+
+        user.state = UserState.LOGGED_IN
+        db.session.commit()
 
         assert user.id is not None
         token = issue_auth_token(user.id)

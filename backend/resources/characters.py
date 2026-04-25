@@ -6,6 +6,7 @@ from flask_restful import Resource
 from backend.db.models import Character
 from backend.db.session import db
 from backend.db.schemas import CharacterCreateRequest, CharacterUpdateRequest, ItemSelectionRequest
+from backend.db.enums import CharacterState, UserState
 from backend.utils.game_utils import (
     get_player as get_current_character,
     issue_auth_token,
@@ -23,6 +24,7 @@ from backend.utils.api_response_cache import (
     get_cached_user_characters_data,
     invalidate_user_characters_cache,
     invalidate_user_inventory_cache,
+    invalidate_user_profile_cache,
 )
 
 
@@ -83,6 +85,9 @@ class CharacterResource(Resource):
             was the active one.
         """
         active_character = get_current_character()
+        user = character.user
+        if active_character and active_character.id == character.id and user is not None:
+            user.state = UserState.LOGGED_IN
 
         db.session.delete(character)
         db.session.commit()
@@ -91,6 +96,7 @@ class CharacterResource(Resource):
         response: dict[str, object] = {'message': 'Character deleted'}
         if active_character and active_character.id == character.id:
             response['token'] = issue_auth_token(character.user_id)
+            invalidate_user_profile_cache(character.user_id)
         return response
 
     def put(self, character):
@@ -129,6 +135,14 @@ class CharacterSelectResource(Resource):
         Returns:
             The selected character payload and an updated token.
         """
+        character.state = CharacterState.HOME
+        user = character.user
+        if user is not None:
+            user.state = UserState.CHARACTER_SELECTED
+        db.session.commit()
+        invalidate_user_characters_cache(character.user_id, [character.id])
+        invalidate_user_profile_cache(character.user_id)
+
         token = issue_auth_token(character.user_id, character.id)
         return {
             'message': 'Character selected',

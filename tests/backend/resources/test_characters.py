@@ -11,6 +11,7 @@ def test_character_creation_listing_and_selection_flow(client, entities):
     assert create_response.status_code == 201
     character_payload = create_response.get_json()
     character_id = character_payload['id']
+    assert character_payload['state'] == 'HOME'
 
     list_response = client.get(f'/api/users/{user.id}/characters', headers=entities.auth_headers(token))
     assert list_response.status_code == 200
@@ -23,10 +24,12 @@ def test_character_creation_listing_and_selection_flow(client, entities):
     select_response = client.post(f'/api/characters/{character_id}/select', headers=entities.auth_headers(token))
     assert select_response.status_code == 200
     scoped_token = select_response.get_json()['token']
+    assert select_response.get_json()['character']['state'] == 'HOME'
 
     me_response = client.get('/api/login/me', headers=entities.auth_headers(scoped_token))
     assert me_response.status_code == 200
     assert me_response.get_json()['character']['id'] == character_id
+    assert me_response.get_json()['user']['state'] == 'CHARACTER_SELECTED'
 
 
 def test_character_update_validation_and_equipment_round_trip(client, entities):
@@ -123,6 +126,10 @@ def test_character_delete_returns_token_when_active_character_is_removed(client,
     assert delete_response.status_code == 200
     assert delete_response.get_json()['message'] == 'Character deleted'
     assert 'token' in delete_response.get_json()
+
+    me_response = client.get('/api/login/me', headers=entities.auth_headers(delete_response.get_json()['token']))
+    assert me_response.status_code == 200
+    assert me_response.get_json()['user']['state'] == 'LOGGED_IN'
 
 
 def test_character_endpoints_reject_invalid_payloads_and_ownership_errors(client, entities):

@@ -7,6 +7,7 @@ from sqlalchemy import delete
 
 from backend.db.models import Character, Combat
 from backend.db.session import db
+from backend.db.enums import CharacterState
 from backend.resources.combat_builders import (
     combat_attack_blocked_outcome,
     combat_attack_defeat_outcome,
@@ -111,8 +112,10 @@ def check_character_death(health: int) -> bool:
 def _resolve_attack_turn(character, combat: Combat) -> dict[str, Any]:
     """Resolve the attack action for the current combat."""
     enemy_name = combat.enemy['name']
+    character.state = CharacterState.DUNGEON_COMBAT
 
     if combat.enemy_current_health <= 0:
+        character.state = CharacterState.DUNGEON_VICTORY
         return combat_attack_blocked_outcome(character, combat)
 
     effective_damage = character.damage + character.bonus_damage
@@ -125,11 +128,13 @@ def _resolve_attack_turn(character, combat: Combat) -> dict[str, Any]:
         combat.character_health = max(0, combat.character_health - monster_hits)
         if check_character_death(combat.character_health):
             character.health = combat.character_health
+            character.state = CharacterState.HOME
             return combat_attack_defeat_outcome(character, combat, enemy_name)
 
         return combat_attack_round_outcome(character, combat, enemy_name, player_hits, monster_hits)
 
     character.health = combat.character_health
+    character.state = CharacterState.DUNGEON_VICTORY
     message_lines, items_dropped = _victory_outcome(character, combat, player_hits)
 
     return combat_victory_outcome(character, combat, message_lines, items_dropped)
@@ -139,9 +144,11 @@ def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
     """Resolve the deeper action for the current combat."""
     enemy_name = combat.enemy['name']
     if combat.enemy_current_health > 0:
+        character.state = CharacterState.DUNGEON_COMBAT
         return combat_deeper_blocked_outcome(character, combat)
 
     character.health = combat.character_health
+    character.state = CharacterState.DUNGEON_COMBAT
     next_level = max(1, combat.enemy_level + 1)
     db.session.delete(combat)
     next_combat = create_new_combat(character, level=next_level)
@@ -154,6 +161,7 @@ def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
 def _resolve_home_turn(character, combat: Combat) -> dict[str, Any]:
     """Resolve the home action for the current combat."""
     character.health = character.max_health
+    character.state = CharacterState.HOME
     db.session.delete(combat)
 
     return combat_home_success_outcome(character, combat)
@@ -166,6 +174,7 @@ def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
 
     if dice_roll >= 4:
         character.health = character.max_health
+        character.state = CharacterState.HOME
         db.session.delete(combat)
         return combat_run_success_outcome(character, combat, dice_roll)
 
@@ -173,8 +182,10 @@ def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
     combat.character_health = max(0, combat.character_health - damage_taken)
     if check_character_death(combat.character_health):
         character.health = combat.character_health
+        character.state = CharacterState.HOME
         return combat_run_failure_outcome(character, combat, enemy_name, dice_roll, damage_taken, True)
 
+    character.state = CharacterState.DUNGEON_COMBAT
     return combat_run_failure_outcome(character, combat, enemy_name, dice_roll, damage_taken, False)
 
 
@@ -247,11 +258,11 @@ def resolve_combat_action(character, combat: Combat, action_name: str) -> dict[s
     action = (action_name or '').lower().strip()
     if action == 'attack':
         return _resolve_attack_turn(character, combat)
-    if action == 'deeper':
+    if action == 'next_combat':
         return _resolve_deeper_turn(character, combat)
     if action == 'run':
         return _resolve_run_turn(character, combat)
-    if action == 'home':
+    if action == 'go_home':
         if combat.enemy_current_health > 0:
             return {'error': 'You can only go home after defeating the enemy', 'status': 400}
         return _resolve_home_turn(character, combat)

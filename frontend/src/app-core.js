@@ -79,16 +79,35 @@ function renderDungeonError(message) {
   state.dungeonActionMode = 'run';
 }
 
+/** Sync dungeon action button labels with the current character state. */
+function syncDungeonActionControls() {
+  const characterState = state.player?.state;
+  if (characterState === 'DUNGEON_VICTORY') {
+    state.dungeonActionMode = 'victory';
+    updateDungeonActionLabels({
+      attackLabel: '⚔️GO DEEPER',
+      runLabel: '🏠GO HOME',
+    });
+    return;
+  }
+
+  state.dungeonActionMode = 'run';
+  updateDungeonActionLabels({
+    attackLabel: '⚔️ATTACK',
+    runLabel: '4/6🎲RUN AWAY',
+  });
+}
+
 /**
  * Send an attack request and mirror the resulting combat state.
  * Handles player death, loot drops, and state synchronization.
  */
 async function handleDungeonAttack() {
   if (!state.activeCombat?.id) return;
-  const action = state.dungeonActionMode === 'deeper' ? 'deeper' : 'attack';
+  const action = state.player?.state === 'DUNGEON_VICTORY' ? 'next_combat' : 'attack';
   const res = await fetchJson(`/combats/${state.activeCombat.id}/${action}`);
   if (!res.ok || !res.data) {
-    if (action === 'deeper' && res.data?.error === 'No enemy types available') {
+    if (action === 'next_combat' && res.data?.error === 'No enemy types available') {
       renderDungeonError(res.data.error);
       return;
     }
@@ -103,23 +122,16 @@ async function handleDungeonAttack() {
   const lootEl = document.getElementById('loot');
   applyDungeonCombatUpdate(dungeonState, {
     lootCounts: state.lootCounts,
+    onLootDropped: null,
     lootEl,
     setLastDungeonMessage: value => { state.lastDungeonMessage = value; }
   });
 
-  if (dungeonState.victory) {
-    state.dungeonActionMode = 'deeper';
-    updateDungeonActionLabels({
-      attackLabel: '⚔️GO DEEPER',
-      runLabel: '🏠GO HOME',
-    });
-  } else {
-    state.dungeonActionMode = 'run';
-    updateDungeonActionLabels({
-      attackLabel: '⚔️ATTACK',
-      runLabel: '4/6🎲RUN AWAY',
-    });
+  if (dungeonState.character) {
+    state.player = dungeonState.character;
+    syncPlayerStatsInDom(dungeonState.character, document, { showCurrentHealth: true });
   }
+  syncDungeonActionControls();
 
   if (dungeonState.player_died) {
     state.activeCombat = null;
@@ -133,7 +145,6 @@ async function handleDungeonAttack() {
     return;
   }
 
-  if (dungeonState.character) syncPlayerStatsInDom(dungeonState.character, document, { showCurrentHealth: true });
   if (dungeonState.combat) {
     state.activeCombat = dungeonState.combat;
     updateEnemyPanel(buildDungeonEnemy(dungeonState.combat));
@@ -143,14 +154,17 @@ async function handleDungeonAttack() {
 /** Go home after a victorious dungeon fight. */
 async function handleDungeonHome() {
   if (!state.activeCombat?.id) return;
-  const res = await fetchJson(`/combats/${state.activeCombat.id}/home`);
+  const res = await fetchJson(`/combats/${state.activeCombat.id}/go_home`);
   if (!res.ok || !res.data) {
     if (res.data?.error) renderDungeonError(res.data.error);
     return;
   }
 
   const dungeonState = res.data;
-  if (dungeonState.character) syncPlayerStatsInDom(dungeonState.character, document, { showCurrentHealth: true });
+  if (dungeonState.character) {
+    state.player = dungeonState.character;
+    syncPlayerStatsInDom(dungeonState.character, document, { showCurrentHealth: true });
+  }
 
   state.activeCombat = null;
   state.dungeonActionMode = 'run';
@@ -182,6 +196,7 @@ async function handleDungeonRun() {
   if (dungeonState.character) {
     state.player = dungeonState.character;
     syncPlayerStatsInDom(dungeonState.character, document, { showCurrentHealth: true });
+    syncDungeonActionControls();
   }
 
   if (dungeonState.player_died) {
@@ -271,6 +286,7 @@ async function renderDungeon({ resetRunState = true } = {}) {
   }
   state.lastDungeonMessage = null;
   updateEnemyPanel(enemy);
+  syncDungeonActionControls();
 
   document.getElementById('attack').addEventListener('click', event => {
     event.preventDefault();
@@ -278,7 +294,7 @@ async function renderDungeon({ resetRunState = true } = {}) {
   });
   document.getElementById('run').addEventListener('click', event => {
     event.preventDefault();
-    if (event.currentTarget?.dataset.action === 'home') {
+    if (event.currentTarget?.dataset.action === 'go_home') {
       handleDungeonHome();
       return;
     }

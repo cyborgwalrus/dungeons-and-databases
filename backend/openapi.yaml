@@ -577,7 +577,7 @@ components:
       required: true
       schema:
         type: string
-        enum: [attack, deeper, run, home]
+        enum: [attack, next_combat, run, go_home]
   responses:
     BadRequest:
       description: Bad request
@@ -707,12 +707,15 @@ components:
           minimum: 1
     UserResponse:
       type: object
-      required: [id, username]
+      required: [id, username, state]
       properties:
         id:
           type: integer
         username:
           type: string
+        state:
+          type: string
+          enum: [LOGGED_OUT, LOGGED_IN, CHARACTER_SELECTED]
     CharacterResponse:
       type: object
       required:
@@ -725,6 +728,7 @@ components:
         - max_health
         - health
         - damage
+        - state
         - bonus_health
         - bonus_damage
       properties:
@@ -746,6 +750,9 @@ components:
           type: integer
         damage:
           type: integer
+        state:
+          type: string
+          enum: [HOME, DUNGEON_COMBAT, DUNGEON_VICTORY]
         bonus_health:
           type: integer
         bonus_damage:

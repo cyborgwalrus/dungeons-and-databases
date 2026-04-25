@@ -12,6 +12,7 @@ from backend.db.schemas import (
     ItemResponse,
     UserResponse,
 )
+from backend.db.enums import CharacterState, ItemSlot, UserState
 
 class ModelBase(SQLModel):
     """Common base model with a compatibility query property."""
@@ -30,6 +31,7 @@ class User(ModelBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(max_length=80)
     password: str = Field(max_length=255)
+    state: UserState = Field(default=UserState.LOGGED_OUT)
 
     characters: list['Character'] = Relationship(
         back_populates='user',
@@ -61,6 +63,7 @@ class Character(ModelBase, table=True):
     experience: int = Field(default=0, ge=0)
     health: int = Field(default=100, ge=0)
     damage: int = Field(default=10, ge=0)
+    state: CharacterState = Field(default=CharacterState.HOME)
 
     user: User = Relationship(back_populates='characters')
     equipment: list['EquipmentSlot'] = Relationship(
@@ -140,7 +143,7 @@ class ItemType(ModelBase, table=True):
 
     id: str = Field(primary_key=True, max_length=80)
     name: str = Field(max_length=80)
-    slot_type: str = Field(max_length=80)
+    slot_type: ItemSlot
     health: int = Field(default=0, ge=0)
     damage: int = Field(default=0, ge=0)
 
@@ -205,7 +208,7 @@ class Item(ModelBase, table=True):
     user_id: int = Field(foreign_key='user.id', index=True)
     name: str = Field(max_length=80)
     item_type_id: str = Field(foreign_key='item_type.id', max_length=80, index=True)
-    slot_type: str = Field(max_length=80)
+    slot_type: ItemSlot
     level: int = Field(default=1, ge=1)
     health: int = Field(default=0, ge=0)
     damage: int = Field(default=0, ge=0)
@@ -241,7 +244,7 @@ class EquipmentSlot(ModelBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     character_id: int = Field(foreign_key='character.id', index=True)
     item_id: int = Field(foreign_key='item.id', unique=True)
-    slot_type: str = Field(max_length=80)
+    slot_type: ItemSlot
 
     character: Character = Relationship(
         back_populates='equipment'

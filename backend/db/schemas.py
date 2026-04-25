@@ -7,6 +7,8 @@ from typing import ClassVar
 from pydantic import ConfigDict
 from sqlmodel import Field, SQLModel
 
+from backend.db.enums import CharacterState, ItemSlot, UserState
+
 
 class ModelSchema(SQLModel):  # pylint: disable=too-few-public-methods
     """Common schema configuration shared by request and response models."""
@@ -67,6 +69,7 @@ class UserResponse(ModelSchema):
 
     id: int
     username: str
+    state: UserState
 
 
 class CharacterResponse(ModelSchema):
@@ -81,6 +84,7 @@ class CharacterResponse(ModelSchema):
     max_health: int
     health: int
     damage: int
+    state: CharacterState
     bonus_health: int
     bonus_damage: int
 
@@ -115,7 +119,7 @@ class ItemResponse(ModelSchema):
     name: str
     item_type_id: str
     level: int
-    slot_type: str | None
+    slot_type: ItemSlot | None
     health: int
     damage: int
 
@@ -126,4 +130,4 @@ class EquipmentSlotResponse(ModelSchema):
     id: int
     character_id: int
     item_id: int
-    slot_type: str | None
+    slot_type: ItemSlot | None
