@@ -45,6 +45,10 @@ export function renderEquipPanel(opts) {
   document.querySelectorAll('.equip-slot').forEach(slotEl => {
     const slotType = slotEl.getAttribute('data-slot-type') || '';
     setupDragDropZone(slotEl, {
+      isEligibleDrag: (event) => {
+        const payload = getItemDragData(event);
+        return Boolean(payload && payload.source === 'inventory');
+      },
       validatePayload: (event) => {
         const payload = getItemDragData(event);
         if (!payload || payload.source !== 'inventory') return null;
@@ -57,7 +61,8 @@ export function renderEquipPanel(opts) {
           console.error('Failed to equip item from drag and drop', error);
         }
       },
-      activeClass: 'equip-slot--drop-active'
+      activeClass: 'equip-slot--drop-active',
+      invalidClass: 'equip-slot--drop-invalid'
     });
 
     // Setup equipped item cards as draggable and unequippable
@@ -81,6 +86,32 @@ export function renderEquipPanel(opts) {
         }
       });
     }
+  });
+
+  // Show equipment slot glow whenever any item is being dragged
+  document.addEventListener('dragstart', (event) => {
+    const draggedElement = event.target;
+    const cardElement = draggedElement.closest('.inventory-card') || draggedElement.closest('.equipped-card');
+    if (!cardElement) return;
+
+    const draggedSlotType = cardElement.getAttribute('data-item-slot-type') || '';
+    document.querySelectorAll('.equip-slot').forEach(slot => {
+      const slotType = slot.getAttribute('data-slot-type') || '';
+      if (slotType === draggedSlotType) {
+        slot.classList.add('equip-slot--item-dragging');
+        slot.classList.remove('equip-slot--item-dragging-mismatch');
+      } else {
+        slot.classList.add('equip-slot--item-dragging-mismatch');
+        slot.classList.remove('equip-slot--item-dragging');
+      }
+    });
+  });
+
+  document.addEventListener('dragend', () => {
+    document.querySelectorAll('.equip-slot').forEach(slot => {
+      slot.classList.remove('equip-slot--item-dragging');
+      slot.classList.remove('equip-slot--item-dragging-mismatch');
+    });
   });
 }
 

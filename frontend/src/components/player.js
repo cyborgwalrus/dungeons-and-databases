@@ -24,6 +24,13 @@ export function getPlayerStatValues(player) {
   };
 }
 
+function formatPlayerHealthText(player, stats, { showCurrentHealth = false } = {}) {
+  if (showCurrentHealth) {
+    return `${player.health}/${stats.maxHealth}`;
+  }
+  return `${stats.maxHealth}`;
+}
+
 /** Update a vertical health bar element to reflect current/max health. */
 export function syncVerticalHealthBar(player, container = document, barId = 'player-health-bar') {
   if (!player) return;
@@ -60,7 +67,7 @@ export function syncVerticalXpBar(player, container = document, barId = 'player-
  * Update the visible player stat nodes in place.
  * Shared by the dungeon HUD and the home screen.
  */
-export function syncPlayerStatsInDom(player, container = document) {
+export function syncPlayerStatsInDom(player, container = document, options = {}) {
   if (!player) return;
   const stats = getPlayerStatValues(player);
   const ph = container.getElementById ? container.getElementById('player-health') : container.querySelector('#player-health');
@@ -69,7 +76,7 @@ export function syncPlayerStatsInDom(player, container = document) {
   const pxp = container.getElementById ? container.getElementById('player-xp') : container.querySelector('#player-xp');
   const pbh = container.getElementById ? container.getElementById('player-bonus-health') : container.querySelector('#player-bonus-health');
   const pbd = container.getElementById ? container.getElementById('player-bonus-damage') : container.querySelector('#player-bonus-damage');
-  if (ph) ph.textContent = `${player.health}/${stats.maxHealth}`;
+  if (ph) ph.textContent = formatPlayerHealthText(player, stats, options);
   if (pd) pd.textContent = `${stats.totalDamage}`;
   if (pl) pl.textContent = `${stats.level}`;
   if (pxp) pxp.textContent = `${stats.experience} / ${stats.experienceToNextLevel}`;
@@ -80,7 +87,7 @@ export function syncPlayerStatsInDom(player, container = document) {
 }
 
 /** Render the current player stats into the provided container. */
-export function renderPlayerStatsInto(container, player) {
+export function renderPlayerStatsInto(container, player, options = {}) {
   if (!container) return;
   if (!player) {
     container.innerHTML = `<div class="player-stats"><p class="player-data-unavailable">Player data unavailable</p></div>`;
@@ -108,7 +115,7 @@ export function renderPlayerStatsInto(container, player) {
           <div class="player-stat-row">
             <div class="stat">
               <span class="stat-label">Health:</span>
-              <span id="player-health" class="stat-value">${player.health}/${stats.maxHealth}</span>
+              <span id="player-health" class="stat-value">${formatPlayerHealthText(player, stats, options)}</span>
             </div>
             <div class="stat">
               <span class="stat-label">+HP:</span>

@@ -42,6 +42,7 @@ class CombatResource(Resource):
             return error_response
 
         assert character is not None
+        character.health = character.max_health
 
         combat = create_new_combat(character)
         if not combat:

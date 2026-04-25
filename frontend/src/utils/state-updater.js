@@ -4,8 +4,7 @@
  * All mutations happen through this module for better testability and maintainability.
  */
 
-import { fetchJson, clearAuthToken } from '../api.js';
-import { getCharacterId } from '../app-state.js';
+import { clearAuthToken } from '../api.js';
 
 /**
  * Store the latest player data snapshot in app state.
@@ -34,25 +33,25 @@ export function resetDungeonLoot(state) {
 }
 
 /**
- * Refresh active character and request full heal from API.
- * Called after major state changes (e.g., equipping items) to get current health.
+ * Keep the in-memory player health synced to max health while on home views.
+ * Called after major state changes that should reflect a fully-rested home state.
  *
  * @param {Object} state - App state object (modified in place).
- * @returns {Promise<Object>} Response from /characters/{id}/full_heal endpoint.
+ * @returns {Promise<Object>} Result object with updated player snapshot.
  */
 export async function syncPlayerHealthToFull(state) {
-  const characterId = getCharacterId();
-  if (!characterId) return { ok: false };
+  const player = state?.player;
+  if (!player) return { ok: false };
 
-  const response = await fetchJson(`/characters/${characterId}/full_heal`, {
-    method: 'POST'
-  });
+  const maxHealth = Number(player.max_health);
+  if (!Number.isFinite(maxHealth) || maxHealth < 0) return { ok: false };
 
-  if (response.ok && response.data) {
-    syncPlayerSnapshot(state, response.data);
-  }
-
-  return response;
+  const nextPlayer = {
+    ...player,
+    health: maxHealth,
+  };
+  syncPlayerSnapshot(state, nextPlayer);
+  return { ok: true, data: nextPlayer };
 }
 
 /**

@@ -133,7 +133,7 @@ async function handleDungeonAttack() {
     return;
   }
 
-  if (dungeonState.character) syncPlayerStatsInDom(dungeonState.character);
+  if (dungeonState.character) syncPlayerStatsInDom(dungeonState.character, document, { showCurrentHealth: true });
   if (dungeonState.combat) {
     state.activeCombat = dungeonState.combat;
     updateEnemyPanel(buildDungeonEnemy(dungeonState.combat));
@@ -150,7 +150,7 @@ async function handleDungeonHome() {
   }
 
   const dungeonState = res.data;
-  if (dungeonState.character) syncPlayerStatsInDom(dungeonState.character);
+  if (dungeonState.character) syncPlayerStatsInDom(dungeonState.character, document, { showCurrentHealth: true });
 
   state.activeCombat = null;
   state.dungeonActionMode = 'run';
@@ -181,7 +181,7 @@ async function handleDungeonRun() {
 
   if (dungeonState.character) {
     state.player = dungeonState.character;
-    syncPlayerStatsInDom(dungeonState.character);
+    syncPlayerStatsInDom(dungeonState.character, document, { showCurrentHealth: true });
   }
 
   if (dungeonState.player_died) {
@@ -256,12 +256,15 @@ async function renderDungeon({ resetRunState = true } = {}) {
   }
   const enemy = buildDungeonEnemy(combatPayload?.combat);
   state.activeCombat = combatPayload?.combat || null;
+  if (combatPayload?.character) {
+    state.player = combatPayload.character;
+  }
 
   const preface = `A wild ${enemy?.name || 'creature'} appears! ${enemy?.description || ''}`;
   const messageToShow = state.lastDungeonMessage || preface;
   content.innerHTML = buildDungeonMarkup(enemy, messageToShow);
 
-  renderPlayerStatsInto(document.getElementById('player-stats-container'), state.player);
+  renderPlayerStatsInto(document.getElementById('player-stats-container'), state.player, { showCurrentHealth: true });
   const lootEl = document.getElementById('loot');
   if (lootEl) {
     renderLootPanel(lootEl, state.lootCounts);

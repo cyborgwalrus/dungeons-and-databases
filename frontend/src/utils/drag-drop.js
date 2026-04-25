@@ -13,7 +13,9 @@ const DEFAULT_DRAG_MIME = 'application/x-dd-item';
  * @param {Object} config - Configuration object.
  * @param {Function} config.validatePayload - Validates drag payload; returns truthy if valid, falsy to reject.
  * @param {Function} config.onDrop - Async handler called when valid item is dropped.
- * @param {string} [config.activeClass='dropzone-active'] - CSS class applied while dragging over zone.
+ * @param {Function} [config.isEligibleDrag] - Returns true when the drag should show hover feedback for this zone.
+ * @param {string} [config.activeClass='dropzone-active'] - CSS class applied while dragging a valid payload over zone.
+ * @param {string} [config.invalidClass] - CSS class applied while dragging an invalid but eligible payload over zone.
  * @returns {void}
  */
 export function setupDragDropZone(element, config) {
@@ -23,26 +25,43 @@ export function setupDragDropZone(element, config) {
   }
 
   const activeClass = config.activeClass || 'dropzone-active';
+  const invalidClass = config.invalidClass || '';
   const dragMIME = config.dragMIME || DEFAULT_DRAG_MIME;
 
   element.ondragover = (event) => {
+    const payload = config.validatePayload(event);
     const dragTypes = event.dataTransfer?.types ? Array.from(event.dataTransfer.types) : [];
-    const acceptsDrag = dragTypes.includes(dragMIME) || Boolean(config.validatePayload(event));
-    if (!acceptsDrag) return;
+    const hasKnownMime = dragTypes.includes(dragMIME);
+    const isEligible = typeof config.isEligibleDrag === 'function'
+      ? Boolean(config.isEligibleDrag(event))
+      : Boolean(payload) || hasKnownMime;
+
+    if (!isEligible) return;
+
     event.preventDefault();
-    element.classList.add(activeClass);
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    const isValid = Boolean(payload);
+    element.classList.toggle(activeClass, isValid);
+    if (invalidClass) element.classList.toggle(invalidClass, !isValid);
+    if (event.dataTransfer) event.dataTransfer.dropEffect = isValid ? 'move' : 'none';
   };
 
   element.ondragleave = () => {
     element.classList.remove(activeClass);
+    if (invalidClass) element.classList.remove(invalidClass);
   };
 
   element.ondrop = async (event) => {
     element.classList.remove(activeClass);
+    if (invalidClass) element.classList.remove(invalidClass);
+
     const payload = config.validatePayload(event);
+    const isEligible = typeof config.isEligibleDrag === 'function'
+      ? Boolean(config.isEligibleDrag(event))
+      : Boolean(payload);
+
+    if (isEligible) event.preventDefault();
     if (!payload) return;
-    event.preventDefault();
+
     try {
       await config.onDrop(payload);
     } catch (error) {

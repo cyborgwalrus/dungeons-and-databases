@@ -52,7 +52,7 @@ export async function renderHome(root, deps) {
   async function loadStateAndRenderPartial() {
     await loadCharacterViewModel();
 
-    syncPlayerStatsInDom(state.player);
+    syncPlayerStatsInDom(state.player, document, { showCurrentHealth: false });
     renderEquipPanel();
     renderInventoryGrid();
   }
@@ -139,13 +139,8 @@ export async function renderHome(root, deps) {
 
   resetDungeonLoot(state);
   await loadStateAndRenderPartial();
-
-  try {
-    await syncPlayerHealthToFull(state);
-    renderPlayerStatsInto(document.getElementById('player-stats'), state.player);
-  } catch (error) {
-    console.warn('Heal on home failed', error);
-  }
+  await syncPlayerHealthToFull(state);
+  renderPlayerStatsInto(document.getElementById('player-stats'), state.player, { showCurrentHealth: false });
 
   document.getElementById('clear-inventory-btn').addEventListener('click', async () => {
     const userId = state.currentUser?.id;
@@ -164,6 +159,7 @@ export async function renderHome(root, deps) {
       await clearUnequippedInventory(state, userId);
       await loadStateAndRenderPartial();
       await syncPlayerHealthToFull(state);
+      syncPlayerStatsInDom(state.player, document, { showCurrentHealth: false });
     } catch (error) {
       console.error('Sell all failed', error);
     }

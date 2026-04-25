@@ -325,25 +325,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
-  /characters/{characterId}/full_heal:
-    parameters:
-      - $ref: '#/components/parameters/CharacterId'
-    post:
-      tags: [Characters]
-      summary: Restore a character to full health
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Healed character
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CharacterResponse'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
   /characters/{characterId}/equipment:
     parameters:
       - $ref: '#/components/parameters/CharacterId'

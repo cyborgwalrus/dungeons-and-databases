@@ -38,7 +38,7 @@ Run the backend tests with `uv run pytest`.
 | :------------: | :------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------- | :---------: |
 | Authentication | `/login/signup` - `POST`<br>`/login/signin` - `POST`<br>`/login/signout` - `POST`<br>`/login/me` - `GET`                              | Token-based authentication endpoints                     |     Yes     |
 |     User      | `/users/<user:user>` - `GET` `PUT` `DELETE`<br>`/users/<user:user>/inventory` - `GET` `DELETE`                                     | User account management and shared inventory            |     Yes     |
-|   Character   | `/users/<user:user>/characters` - `GET` `POST`<br>`/characters/<character:character>` - `GET` `PUT` `DELETE`<br>`/characters/<character:character>/select` - `POST`<br>`/characters/<character:character>/full_heal` - `POST`<br>`/characters/<character:character>/equipment` - `GET` `POST`<br>`/characters/<character:character>/equipment/<item:item>` - `DELETE` | Character management, selection, leveling, experience, equipment slots, and healing |     Yes     |
+|   Character   | `/users/<user:user>/characters` - `GET` `POST`<br>`/characters/<character:character>` - `GET` `PUT` `DELETE`<br>`/characters/<character:character>/select` - `POST`<br>`/characters/<character:character>/equipment` - `GET` `POST`<br>`/characters/<character:character>/equipment/<item:item>` - `DELETE` | Character management, selection, leveling, experience, and equipment slots |     Yes     |
 |      Item     | `/items` - `POST`<br>`/items/<item:item>` - `GET` `DELETE`                                                                    | Item creation and inventory operations                   |     Yes     |
 |     Combat     | `/combats` - `POST`<br>`/combats/<combat:combat>` - `GET`<br>`/combats/<combat:combat>/attack` - `GET`<br>`/combats/<combat:combat>/deeper` - `GET`<br>`/combats/<combat:combat>/run` - `GET`<br>`/combats/<combat:combat>/home` - `GET` | Dungeon combat creation, state, and actions               |     Yes     |
 
@@ -72,7 +72,6 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 - `PUT /api/characters/<character:character>` - update a character's stats.
 - `DELETE /api/characters/<character:character>` - delete a character.
 - `POST /api/characters/<character:character>/select` - issue a token scoped to the selected character.
-- `POST /api/characters/<character:character>/full_heal` - heal a character to full health.
 
 #### Equipment Slots
 

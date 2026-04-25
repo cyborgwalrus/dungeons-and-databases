@@ -20,6 +20,7 @@ def test_combat_creation_returns_combat_payload(client, entities):
     assert payload['combat']['character_id'] == character.id
     assert payload['combat']['enemy']['level'] == 1
     assert payload['character']['id'] == character.id
+    assert payload['character']['health'] == payload['character']['max_health']
 
 
 def test_combat_creation_returns_404_when_enemy_catalog_is_empty(client, entities):
@@ -131,6 +132,34 @@ def test_combat_deeper_after_victory_loads_next_enemy(client, entities):
     assert deeper_payload['combat']['enemy']['level'] == victory_payload['combat']['enemy']['level'] + 1
 
 
+def test_combat_deeper_keeps_current_health(client, entities):
+    """Keep current health when moving deeper between combats."""
+    user = entities.create_user(username='deeper-health', password='secret')
+    character = entities.create_character(user, name='Delver', health=40, damage=100)
+    token = entities.token_for(user, character)
+
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combat_engine.random.randint', side_effect=lambda minimum, maximum: maximum
+    ):
+        combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
+        combat_id = combat_response.get_json()['combat']['id']
+
+    combat = db.session.get(Combat, combat_id)
+    assert combat is not None
+    combat.enemy_current_health = 0
+    combat.character_health = 37
+    db.session.commit()
+
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]):
+        deeper_response = client.get(f'/api/combats/{combat_id}/deeper', headers=entities.auth_headers(token))
+
+    assert deeper_response.status_code == 200
+    payload = deeper_response.get_json()
+    assert payload['combat'] is not None
+    assert payload['character']['health'] == 37
+    assert payload['combat']['character_health'] == 37
+
+
 def test_combat_home_after_victory_returns_home_and_keeps_loot(client, entities):
     """Return home after victory without losing loot."""
     user = entities.create_user(username='homer', password='secret')
@@ -234,6 +263,7 @@ def test_combat_run_failure_survives_and_keeps_combat_active(client, entities):
         'backend.resources.combat_engine.random.randint', side_effect=[1, 2]
     ):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
+        initial_health = combat_response.get_json()['character']['health']
         combat_id = combat_response.get_json()['combat']['id']
         run_response = client.get(f'/api/combats/{combat_id}/run', headers=entities.auth_headers(token))
 
@@ -306,11 +336,16 @@ def test_combat_run_failure_can_defeat_character_and_keep_inventory(client, enti
     token = entities.token_for(user, character)
     entities.create_inventory_item(character, 'steel_sword')
 
-    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]), patch(
-        'backend.resources.combat_engine.random.randint', side_effect=lambda minimum, maximum: minimum
-    ):
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]):
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
-        combat_id = combat_response.get_json()['combat']['id']
+
+    combat_id = combat_response.get_json()['combat']['id']
+    combat = db.session.get(Combat, combat_id)
+    assert combat is not None
+    combat.character_health = 1
+    db.session.commit()
+
+    with patch('backend.resources.combat_engine.random.randint', side_effect=lambda minimum, maximum: minimum):
         run_response = client.get(f'/api/combats/{combat_id}/run', headers=entities.auth_headers(token))
 
     assert run_response.status_code == 200

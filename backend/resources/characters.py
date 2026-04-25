@@ -137,25 +137,6 @@ class CharacterSelectResource(Resource):
         }
 
 
-class CharacterFullHealResource(Resource):
-    """Restore a character to full health."""
-
-    def post(self, character):
-        """Restore a character to full health.
-
-        Args:
-            character: The character resolved from the route.
-
-        Returns:
-            The healed character payload.
-        """
-        character.health = character.max_health
-        db.session.commit()
-        invalidate_user_characters_cache(character.user_id, [character.id])
-
-        return character.to_response().model_dump()
-
-
 class CharacterEquipmentResource(Resource):
     """Inspect and manage a character's equipment."""
 
@@ -245,10 +226,6 @@ def register_character_resources(api):
     api.add_resource(
         CharacterSelectResource,
         '/characters/<character:character>/select',
-    )
-    api.add_resource(
-        CharacterFullHealResource,
-        '/characters/<character:character>/full_heal',
     )
     api.add_resource(
         CharacterEquipmentResource,

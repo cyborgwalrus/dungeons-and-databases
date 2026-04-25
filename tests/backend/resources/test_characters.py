@@ -1,5 +1,5 @@
-def test_character_creation_listing_selection_and_heal_flow(client, entities):
-    """Cover character creation, selection, and healing flows."""
+def test_character_creation_listing_and_selection_flow(client, entities):
+    """Cover character creation, listing, and selection flows."""
     user = entities.create_user(username='player', password='secret')
     token = entities.token_for(user)
 
@@ -27,11 +27,6 @@ def test_character_creation_listing_selection_and_heal_flow(client, entities):
     me_response = client.get('/api/login/me', headers=entities.auth_headers(scoped_token))
     assert me_response.status_code == 200
     assert me_response.get_json()['character']['id'] == character_id
-
-    heal_response = client.post(f'/api/characters/{character_id}/full_heal', headers=entities.auth_headers(token))
-    assert heal_response.status_code == 200
-    healed_character = heal_response.get_json()
-    assert healed_character['health'] == healed_character['max_health']
 
 
 def test_character_update_validation_and_equipment_round_trip(client, entities):

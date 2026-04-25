@@ -153,7 +153,7 @@ def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
 
 def _resolve_home_turn(character, combat: Combat) -> dict[str, Any]:
     """Resolve the home action for the current combat."""
-    character.health = combat.character_health
+    character.health = character.max_health
     db.session.delete(combat)
 
     return combat_home_success_outcome(character, combat)
@@ -165,7 +165,7 @@ def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:
     dice_roll = random.randint(1, 6)
 
     if dice_roll >= 4:
-        character.health = combat.character_health
+        character.health = character.max_health
         db.session.delete(combat)
         return combat_run_success_outcome(character, combat, dice_roll)
 
