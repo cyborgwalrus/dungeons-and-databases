@@ -40,7 +40,7 @@ export async function renderCharacterSelect(root, deps) {
   content.innerHTML = `
     <div class="screen-stack">
       <div class="screen-panel screen-panel--dark">
-        <h2 class="character-select-title">Select or Create a Character</h2>
+        <h2 class="character-select-title">Characters</h2>
         <div id="character-list" class="character-list"></div>
       </div>
       <div class="screen-panel screen-panel--nested">
