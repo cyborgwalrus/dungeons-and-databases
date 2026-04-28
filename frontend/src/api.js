@@ -37,6 +37,7 @@ export async function fetchJson(path, options) {
       credentials: 'omit',
       headers: {
         'Content-Type': 'application/json',
+        'ngrok-skip-browser-warning': 'true',
         ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
         ...(options?.headers || {})
       }
