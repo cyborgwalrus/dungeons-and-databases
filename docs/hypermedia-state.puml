@@ -13,8 +13,8 @@ state "**Dungeon victory**" as victory: UI: Dungeon view
 
 [*] --> logged_out: **GET /**
 
-logged_out --> authenticated : **Account creation and login**\nPOST /login/signup\nPOST /login/signin
-authenticated --> home : **Character selection**\nPOST /characters/{characterId}/select
+logged_out -> authenticated : **Account creation and login**\nPOST /login/signup\nPOST /login/signin
+authenticated -> home : **Character selection**\nPOST /characters/{characterId}/select
 
 home --> combat : **Enter dungeon**\nPOST /combats
 home --> authenticated : **Logout**\nPOST /login/signout
@@ -22,9 +22,10 @@ home --> home : **Inventory management**\nGET /users/{userId}/inventory\nDELETE 
 home --> home : **Character information**\nGET /characters/{characterId}\nGET /characters/{characterId}/equipment
 home --> home : **Equipment management**\nPOST /characters/{characterId}/equipment/{itemId}\nDELETE /characters/{characterId}/equipment/{itemId}
 
-combat --> combat : **Attack monster**\nGET /combats/{combatId}/attack
-combat --> combat : **Flee combat**\nGET /combats/{combatId}/run
+combat ---> combat : **Attack monster**\nGET /combats/{combatId}/attack
+combat -> home : **Flee combat**\nGET /combats/{combatId}/run
 combat --> victory : **Enemy defeated**
+
 victory -> combat : **Next combat**\nGET /combats/{combatId}/next_combat
 victory --> home : **Go home**\nGET /combats/{combatId}/go_home
 
