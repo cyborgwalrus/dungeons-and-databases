@@ -1,0 +1,36 @@
+@startuml hypermedia-state
+title API Hypermedia State Diagram
+left to right direction
+'skinparam linetype polyline
+'skinparam linetype ortho
+skinparam shadowing false
+skinparam state {
+  BackgroundColor #F9FAFB
+  BorderColor #334155
+  FontColor #0F172A
+}
+
+state "Logged out" as logged_out
+state "Authenticated\n(Character Select)" as authenticated
+state "Character selected\n(Home)" as home
+state "Dungeon combat" as combat
+state "Dungeon victory" as victory
+
+[*] --> logged_out
+
+logged_out --> authenticated : POST /login/signup\nPOST /login/signin
+authenticated --> home : POST /characters/{characterId}/select
+
+home --> combat : POST /combats
+home --> authenticated : POST /login/signout
+home --> home : GET /users/{userId}/inventory\nDELETE /users/{userId}/inventory
+home --> home : GET /characters/{characterId}\nGET /characters/{characterId}/equipment
+home --> home : POST /characters/{characterId}/equipment/{itemId}\nDELETE /characters/{characterId}/equipment/{itemId}
+
+combat --> combat : GET /combats/{combatId}/attack
+combat --> combat : GET /combats/{combatId}/run
+combat --> victory : enemy defeated
+victory -> combat : GET /combats/{combatId}/next_combat
+victory --> home : GET /combats/{combatId}/go_home
+
+@enduml

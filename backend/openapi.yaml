@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: Dungeons & Databases API
   version: 1.0.0
-  description: OpenAPI specification for the Flask backend.
+  description: OpenAPI specification for the hypermedia-driven Flask backend.
 servers:
   - url: /api
 tags:
@@ -346,21 +346,15 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+  /characters/{characterId}/equipment/{itemId}:
+    parameters:
+      - $ref: '#/components/parameters/CharacterId'
+      - $ref: '#/components/parameters/ItemId'
     post:
       tags: [Characters]
       summary: Equip an item into a character equipment slot
       security:
         - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ItemSelectionRequest'
-            examples:
-              equip:
-                value:
-                  item_id: 42
       responses:
         '200':
           description: Item equipped
@@ -374,10 +368,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
-  /characters/{characterId}/equipment/{itemId}:
-    parameters:
-      - $ref: '#/components/parameters/CharacterId'
-      - $ref: '#/components/parameters/ItemId'
     delete:
       tags: [Characters]
       summary: Unequip an item from a character equipment slot
@@ -705,6 +695,16 @@ components:
         item_id:
           type: integer
           minimum: 1
+    Link:
+      type: object
+      required: [href, methods]
+      properties:
+        href:
+          type: string
+        methods:
+          type: array
+          items:
+            type: string
     UserResponse:
       type: object
       required: [id, username, state]
@@ -716,6 +716,11 @@ components:
         state:
           type: string
           enum: [LOGGED_OUT, LOGGED_IN, CHARACTER_SELECTED]
+        _links:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Link'
+          nullable: true
     CharacterResponse:
       type: object
       required:
@@ -757,6 +762,11 @@ components:
           type: integer
         bonus_damage:
           type: integer
+        _links:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Link'
+          nullable: true
     EncounterResponse:
       type: object
       required:
@@ -854,6 +864,11 @@ components:
           type: integer
         damage:
           type: integer
+        _links:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Link'
+          nullable: true
     AuthSessionResponse:
       type: object
       required: [message, user, token]
@@ -918,6 +933,25 @@ components:
           $ref: '#/components/schemas/CombatResponse'
         character:
           $ref: '#/components/schemas/CharacterResponse'
+    EquipmentSlotResponse:
+      type: object
+      required: [id, character_id, item_id, slot_type]
+      properties:
+        id:
+          type: integer
+        character_id:
+          type: integer
+        item_id:
+          type: integer
+        slot_type:
+          type: string
+          enum: [weapon, shield, armor, helmet, ring, necklace]
+          nullable: true
+        _links:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/Link'
+          nullable: true
     DroppedItem:
       type: object
       required: [id, name, slot_type, health, damage, level]

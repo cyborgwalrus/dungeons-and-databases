@@ -21,8 +21,8 @@ entity "enemy_type" as enemy_type {
   --
   name : str
   description : str?
-  health : int
-  damage : int
+  base_health : int
+  base_damage : int
 }
 
 entity "user" as user {
@@ -30,6 +30,7 @@ entity "user" as user {
   --
   username : str <<unique>>
   password : str
+  state : str
 }
 
 entity "character" as character {
@@ -41,6 +42,7 @@ entity "character" as character {
   experience : int
   health : int
   damage : int
+  state : str
 }
 
 entity "item" as item {
@@ -73,6 +75,7 @@ entity "combat" as combat {
   enemy_current_health : int
   enemy_max_health : int
   enemy_damage : int
+  pending_loot : json?
 }
 
 user ||--o{ character : owns
