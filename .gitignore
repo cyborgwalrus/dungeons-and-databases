@@ -10,3 +10,4 @@ node_modules
 settings.json
 *.egg-info
 pylint-report.txt
+.env
