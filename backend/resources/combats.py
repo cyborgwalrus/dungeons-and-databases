@@ -10,6 +10,7 @@ from backend.utils.api_response_cache import (
     invalidate_user_characters_cache,
     invalidate_user_inventory_cache,
 )
+from backend.utils.hypermedia import inject_response_links
 from backend.utils.route_helpers import json_error, require_current_character
 
 from backend.resources.combat_engine import (
@@ -52,8 +53,8 @@ class CombatResource(Resource):
 
         db.session.commit()
         return {
-            'combat': combat.to_response().model_dump(),
-            'character': character.to_response().model_dump(),
+            'combat': inject_response_links(combat.to_response().model_dump()),
+            'character': inject_response_links(character.to_response().model_dump()),
         }, 201
 
     def get(self, combat: Combat, action: str | None = None):
@@ -68,7 +69,7 @@ class CombatResource(Resource):
             error response when the action is invalid.
         """
         if action is None:
-            return combat.to_response().model_dump()
+            return inject_response_links(combat.to_response().model_dump())
 
         character = combat.character
         if not character:
@@ -89,10 +90,10 @@ class CombatResource(Resource):
         db.session.commit()
         character_ids = [character.id] if character.id is not None else None
         invalidate_user_characters_cache(character.user_id, character_ids)
-        if outcome['victory']:
+        if outcome.get('inventory_updated'):
             invalidate_user_inventory_cache(character.user_id)
 
-        return jsonify(build_combat_response(outcome))
+        return jsonify(inject_response_links(build_combat_response(outcome)))
 
 
 def register_combat_resources(api):
@@ -102,4 +103,5 @@ def register_combat_resources(api):
         '/combats',
         '/combats/<combat:combat>',
         '/combats/<combat:combat>/<string:action>',
+        endpoint='combat',
     )

@@ -156,7 +156,7 @@ export async function renderHome(root, deps) {
     try {
       clearButton.dataset.confirmClear = '0';
       clearButton.textContent = 'SELL\nALL';
-      await clearUnequippedInventory(state, userId);
+      await clearUnequippedInventory(fetchJson, state, userId);
       await loadStateAndRenderPartial();
       await syncPlayerHealthToFull(state);
       syncPlayerStatsInDom(state.player, document, { showCurrentHealth: false });

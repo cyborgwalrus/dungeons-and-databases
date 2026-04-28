@@ -16,6 +16,8 @@ from backend.utils.api_response_cache import (
     invalidate_user_profile_cache,
     invalidate_user_state_cache,
 )
+from backend.utils.hypermedia import inject_collection_links, inject_response_links
+from backend.utils.game_utils import get_player as get_current_character
 from backend.utils.route_helpers import validate_payload
 
 
@@ -32,7 +34,7 @@ class UserResource(Resource):
             The cached serialized user profile.
         """
         assert user.id is not None
-        return get_cached_user_data(user.id)
+        return inject_response_links(get_cached_user_data(user.id))
 
     def put(self, user: User):
         """Update a user's profile fields.
@@ -56,7 +58,7 @@ class UserResource(Resource):
 
         db.session.commit()
         invalidate_user_profile_cache(user.id)
-        return user.to_response().model_dump()
+        return inject_response_links(user.to_response().model_dump())
 
     def delete(self, user: User):
         """Delete the authenticated user's account.
@@ -88,7 +90,14 @@ class UserItemsResource(Resource):
             The cached serialized inventory list.
         """
         assert user.id is not None
-        return get_cached_user_inventory_data(user.id)
+        character = get_current_character()
+        return inject_collection_links(
+            get_cached_user_inventory_data(user.id),
+            user_id=user.id,
+            character_id=None if character is None else character.id,
+            character_state=None if character is None else character.state,
+            equipped=False,
+        )
 
     def delete(self, user: User):
         """Remove all unequipped items from the user's shared inventory.
@@ -121,5 +130,5 @@ class UserItemsResource(Resource):
 
 def register_user_resources(api):
     """Register user routes on the provided API instance."""
-    api.add_resource(UserResource, '/users/<user:user>')
-    api.add_resource(UserItemsResource, '/users/<user:user>/inventory')
+    api.add_resource(UserResource, '/users/<user:user>', endpoint='user_detail')
+    api.add_resource(UserItemsResource, '/users/<user:user>/inventory', endpoint='user_inventory')

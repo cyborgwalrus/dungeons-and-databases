@@ -94,11 +94,10 @@ def _victory_outcome(character, combat: Combat, player_hits: int) -> tuple[list[
     message_lines = combat_victory_message(enemy_name, player_hits)
 
     items_dropped = drop_loot(combat)
+    combat.pending_loot = list(combat.pending_loot or []) + items_dropped
     if items_dropped:
         item_names = ', '.join(item['name'] for item in items_dropped)
         message_lines.append(f'You found {item_names}!')
-        for item in items_dropped:
-            add_inventory_item(character, item['id'], level=item['level'])
 
     _apply_victory_experience(character, combat, message_lines)
     return message_lines, items_dropped
@@ -150,21 +149,30 @@ def _resolve_deeper_turn(character, combat: Combat) -> dict[str, Any]:
     character.health = combat.character_health
     character.state = CharacterState.DUNGEON_COMBAT
     next_level = max(1, combat.enemy_level + 1)
+    pending_loot = list(combat.pending_loot or [])
     db.session.delete(combat)
     next_combat = create_new_combat(character, level=next_level)
     if not next_combat:
         return {'error': 'No enemy types available', 'status': 404}
+
+    next_combat.pending_loot = pending_loot
 
     return combat_deeper_success_outcome(character, combat, next_combat, enemy_name)
 
 
 def _resolve_home_turn(character, combat: Combat) -> dict[str, Any]:
     """Resolve the home action for the current combat."""
+    pending_loot = list(combat.pending_loot or [])
+    for item in pending_loot:
+        add_inventory_item(character, item['id'], level=item['level'])
+
     character.health = character.max_health
     character.state = CharacterState.HOME
     db.session.delete(combat)
 
-    return combat_home_success_outcome(character, combat)
+    outcome = combat_home_success_outcome(character, combat)
+    outcome['inventory_updated'] = bool(pending_loot)
+    return outcome
 
 
 def _resolve_run_turn(character, combat: Combat) -> dict[str, Any]:

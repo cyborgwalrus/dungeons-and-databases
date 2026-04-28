@@ -2,10 +2,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
+RUN pip install --no-cache-dir uv
 COPY pyproject.toml /app/pyproject.toml
+RUN uv sync --no-cache
+
 COPY backend /app/backend
 
-RUN pip install --no-cache-dir uv && uv sync
 RUN chmod +x /app/backend/start-backend.sh
 
 EXPOSE 5000

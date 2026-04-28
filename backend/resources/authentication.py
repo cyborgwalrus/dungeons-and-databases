@@ -9,6 +9,7 @@ from backend.db.models import User
 from backend.db.session import db
 from backend.db.schemas import AuthCredentials
 from backend.db.enums import UserState
+from backend.utils.hypermedia import inject_response_links
 from backend.utils.game_utils import get_current_user, get_player, issue_auth_token
 from backend.utils.route_helpers import json_error, validate_payload
 
@@ -47,7 +48,7 @@ class SignupResource(Resource):
         token = issue_auth_token(user.id)
         return {
             'message': 'signup complete',
-            'user': user.to_response().model_dump(),
+            'user': inject_response_links(user.to_response().model_dump()),
             'token': token,
         }, 201
 
@@ -90,7 +91,7 @@ class SigninResource(Resource):
         token = issue_auth_token(user.id)
         return {
             'message': 'signin complete',
-            'user': user.to_response().model_dump(),
+            'user': inject_response_links(user.to_response().model_dump()),
             'token': token,
         }
 
@@ -122,8 +123,8 @@ class MeResource(Resource):
             return json_error('Unauthorized', 401)
         character = get_player()
         return {
-            'user': user.to_response().model_dump(),
-            'character': None if not character else character.to_response().model_dump(),
+            'user': inject_response_links(user.to_response().model_dump()),
+            'character': None if not character else inject_response_links(character.to_response().model_dump()),
         }
 
 

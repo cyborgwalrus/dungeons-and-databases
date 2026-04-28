@@ -9,6 +9,8 @@ def test_signup_signin_signout_and_me_without_character(client, entities):
     token = signup_payload['token']
     assert signup_payload['user']['username'] == 'alice'
     assert signup_payload['user']['state'] == 'LOGGED_IN'
+    assert signup_payload['user']['_links']['self']['href'] == f"/api/users/{signup_payload['user']['id']}"
+    assert signup_payload['user']['_links']['self']['methods'] == ['GET', 'PUT', 'DELETE']
 
     signin_response = client.post(
         '/api/login/signin',
@@ -17,6 +19,8 @@ def test_signup_signin_signout_and_me_without_character(client, entities):
     assert signin_response.status_code == 200
     assert signin_response.get_json()['user']['username'] == 'alice'
     assert signin_response.get_json()['user']['state'] == 'LOGGED_IN'
+    assert signin_response.get_json()['user']['_links']['self']['href'] == f"/api/users/{signup_payload['user']['id']}"
+    assert signin_response.get_json()['user']['_links']['self']['methods'] == ['GET', 'PUT', 'DELETE']
 
     me_response = client.get('/api/login/me', headers=entities.auth_headers(token))
     assert me_response.status_code == 200
@@ -24,6 +28,8 @@ def test_signup_signin_signout_and_me_without_character(client, entities):
     assert me_payload['user']['username'] == 'alice'
     assert me_payload['user']['state'] == 'LOGGED_IN'
     assert me_payload['character'] is None
+    assert me_payload['user']['_links']['inventory']['href'] == f"/api/users/{signup_payload['user']['id']}/inventory"
+    assert me_payload['user']['_links']['inventory']['methods'] == ['GET', 'DELETE']
 
     signout_response = client.post('/api/login/signout')
     assert signout_response.status_code == 200

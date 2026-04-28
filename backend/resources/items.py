@@ -8,7 +8,8 @@ from flask_restful import Resource
 from backend.db.models import Item
 from backend.db.session import db
 from backend.db.schemas import ItemCreateRequest
-from backend.utils.game_utils import add_inventory_item
+from backend.utils.game_utils import add_inventory_item, get_player as get_current_character
+from backend.utils.hypermedia import inject_collection_links, inject_response_links
 from backend.utils.route_helpers import json_error, require_current_character, validate_payload
 from backend.utils.api_response_cache import invalidate_user_inventory_cache
 
@@ -50,7 +51,13 @@ class ItemListResource(Resource):
 
         db.session.commit()
         invalidate_user_inventory_cache(character.user_id)
-        return [item.to_response().model_dump() for item in created_items], 201
+        return inject_collection_links(
+            [item.to_response().model_dump() for item in created_items],
+            user_id=character.user_id,
+            character_id=character.id,
+            character_state=character.state,
+            equipped=False,
+        ), 201
 
 
 class ItemResource(Resource):
@@ -68,7 +75,14 @@ class ItemResource(Resource):
         """
         if item.is_equipped:
             return json_error('Item not found', 404)
-        return item.to_response().model_dump()
+        active_character = get_current_character()
+        return inject_response_links(
+            item.to_response().model_dump(),
+            user_id=item.user_id,
+            character_id=None if active_character is None else active_character.id,
+            character_state=None if active_character is None else active_character.state,
+            equipped=False,
+        )
 
     def delete(self, item: Item):
         """Remove an item from the current character's inventory.
@@ -91,5 +105,5 @@ class ItemResource(Resource):
 
 def register_item_resources(api):
     """Register item routes on the provided API instance."""
-    api.add_resource(ItemListResource, '/items')
-    api.add_resource(ItemResource, '/items/<item:item>')
+    api.add_resource(ItemListResource, '/items', endpoint='item_list')
+    api.add_resource(ItemResource, '/items/<item:item>', endpoint='item_detail')

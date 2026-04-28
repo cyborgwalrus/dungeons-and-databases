@@ -22,6 +22,11 @@ def test_combat_creation_returns_combat_payload(client, entities):
     assert payload['character']['id'] == character.id
     assert payload['character']['health'] == payload['character']['max_health']
     assert payload['character']['state'] == 'DUNGEON_COMBAT'
+    assert payload['combat']['_links']['self']['href'] == f"/api/combats/{payload['combat']['id']}"
+    assert payload['combat']['_links']['self']['methods'] == ['GET']
+    assert payload['character']['_links']['equipment']['href'] == f"/api/characters/{character.id}/equipment"
+    assert payload['character']['_links']['equipment']['methods'] == ['GET']
+    assert 'combat' not in payload['character']['_links']
 
 
 def test_combat_creation_returns_404_when_enemy_catalog_is_empty(client, entities):
@@ -71,6 +76,8 @@ def test_combat_attack_victory_keeps_defeated_enemy_visible(client, entities):
     assert payload['combat']['enemy']['health'] == 0
     assert payload['combat']['enemy']['name']
     assert payload['character']['health'] > 0
+    assert payload['combat']['_links']['attack']['href'] == f"/api/combats/{combat_id}/attack"
+    assert payload['combat']['_links']['attack']['methods'] == ['GET']
 
     assert detail_response.status_code == 200
     detail_payload = detail_response.get_json()
@@ -178,7 +185,12 @@ def test_combat_home_after_victory_returns_home_and_keeps_loot(client, entities)
         combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
         combat_id = combat_response.get_json()['combat']['id']
         victory_response = client.get(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
-        home_response = client.get(f'/api/combats/{combat_id}/go_home', headers=entities.auth_headers(token))
+
+    inventory_after_victory = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
+    assert inventory_after_victory.status_code == 200
+    assert inventory_after_victory.get_json() == []
+
+    home_response = client.get(f'/api/combats/{combat_id}/go_home', headers=entities.auth_headers(token))
 
     assert victory_response.status_code == 200
     assert home_response.status_code == 200
@@ -192,6 +204,44 @@ def test_combat_home_after_victory_returns_home_and_keeps_loot(client, entities)
     inventory_items = inventory_response.get_json()
     assert inventory_items
     assert len(inventory_items) == 1
+
+
+def test_combat_accumulates_loot_across_consecutive_victories(client, entities):
+    """Keep all drops from back-to-back victories until the player goes home."""
+    user = entities.create_user(username='collector', password='secret')
+    character = entities.create_character(user, name='Champion', health=120, damage=100)
+    token = entities.token_for(user, character)
+
+    first_drop = [{'id': 'steel_sword', 'name': 'Steel Sword', 'slot_type': 'weapon', 'health': 0, 'damage': 5, 'level': 1}]
+    second_drop = [{'id': 'iron_shield', 'name': 'Iron Shield', 'slot_type': 'shield', 'health': 5, 'damage': 0, 'level': 1}]
+
+    with patch('backend.resources.combat_engine.random.choice', side_effect=lambda sequence: sequence[0]), patch(
+        'backend.resources.combat_engine.random.randint', side_effect=lambda minimum, maximum: maximum
+    ), patch('backend.resources.combat_engine.drop_loot', side_effect=[first_drop, second_drop]):
+        combat_response = client.post('/api/combats', headers=entities.auth_headers(token))
+        combat_id = combat_response.get_json()['combat']['id']
+
+        first_victory = client.get(f'/api/combats/{combat_id}/attack', headers=entities.auth_headers(token))
+        deeper_response = client.get(f'/api/combats/{combat_id}/next_combat', headers=entities.auth_headers(token))
+        second_combat = deeper_response.get_json()['combat']
+        second_victory = client.get(f"/api/combats/{second_combat['id']}/attack", headers=entities.auth_headers(token))
+
+    assert first_victory.status_code == 200
+    assert deeper_response.status_code == 200
+    assert second_victory.status_code == 200
+
+    inventory_after_victories = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
+    assert inventory_after_victories.status_code == 200
+    assert inventory_after_victories.get_json() == []
+
+    home_response = client.get(f"/api/combats/{second_combat['id']}/go_home", headers=entities.auth_headers(token))
+    assert home_response.status_code == 200
+
+    inventory_after_home = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
+    assert inventory_after_home.status_code == 200
+    inventory_items = inventory_after_home.get_json()
+    assert len(inventory_items) == 2
+    assert {item['item_type_id'] for item in inventory_items} == {'steel_sword', 'iron_shield'}
 
 
 def test_combat_prevents_home_and_deeper_before_victory(client, entities):
@@ -413,8 +463,8 @@ def test_register_combat_resources_registers_all_routes():
     calls = []
 
     class FakeApi:
-        def add_resource(self, resource, *routes):
-            calls.append((resource.__name__, routes))
+        def add_resource(self, resource, *routes, **kwargs):
+            calls.append((resource.__name__, routes, kwargs))
 
     register_combat_resources(FakeApi())
 
@@ -422,3 +472,4 @@ def test_register_combat_resources_registers_all_routes():
     assert '/combats' in calls[0][1]
     assert '/combats/<combat:combat>' in calls[0][1]
     assert '/combats/<combat:combat>/<string:action>' in calls[0][1]
+    assert calls[0][2]['endpoint'] == 'combat'

@@ -62,8 +62,9 @@ export async function syncPlayerHealthToFull(state) {
  * @param {number} userId - Current user ID.
  * @returns {Promise<Object>} Response from /users/{id}/inventory DELETE endpoint.
  */
-export async function clearUnequippedInventory(state, userId) {
+export async function clearUnequippedInventory(fetchJson, state, userId) {
   if (!userId) return { ok: false };
+  if (typeof fetchJson !== 'function') return { ok: false };
 
   const response = await fetchJson(`/users/${userId}/inventory`, {
     method: 'DELETE'

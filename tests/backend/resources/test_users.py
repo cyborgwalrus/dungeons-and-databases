@@ -21,6 +21,8 @@ def test_user_endpoints_enforce_ownership_and_allow_profile_updates(client, enti
     get_response = client.get(f'/api/users/{owner.id}', headers=entities.auth_headers(owner_token))
     assert get_response.status_code == 200
     assert get_response.get_json()['username'] == 'owner'
+    assert get_response.get_json()['_links']['inventory']['href'] == f'/api/users/{owner.id}/inventory'
+    assert get_response.get_json()['_links']['inventory']['methods'] == ['GET', 'DELETE']
 
     update_response = client.put(
         f'/api/users/{owner.id}',
@@ -48,13 +50,13 @@ def test_user_inventory_clear_preserves_equipped_items(client, entities):
     inventory_response = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
     inventory_items = inventory_response.get_json()
     assert len(inventory_items) == 6
+    assert inventory_items[0]['_links']['self']['href']
+    assert inventory_items[0]['_links']['self']['methods'] == ['GET', 'DELETE']
+    assert inventory_items[0]['_links']['equip']['href'] == f'/api/characters/{character.id}/equipment/{inventory_items[0]["id"]}'
+    assert inventory_items[0]['_links']['equip']['methods'] == ['POST']
 
     equipped_source = inventory_items[0]
-    equip_response = client.post(
-        f'/api/characters/{character.id}/equipment',
-        headers=entities.auth_headers(token),
-        json={'item_id': equipped_source['id']},
-    )
+    equip_response = client.post(f'/api/characters/{character.id}/equipment/{equipped_source["id"]}', headers=entities.auth_headers(token))
     assert equip_response.status_code == 200
 
     extra_item_response = client.post(

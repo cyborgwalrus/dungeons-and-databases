@@ -1,6 +1,7 @@
 """Tests for backend database model behavior."""
 
 from backend.db.models import Character, Combat, EquipmentSlot
+from backend.db.schemas import CharacterResponse, CombatEnemyResponse, CombatResponse, ItemResponse, UserResponse
 from backend.db.session import db
 from backend.utils import route_helpers
 
@@ -105,3 +106,73 @@ def test_combat_response_includes_enemy_snapshot(entities):
     assert response.enemy.name == combat.enemy['name']
     assert response.enemy.health == combat.enemy_current_health
     assert response.enemy.max_health == combat.enemy_max_health
+
+
+def test_response_models_accept_hypermedia_links():
+    """Validate that serialized response schemas accept `_links`."""
+    user_response = UserResponse.model_validate(
+        {
+            'id': 1,
+            'username': 'hero',
+            'state': 'LOGGED_IN',
+            '_links': {'self': {'href': '/api/users/1', 'methods': ['GET', 'PUT', 'DELETE']}},
+        }
+    )
+    assert user_response.links == {'self': {'href': '/api/users/1', 'methods': ['GET', 'PUT', 'DELETE']}}
+
+    character_response = CharacterResponse.model_validate(
+        {
+            'id': 2,
+            'user_id': 1,
+            'name': 'Hero',
+            'level': 1,
+            'experience': 0,
+            'experience_to_next_level': 100,
+            'max_health': 100,
+            'health': 100,
+            'damage': 10,
+            'state': 'HOME',
+            'bonus_health': 0,
+            'bonus_damage': 0,
+            '_links': {'self': {'href': '/api/characters/2', 'methods': ['GET', 'PUT', 'DELETE']}},
+        }
+    )
+    assert character_response.links == {'self': {'href': '/api/characters/2', 'methods': ['GET', 'PUT', 'DELETE']}}
+
+    item_response = ItemResponse.model_validate(
+        {
+            'id': 3,
+            'name': 'Sword',
+            'item_type_id': 'steel_sword',
+            'level': 1,
+            'slot_type': 'weapon',
+            'health': 0,
+            'damage': 5,
+            '_links': {'self': {'href': '/api/items/3', 'methods': ['GET', 'DELETE']}},
+        }
+    )
+    assert item_response.links == {'self': {'href': '/api/items/3', 'methods': ['GET', 'DELETE']}}
+
+    combat_response = CombatResponse.model_validate(
+        {
+            'id': 4,
+            'character_id': 2,
+            'character_health': 90,
+            'enemy': {
+                'type_id': 'orc',
+                'name': 'Orc',
+                'description': None,
+                'level': 1,
+                'health': 12,
+                'max_health': 12,
+                'damage': 3,
+                'base_health': 12,
+                'base_damage': 3,
+                '_links': {'self': {'href': '/api/enemy-types/orc', 'methods': ['GET']}},
+            },
+            '_links': {'self': {'href': '/api/combats/4', 'methods': ['GET']}},
+        }
+    )
+    assert combat_response.links == {'self': {'href': '/api/combats/4', 'methods': ['GET']}}
+    assert isinstance(combat_response.enemy, CombatEnemyResponse)
+    assert combat_response.enemy.links == {'self': {'href': '/api/enemy-types/orc', 'methods': ['GET']}}

@@ -2,20 +2,43 @@
 
 from typing import Any, ClassVar, Optional, cast
 
-from sqlalchemy import UniqueConstraint
+from flask import url_for
+from sqlalchemy import Column, JSON, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
+from backend.db.enums import CharacterState, ItemSlot, UserState
 from backend.db.schemas import (
-    EquipmentSlotResponse,
     CharacterResponse,
     CombatResponse,
+    EquipmentSlotResponse,
     ItemResponse,
     UserResponse,
 )
-from backend.db.enums import CharacterState, ItemSlot, UserState
+
+
+USER_DETAIL_ENDPOINT = 'user_detail'
+USER_INVENTORY_ENDPOINT = 'user_inventory'
+CHARACTER_LIST_ENDPOINT = 'character_list'
+CHARACTER_DETAIL_ENDPOINT = 'character_detail'
+CHARACTER_SELECT_ENDPOINT = 'character_select'
+CHARACTER_EQUIPMENT_ENDPOINT = 'character_equipment'
+CHARACTER_EQUIPMENT_ITEM_ENDPOINT = 'character_equipment_item'
+ITEM_DETAIL_ENDPOINT = 'item_detail'
+ITEM_LIST_ENDPOINT = 'item_list'
+COMBAT_ENDPOINT = 'combat'
+
+LinkValue = dict[str, list[str] | str]
+LinkMap = dict[str, LinkValue]
+
+
+def _is_home_state(state: CharacterState | str | None) -> bool:
+    """Return whether a state value represents the home screen."""
+    return state == CharacterState.HOME or state == CharacterState.HOME.value or str(state) == CharacterState.HOME.value
+
 
 class ModelBase(SQLModel):
     """Common base model with a compatibility query property."""
+
     model_config: ClassVar[Any] = {
         'arbitrary_types_allowed': True,
         'from_attributes': True,
@@ -45,6 +68,24 @@ class User(ModelBase, table=True):
     def to_response(self) -> UserResponse:
         """Return the user response representation."""
         return UserResponse.model_validate(self)
+
+    @classmethod
+    def response_links(cls, user_id: int) -> LinkMap:
+        """Return hypermedia links for a serialized user."""
+        return {
+            'self': {
+                'href': url_for(USER_DETAIL_ENDPOINT, user=user_id),
+                'methods': ['GET', 'PUT', 'DELETE'],
+            },
+            'characters': {
+                'href': url_for(CHARACTER_LIST_ENDPOINT, user=user_id),
+                'methods': ['GET', 'POST'],
+            },
+            'inventory': {
+                'href': url_for(USER_INVENTORY_ENDPOINT, user=user_id),
+                'methods': ['GET', 'DELETE'],
+            },
+        }
 
     def owns_character(self, character_id: int) -> bool:
         """Return whether the user owns the requested character."""
@@ -107,6 +148,40 @@ class Character(ModelBase, table=True):
         if health is not None:
             response_character = response_character.model_copy(update={'health': health})
         return response_character
+
+    @classmethod
+    def response_links(
+        cls,
+        character_id: int,
+        user_id: int,
+        *,
+        state: CharacterState | str | None = None,
+    ) -> LinkMap:
+        """Return hypermedia links for a serialized character."""
+        links: LinkMap = {
+            'self': {
+                'href': url_for(CHARACTER_DETAIL_ENDPOINT, character=character_id),
+                'methods': ['GET', 'PUT', 'DELETE'],
+            },
+            'user': {
+                'href': url_for(USER_DETAIL_ENDPOINT, user=user_id),
+                'methods': ['GET'],
+            },
+            'select': {
+                'href': url_for(CHARACTER_SELECT_ENDPOINT, character=character_id),
+                'methods': ['POST'],
+            },
+            'equipment': {
+                'href': url_for(CHARACTER_EQUIPMENT_ENDPOINT, character=character_id),
+                'methods': ['GET'],
+            },
+        }
+        if _is_home_state(state):
+            links['combat'] = {
+                'href': url_for(COMBAT_ENDPOINT),
+                'methods': ['POST'],
+            }
+        return links
 
     def gain_experience(self, amount: int) -> int:
         """Add positive XP to the character and return the applied amount."""
@@ -174,6 +249,7 @@ class Combat(ModelBase, table=True):
     enemy_current_health: int = Field(ge=0)
     enemy_max_health: int = Field(ge=0)
     enemy_damage: int = Field(ge=0)
+    pending_loot: list[dict[str, Any]] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
 
     character: Character = Relationship()
     enemy_type: EnemyType = Relationship()
@@ -181,6 +257,36 @@ class Combat(ModelBase, table=True):
     def to_response(self) -> CombatResponse:
         """Return the combat response representation."""
         return CombatResponse.model_validate(self)
+
+    @classmethod
+    def response_links(cls, combat_id: int, character_id: int) -> LinkMap:
+        """Return hypermedia links for a serialized combat."""
+        return {
+            'self': {
+                'href': url_for(COMBAT_ENDPOINT, combat=combat_id),
+                'methods': ['GET'],
+            },
+            'attack': {
+                'href': url_for(COMBAT_ENDPOINT, combat=combat_id, action='attack'),
+                'methods': ['GET'],
+            },
+            'run': {
+                'href': url_for(COMBAT_ENDPOINT, combat=combat_id, action='run'),
+                'methods': ['GET'],
+            },
+            'go_home': {
+                'href': url_for(COMBAT_ENDPOINT, combat=combat_id, action='go_home'),
+                'methods': ['GET'],
+            },
+            'next_combat': {
+                'href': url_for(COMBAT_ENDPOINT, combat=combat_id, action='next_combat'),
+                'methods': ['GET'],
+            },
+            'character': {
+                'href': url_for(CHARACTER_DETAIL_ENDPOINT, character=character_id),
+                'methods': ['GET', 'PUT', 'DELETE'],
+            },
+        }
 
     @property
     def enemy(self) -> dict[str, Any]:
@@ -232,6 +338,54 @@ class Item(ModelBase, table=True):
         """Return the item response representation."""
         return ItemResponse.model_validate(self)
 
+    @classmethod
+    def response_links(
+        cls,
+        item_id: int,
+        user_id: int | None = None,
+        *,
+        character_id: int | None = None,
+        character_state: CharacterState | str | None = None,
+        equipped: bool = False,
+    ) -> LinkMap:
+        """Return hypermedia links for a serialized item."""
+        self_methods = ['GET'] if equipped else ['GET', 'DELETE']
+        links = {
+            'self': {
+                'href': url_for(ITEM_DETAIL_ENDPOINT, item=item_id),
+                'methods': self_methods,
+            },
+        }
+        if user_id is not None:
+            links['user'] = {
+                'href': url_for(USER_DETAIL_ENDPOINT, user=user_id),
+                'methods': ['GET'],
+            }
+            links['inventory'] = {
+                'href': url_for(USER_INVENTORY_ENDPOINT, user=user_id),
+                'methods': ['GET', 'DELETE'],
+            }
+        if character_id is not None and _is_home_state(character_state):
+            if equipped:
+                links['unequip'] = {
+                    'href': url_for(
+                        CHARACTER_EQUIPMENT_ITEM_ENDPOINT,
+                        character=character_id,
+                        item=item_id,
+                    ),
+                    'methods': ['DELETE'],
+                }
+            else:
+                links['equip'] = {
+                    'href': url_for(
+                        CHARACTER_EQUIPMENT_ITEM_ENDPOINT,
+                        character=character_id,
+                        item=item_id,
+                    ),
+                    'methods': ['POST'],
+                }
+        return links
+
 
 class EquipmentSlot(ModelBase, table=True):
     """Join model linking a character to a single equipped item slot."""
@@ -246,9 +400,7 @@ class EquipmentSlot(ModelBase, table=True):
     item_id: int = Field(foreign_key='item.id', unique=True)
     slot_type: ItemSlot
 
-    character: Character = Relationship(
-        back_populates='equipment'
-    )
+    character: Character = Relationship(back_populates='equipment')
     item: Item = Relationship(
         back_populates='equipment',
         sa_relationship_kwargs={'uselist': False},

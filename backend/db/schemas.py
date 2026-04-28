@@ -16,6 +16,7 @@ class ModelSchema(SQLModel):  # pylint: disable=too-few-public-methods
     model_config: ClassVar[ConfigDict] = ConfigDict(
         arbitrary_types_allowed=True,
         from_attributes=True,
+        populate_by_name=True,
         str_strip_whitespace=True,
         use_enum_values=True,
     )
@@ -70,6 +71,7 @@ class UserResponse(ModelSchema):
     id: int
     username: str
     state: UserState
+    links: dict[str, dict[str, list[str] | str]] | None = Field(default=None, alias='_links')
 
 
 class CharacterResponse(ModelSchema):
@@ -87,6 +89,7 @@ class CharacterResponse(ModelSchema):
     state: CharacterState
     bonus_health: int
     bonus_damage: int
+    links: dict[str, dict[str, list[str] | str]] | None = Field(default=None, alias='_links')
 
 
 class CombatEnemyResponse(ModelSchema):
@@ -101,6 +104,7 @@ class CombatEnemyResponse(ModelSchema):
     damage: int
     base_health: int
     base_damage: int
+    links: dict[str, dict[str, list[str] | str]] | None = Field(default=None, alias='_links')
 
 
 class CombatResponse(ModelSchema):
@@ -110,6 +114,7 @@ class CombatResponse(ModelSchema):
     character_id: int
     character_health: int
     enemy: CombatEnemyResponse
+    links: dict[str, dict[str, list[str] | str]] | None = Field(default=None, alias='_links')
 
 
 class ItemResponse(ModelSchema):
@@ -122,6 +127,7 @@ class ItemResponse(ModelSchema):
     slot_type: ItemSlot | None
     health: int
     damage: int
+    links: dict[str, dict[str, list[str] | str]] | None = Field(default=None, alias='_links')
 
 
 class EquipmentSlotResponse(ModelSchema):
@@ -131,3 +137,4 @@ class EquipmentSlotResponse(ModelSchema):
     character_id: int
     item_id: int
     slot_type: ItemSlot | None
+    links: dict[str, dict[str, list[str] | str]] | None = Field(default=None, alias='_links')

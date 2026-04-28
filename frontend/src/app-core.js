@@ -172,6 +172,53 @@ async function handleDungeonHome() {
   navigateTo('/');
 }
 
+/** Try to escape combat and return home when the run succeeds. */
+async function handleDungeonEscapeHome({ renderHomeAfter = false } = {}) {
+  if (!state.activeCombat?.id) return;
+  const res = await fetchJson(`/combats/${state.activeCombat.id}/run`);
+  if (!res.ok || !res.data) {
+    if (res.data?.error) renderDungeonError(res.data.error);
+    return;
+  }
+
+  const dungeonState = res.data;
+  if (dungeonState.character) {
+    state.player = dungeonState.character;
+    syncPlayerStatsInDom(dungeonState.character, document, { showCurrentHealth: true });
+  }
+
+  if (dungeonState.player_died) {
+    state.activeCombat = null;
+    showDungeonDefeatScreen({
+      message: dungeonState.message || 'Defeat!\nYou have been defeated by the enemy!\nYou lost the loot from this dungeon run...',
+      onExit: () => {
+        resetDungeonLoot(state);
+        navigateTo('/');
+      }
+    });
+    return;
+  }
+
+  if (dungeonState.combat) {
+    state.activeCombat = dungeonState.combat;
+    updateEnemyPanel(buildDungeonEnemy(dungeonState.combat));
+  }
+
+  if (dungeonState.success) {
+    state.activeCombat = null;
+    state.dungeonActionMode = 'run';
+    resetDungeonLoot(state);
+    if (renderHomeAfter) {
+      await renderHome(root, { fetchJson, navigateTo, setAuthToken, state });
+      return;
+    }
+    setTimeout(async () => {
+      resetDungeonLoot(state);
+      navigateTo('/');
+    }, 1500);
+  }
+}
+
 /**
  * Send a run request and update the dungeon screen based on the result.
  * Handles escape attempts, victory, and continued combat.
@@ -327,14 +374,16 @@ async function route() {
 
   if (hash === '/login') return renderLogin(root, screenDeps);
   if (hash === '/character-select') return renderCharacterSelect(root, screenDeps);
-  if (hash === '/' || hash === '') return state.player ? renderHome(root, screenDeps) : renderCharacterSelect(root, screenDeps);
+  if (hash === '/' || hash === '') {
+    if (state.player?.state === 'DUNGEON_COMBAT' && state.activeCombat?.id) {
+      await handleDungeonEscapeHome({ renderHomeAfter: true });
+      return;
+    }
+    return state.player ? renderHome(root, screenDeps) : renderCharacterSelect(root, screenDeps);
+  }
   if (hash === '/dungeon') return renderDungeon();
   return renderHome(root, screenDeps);
 }
-
-// Initialize router on page load and hash changes
-window.addEventListener('hashchange', route);
-route();
 
 export {
   navigateTo,

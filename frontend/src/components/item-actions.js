@@ -34,10 +34,8 @@ export async function equipInventoryItem(opts, itemId) {
   const characterId = getCharacterId();
   if (!characterId) return;
 
-  await fetchJson(`/characters/${characterId}/equipment`, {
+  await fetchJson(`/characters/${characterId}/equipment/${Number(itemId)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ item_id: Number(itemId) })
   });
 
   await refreshCharacterAfterInventoryChange(opts);

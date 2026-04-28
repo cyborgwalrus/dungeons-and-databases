@@ -12,10 +12,18 @@ def test_character_creation_listing_and_selection_flow(client, entities):
     character_payload = create_response.get_json()
     character_id = character_payload['id']
     assert character_payload['state'] == 'HOME'
+    assert character_payload['_links']['self']['href'] == f'/api/characters/{character_id}'
+    assert character_payload['_links']['self']['methods'] == ['GET', 'PUT', 'DELETE']
+    assert character_payload['_links']['combat']['href'] == '/api/combats'
+    assert character_payload['_links']['combat']['methods'] == ['POST']
 
     list_response = client.get(f'/api/users/{user.id}/characters', headers=entities.auth_headers(token))
     assert list_response.status_code == 200
     assert len(list_response.get_json()) == 1
+    assert list_response.get_json()[0]['_links']['equipment']['href'] == f'/api/characters/{character_id}/equipment'
+    assert list_response.get_json()[0]['_links']['equipment']['methods'] == ['GET']
+    assert list_response.get_json()[0]['_links']['combat']['href'] == '/api/combats'
+    assert list_response.get_json()[0]['_links']['combat']['methods'] == ['POST']
 
     inventory_response = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
     assert inventory_response.status_code == 200
@@ -25,6 +33,10 @@ def test_character_creation_listing_and_selection_flow(client, entities):
     assert select_response.status_code == 200
     scoped_token = select_response.get_json()['token']
     assert select_response.get_json()['character']['state'] == 'HOME'
+    assert select_response.get_json()['character']['_links']['select']['href'] == f'/api/characters/{character_id}/select'
+    assert select_response.get_json()['character']['_links']['select']['methods'] == ['POST']
+    assert select_response.get_json()['character']['_links']['combat']['href'] == '/api/combats'
+    assert select_response.get_json()['character']['_links']['combat']['methods'] == ['POST']
 
     me_response = client.get('/api/login/me', headers=entities.auth_headers(scoped_token))
     assert me_response.status_code == 200
@@ -66,13 +78,11 @@ def test_character_update_validation_and_equipment_round_trip(client, entities):
     owner_character = entities.create_character(user, name='Temp', seed_loadout=False)
     starter_item = entities.create_inventory_item(owner_character, 'steel_sword')
 
-    equip_response = client.post(
-        f'/api/characters/{owner_character.id}/equipment',
-        headers=entities.auth_headers(token),
-        json={'item_id': starter_item.id},
-    )
+    equip_response = client.post(f'/api/characters/{owner_character.id}/equipment/{starter_item.id}', headers=entities.auth_headers(token))
     assert equip_response.status_code == 200
     assert equip_response.get_json()['item']['id'] == starter_item.id
+    assert equip_response.get_json()['item']['_links']['self']['href'] == f'/api/items/{starter_item.id}'
+    assert equip_response.get_json()['item']['_links']['self']['methods'] == ['GET']
 
     equipment_response = client.get(
         f'/api/characters/{owner_character.id}/equipment',
@@ -80,6 +90,10 @@ def test_character_update_validation_and_equipment_round_trip(client, entities):
     )
     assert equipment_response.status_code == 200
     assert len(equipment_response.get_json()) == 1
+    assert equipment_response.get_json()[0]['_links']['unequip']['href'] == (
+        f'/api/characters/{owner_character.id}/equipment/{starter_item.id}'
+    )
+    assert equipment_response.get_json()[0]['_links']['unequip']['methods'] == ['DELETE']
 
     inventory_after_equip = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
     assert inventory_after_equip.status_code == 200
@@ -95,6 +109,7 @@ def test_character_update_validation_and_equipment_round_trip(client, entities):
     assert unequip_response.status_code == 200
     assert unequip_response.get_json()['message'] == 'Item unequipped'
 
+    assert equip_response.get_json()['item']['_links']['self']['methods'] == ['GET']
     equipment_after_unequip = client.get(
         f'/api/characters/{owner_character.id}/equipment',
         headers=entities.auth_headers(token),
@@ -105,6 +120,45 @@ def test_character_update_validation_and_equipment_round_trip(client, entities):
     inventory_after_unequip = client.get(f'/api/users/{user.id}/inventory', headers=entities.auth_headers(token))
     assert inventory_after_unequip.status_code == 200
     assert len(inventory_after_unequip.get_json()) == 7
+
+
+def test_character_equipment_actions_require_home_state(client, entities):
+    """Block equip and unequip actions once the character leaves home."""
+    user = entities.create_user(username='combat-lock', password='secret')
+    character = entities.create_character(user, name='Guardian', seed_loadout=True)
+    token = entities.token_for(user, character)
+    headers = entities.auth_headers(token)
+
+    inventory_response = client.get(f'/api/users/{user.id}/inventory', headers=headers)
+    inventory_items = inventory_response.get_json()
+    assert inventory_items[0]['_links']['equip']['href'] == f"/api/characters/{character.id}/equipment/{inventory_items[0]['id']}"
+
+    equip_response = client.post(f"/api/characters/{character.id}/equipment/{inventory_items[0]['id']}", headers=headers)
+    assert equip_response.status_code == 200
+
+    combat_response = client.post('/api/combats', headers=headers)
+    assert combat_response.status_code == 201
+    assert combat_response.get_json()['character']['state'] == 'DUNGEON_COMBAT'
+    assert 'combat' not in combat_response.get_json()['character']['_links']
+    assert combat_response.get_json()['character']['_links']['equipment']['methods'] == ['GET']
+
+    locked_inventory = client.get(f'/api/users/{user.id}/inventory', headers=headers)
+    assert locked_inventory.status_code == 200
+    assert all('equip' not in item['_links'] for item in locked_inventory.get_json())
+
+    blocked_equip = client.post(
+        f"/api/characters/{character.id}/equipment/{inventory_items[1]['id']}",
+        headers=headers,
+    )
+    assert blocked_equip.status_code == 409
+    assert blocked_equip.get_json()['error'] == 'Equipment can only be changed in home state'
+
+    blocked_unequip = client.delete(
+        f"/api/characters/{character.id}/equipment/{inventory_items[0]['id']}",
+        headers=headers,
+    )
+    assert blocked_unequip.status_code == 409
+    assert blocked_unequip.get_json()['error'] == 'Equipment can only be changed in home state'
 
 
 def test_character_delete_returns_token_when_active_character_is_removed(client, entities):
@@ -168,21 +222,9 @@ def test_character_endpoints_reject_invalid_payloads_and_ownership_errors(client
     assert missing_character.status_code == 404
     assert missing_character.get_json()['error'] == 'Character not found'
 
-    missing_item_id = client.post(f'/api/characters/{character_id}/equipment', headers=headers, json={})
-    assert missing_item_id.status_code == 400
-    assert missing_item_id.get_json()['error'][0]['msg'] == 'Field required'
-
-    invalid_item_id = client.post(f'/api/characters/{character_id}/equipment', headers=headers, json={'item_id': 0})
-    assert invalid_item_id.status_code == 400
-    assert invalid_item_id.get_json()['error'][0]['msg'] == 'Input should be greater than or equal to 1'
-
-    missing_inventory_item = client.post(
-        f'/api/characters/{character_id}/equipment',
-        headers=headers,
-        json={'item_id': 999999},
-    )
+    missing_inventory_item = client.post(f'/api/characters/{character_id}/equipment/999999', headers=headers)
     assert missing_inventory_item.status_code == 404
-    assert missing_inventory_item.get_json()['error'] == 'Item not found in inventory'
+    assert missing_inventory_item.get_json()['error'] == 'Item not found'
 
     missing_equipment = client.delete(f'/api/characters/{character_id}/equipment/999999', headers=headers)
     assert missing_equipment.status_code == 404

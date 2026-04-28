@@ -12,11 +12,19 @@ def test_item_creation_get_and_delete_supports_batch_payloads(client, entities):
     assert create_response.status_code == 201
     created_items = create_response.get_json()
     assert len(created_items) == 2
+    assert created_items[0]['_links']['self']['href'] == f"/api/items/{created_items[0]['id']}"
+    assert created_items[0]['_links']['self']['methods'] == ['GET', 'DELETE']
+    assert created_items[0]['_links']['equip']['href'] == f"/api/characters/{character.id}/equipment/{created_items[0]['id']}"
+    assert created_items[0]['_links']['equip']['methods'] == ['POST']
 
     item_id = created_items[0]['id']
     get_response = client.get(f'/api/items/{item_id}', headers=entities.auth_headers(token))
     assert get_response.status_code == 200
     assert get_response.get_json()['id'] == item_id
+    assert get_response.get_json()['_links']['self']['href'] == f'/api/items/{item_id}'
+    assert get_response.get_json()['_links']['self']['methods'] == ['GET', 'DELETE']
+    assert get_response.get_json()['_links']['equip']['href'] == f"/api/characters/{character.id}/equipment/{item_id}"
+    assert get_response.get_json()['_links']['equip']['methods'] == ['POST']
 
     delete_response = client.delete(f'/api/items/{item_id}', headers=entities.auth_headers(token))
     assert delete_response.status_code == 200
@@ -49,12 +57,12 @@ def test_item_resources_validate_payloads_and_equipped_item_guards(client, entit
     assert create_response.status_code == 201
     item_id = create_response.get_json()[0]['id']
 
-    equipment_response = client.post(
-        f'/api/characters/{character.id}/equipment',
-        headers=headers,
-        json={'item_id': item_id},
-    )
+    equipment_response = client.post(f'/api/characters/{character.id}/equipment/{item_id}', headers=headers)
     assert equipment_response.status_code == 200
+    assert equipment_response.get_json()['item']['_links']['unequip']['href'] == (
+        f"/api/characters/{character.id}/equipment/{item_id}"
+    )
+    assert equipment_response.get_json()['item']['_links']['unequip']['methods'] == ['DELETE']
 
     delete_equipped_item = client.delete(f'/api/items/{item_id}', headers=headers)
     assert delete_equipped_item.status_code == 404
