@@ -4,33 +4,28 @@ left to right direction
 'skinparam linetype polyline
 'skinparam linetype ortho
 skinparam shadowing false
-skinparam state {
-  BackgroundColor #F9FAFB
-  BorderColor #334155
-  FontColor #0F172A
-}
 
-state "Logged out" as logged_out
-state "Authenticated\n(Character Select)" as authenticated
-state "Character selected\n(Home)" as home
-state "Dungeon combat" as combat
-state "Dungeon victory" as victory
+state "**Logged out**" as logged_out: UI: Login view
+state "**Authenticated**" as authenticated: UI: Character select view
+state "**Character selected**" as home: UI: Home view
+state "**Dungeon combat**" as combat: UI: Dungeon view
+state "**Dungeon victory**" as victory: UI: Dungeon view
 
-[*] --> logged_out
+[*] --> logged_out: **GET /**
 
-logged_out --> authenticated : POST /login/signup\nPOST /login/signin
-authenticated --> home : POST /characters/{characterId}/select
+logged_out --> authenticated : **Account creation and login**\nPOST /login/signup\nPOST /login/signin
+authenticated --> home : **Character selection**\nPOST /characters/{characterId}/select
 
-home --> combat : POST /combats
-home --> authenticated : POST /login/signout
-home --> home : GET /users/{userId}/inventory\nDELETE /users/{userId}/inventory
-home --> home : GET /characters/{characterId}\nGET /characters/{characterId}/equipment
-home --> home : POST /characters/{characterId}/equipment/{itemId}\nDELETE /characters/{characterId}/equipment/{itemId}
+home --> combat : **Enter dungeon**\nPOST /combats
+home --> authenticated : **Logout**\nPOST /login/signout
+home --> home : **Inventory management**\nGET /users/{userId}/inventory\nDELETE /users/{userId}/inventory
+home --> home : **Character information**\nGET /characters/{characterId}\nGET /characters/{characterId}/equipment
+home --> home : **Equipment management**\nPOST /characters/{characterId}/equipment/{itemId}\nDELETE /characters/{characterId}/equipment/{itemId}
 
-combat --> combat : GET /combats/{combatId}/attack
-combat --> combat : GET /combats/{combatId}/run
-combat --> victory : enemy defeated
-victory -> combat : GET /combats/{combatId}/next_combat
-victory --> home : GET /combats/{combatId}/go_home
+combat --> combat : **Attack monster**\nGET /combats/{combatId}/attack
+combat --> combat : **Flee combat**\nGET /combats/{combatId}/run
+combat --> victory : **Enemy defeated**
+victory -> combat : **Next combat**\nGET /combats/{combatId}/next_combat
+victory --> home : **Go home**\nGET /combats/{combatId}/go_home
 
 @enduml
