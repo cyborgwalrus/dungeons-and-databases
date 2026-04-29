@@ -1,32 +1,67 @@
 # Dungeons & Databases
 
-<!-- cspell:ignore Hla openapi yaml puml uv Adminer -->
+> [!IMPORTANT]
+> All the code parts of the readmes in this repository has been created using Github Copilot and GPT-5.4 mini agents, available for free to students with a monthly token allowance (generous enough to fit the whole project into). Prompt history available in [prompt_history/copilot_chat_prompts.csv](prompt_history/copilot_chat_prompts.csv).
 
-Browser dungeon crawler with a Flask API backend and a static frontend client.
+
+Browser based dungeon crawler. Equip your character with your best items and delve into the depths of the dungeon. The deeper you go, the better the loot, but beware; The monsters get tougher and only winners get to keep their loot.
+
+## Architecture
+
+### Frontend
+
+Vanilla JavaScript, HTML and CSS.
+
+### Backend
+
+RESTFul hypermedia API implemented in Python with Flask, SQLAlchemy and SQLite. OpenAPI documentation available at `/api/docs` and `/api/openapi.yaml`.
 
 ## Group information
 
-* Student 1. Hla Kay Poe and [hpoe22@student.oulu.fi](mailto:hpoe22@student.oulu.fi)
-* Student 2. Matias Björklund and [matias.bjorklund@student.oulu.fi](mailto:matias.bjorklund@student.oulu.fi)
+* Hla Kay Poe: [hpoe22@student.oulu.fi](mailto:hpoe22@student.oulu.fi)
+* Matias Björklund: [matias.bjorklund@student.oulu.fi](mailto:matias.bjorklund@student.oulu.fi)
 
-## Documentation
+## Deployment
 
-* Backend API guide: [backend/README.md](backend/README.md)
-* OpenAPI document: [backend/openapi.yaml](backend/openapi.yaml)
-* Frontend client guide: [frontend/README.md](frontend/README.md)
-* Database schema diagram: [docs/database-schema.puml](docs/database-schema.puml)
-* API hypermedia state diagram: [docs/hypermedia-state.puml](docs/hypermedia-state.puml)
+### Running tests locally
 
-## Setup And Tests
+1. Install [uv](https://docs.astral.sh/uv/).
+2. Run `uv sync --extra test` from the repository root to initialize the local `.venv` and install runtime and test dependencies.
+3. Run `uv run pytest` from the repository root to execute the backend test suite.
+4. Run `uv run pytest --cov` from the repository root to execute the backend test suite with coverage reporting.
 
-Install [uv](https://docs.astral.sh/uv/) and run `uv sync --extra test` from the repository root to create the local `.venv` and install both runtime and test dependencies.
+### Development mode with hot reload using Docker
 
-Run the backend test suite with `uv run pytest`.
+> [!CAUTION]
+> This deployment configuration is preset with `WIPE_DB_ON_RESTART=true`, which wipes the database on every restart. To configure this, change the value of `WIPE_DB_ON_RESTART` in the `docker-compose.yml` file.
 
-The API is hypermedia-driven: responses expose `_links` objects that advertise the valid actions for the current resource state.
+1. Install [Docker Compose](https://docs.docker.com/compose/install/).
+2. Run `docker compose up --build` from the repository root to start the backend API and frontend app in development mode with hot reload.
+3. Access the frontend app at `http://localhost:8000` and the backend API at `http://localhost:5000`.
+
+### Production mode using Docker
+
+Production mode disables hot reload and sets `WIPE_DB_ON_RESTART=false` to persist the database across restarts. File mounts from the host are replaced with Docker volumes.
+
+1. Install [Docker Compose](https://docs.docker.com/compose/install/).
+2. Run `docker compose -f docker-compose.prod.yml up --build` from the repository root to start the backend API and frontend app in production mode.
+3. Access the frontend app at `http://localhost:8000` and the backend API at `http://localhost:5000`.
+
+## Code Coverage
+
+Latest code coverage report of the main branch backend API is available at <https://cyborgwalrus.github.io/dungeons-and-databases/index.html>
+
+## Github Actions
+
+The repository includes the following Github Actions workflows:
+
+*  [coverage.yaml](.github/workflows/coverage.yml) - Runs the backend test suite with coverage reporting (latest report available at <https://cyborgwalrus.github.io/dungeons-and-databases/index.html>)
+*  [plantuml.yml](.github/workflows/plantuml.yml) - Generates and deploys the latest PlantUML diagrams from the `docs/diagrams` folder to Github Pages (latest diagrams available at <https://cyborgwalrus.github.io/dungeons-and-databases/diagrams/>)
 
 ## Quick Links
 
 * API docs: `/api/docs`
 * OpenAPI spec: `/api/openapi.yaml`
 * Frontend app: the root of the deployed site
+* Flask admin dashboard: `/admin/dashboard`
+* Adminer dashboard for database management: `/admin/adminer` (default credentials: `admin`/`admin`, system: SQLite3, database file: `/app/instance/dnd.db`)

@@ -1,66 +1,56 @@
 # Backend API Documentation
 
-<!-- cspell:ignore Adminer puml enum -->
-
 ## Project Structure
 
 The backend is organized as follows:
 
 ```text
 backend/
-├── __init__.py
+├── .dockerignore           # Backend-specific ignore rules for container builds
+├── __init__.py             # Marks backend as a Python package
 ├── app.py                  # Flask application factory, extension setup, and route registration
-├── config.cfg              # Default Flask configuration used by the container and local runs
+├── config.cfg              # Configuration for Flask monitoring dashboard
 ├── Dockerfile              # Backend container image definition
 ├── openapi.yaml            # OpenAPI document served at /api/openapi.yaml and used by Swagger UI
 ├── README.md               # Backend API notes and endpoint guide
 ├── start-backend.sh        # Container entrypoint that initializes the database and starts the API
-├── adminer/
-│   └── plugins-enabled/
-│       └── login-password-less.php
+├── adminer/                # Adminer container customizations
+│   └── plugins-enabled/    # Enabled Adminer plugins
+│       └── login-password-less.php  # Needed for connecting Adminer to SQLite without a password
+│
 ├── db/                     # Database models, enums, session management, and reference data
-│   ├── __init__.py
-│   ├── enemy_types.json
-│   ├── enums.py
-│   ├── item_types.json
-│   ├── models.py
-│   ├── README.md
-│   ├── schemas.py
-│   └── session.py
+│   ├── __init__.py         # Database initialization helpers and seed-data exports
+│   ├── enemy_types.json    # Reference data for enemy templates
+│   ├── enums.py            # Shared enums for model and API state
+│   ├── item_types.json     # Reference data for item templates
+│   ├── models.py           # SQLModel table definitions and response mappers
+│   ├── README.md           # Database layer notes and schema guidance
+│   ├── schemas.py          # Pydantic schemas for requests and responses
+│   └── session.py          # SQLAlchemy engine and session management
+│
 ├── resources/              # Flask-RESTful resource classes for API endpoints
-│   ├── __init__.py
-│   ├── authentication.py
-│   ├── characters.py
-│   ├── combat_builders.py
-│   ├── combat_engine.py
-│   ├── combats.py
-│   ├── items.py
-│   └── users.py
+│   ├── __init__.py         # Resource package exports
+│   ├── authentication.py   # Authentication and token endpoints
+│   ├── characters.py       # Character management and equipment endpoints
+│   ├── combat_builders.py  # Combat setup helpers and dungeon state assembly
+│   ├── combat_engine.py    # Turn resolution and combat mechanics
+│   ├── combats.py          # Combat lifecycle endpoints
+│   ├── items.py            # Item creation and deletion endpoints
+│   └── users.py            # User profile and inventory endpoints
+│
 └── utils/                  # Shared helpers for app setup, caching, hypermedia, and route validation
-    ├── __init__.py
-    ├── api_response_cache.py
-    ├── app_init.py
-    ├── game_utils.py
-    ├── hypermedia.py
-    ├── route_helpers.py
-    └── url_converters.py
+    ├── __init__.py         # Shared utility exports
+    ├── api_response_cache.py # Cache keying and invalidation helpers
+    ├── app_init.py         # Bootstrap helpers for Flask, Swagger, dashboard, and converters
+    ├── game_utils.py       # Token, reference-data, and game-state helpers
+    ├── hypermedia.py       # Hypermedia link construction helpers
+    ├── route_helpers.py    # Authorization, item, and response helpers
+    └── url_converters.py   # Custom URL parameter converters
 ```
-
-## Setup And Testing
-
-Use `uv sync --extra test` from the repository root to create the local virtual environment and install the backend runtime plus test dependencies.
-
-Run the backend tests with `uv run pytest`.
 
 ## Deployment
 
-The backend container starts with `project/backend/start-backend.sh`, which initializes the database and then runs the API with a WSGI server on port `5000`.
-
-The SQLite database is stored in the container instance volume so the Adminer service can inspect it in both development and production.
-In Adminer, choose the SQLite driver and open `/app/instance/game.db` from the shared volume. The container loads `login-password-less.php` from `adminer/plugins-enabled` and uses `ADMIN_PASSWORD` as the local unlock password.
-
-The dashboard is available behind the shared admin gateway at `/admin/dashboard`, and its login password comes from the `ADMIN_PASSWORD` environment variable.
-Adminer is available at `/admin/adminer` and unlocks through the bundled password-less login plugin.
+See the deployment section of the main [README.md](../README.md).
 
 ## API Docs
 
@@ -78,6 +68,8 @@ The API is hypermedia-driven: responses expose `_links` objects that advertise t
 
 ## Endpoint Details
 
+API endpoints use Url converters defined in `utils/url_converters.py` to resolve database objects directly from the URL path. For example, a request to `GET /api/characters/5` will use the `character` converter to fetch the character with ID 5 from the database and pass it as an argument to the route handler.
+
 ### Authentication
 
 * `POST /api/login/signup` - create a user account.
@@ -85,7 +77,7 @@ The API is hypermedia-driven: responses expose `_links` objects that advertise t
 * `POST /api/login/signout` - clear the client token.
 * `GET /api/login/me` - return the current authenticated user.
 
-Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me` response also includes the currently selected character when the token is scoped to one.
+Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me` response also includes the currently selected character.
 
 ### Users
 
@@ -112,7 +104,7 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 * `GET /api/characters/<character:character>/equipment` - list equipped items for a character.
 * `POST /api/characters/<character:character>/equipment/<item:item>` - equip an item into a character equipment slot from the user's shared inventory.
 * `DELETE /api/characters/<character:character>/equipment/<item:item>` - unequip an item from a character equipment slot and return it to the user's shared inventory.
-* Equipment slot types use the shared enum system on `slot_type`: `weapon`, `shield`, `armor`, `helmet`, `ring`, and `necklace`.
+* Equipment slot types: `weapon`, `shield`, `armor`, `helmet`, `ring`, and `necklace`. Items have a `slot_type` that determines which slot they can be equipped into.
 
 ### Inventory
 
@@ -134,9 +126,7 @@ Authenticated requests must send `Authorization: Bearer <token>`. The `/login/me
 * `GET /api/combats/<combat:combat>/run` - attempt to flee the active combat.
 * `GET /api/combats/<combat:combat>/go_home` - leave the dungeon after defeating the current enemy.
 
-
-
 ## Admin Tools
 
 * `/admin/dashboard` - Flask Monitoring Dashboard.
-* `/admin/adminer` - Adminer.
+* `/admin/adminer` - Adminer dashboard for database management.

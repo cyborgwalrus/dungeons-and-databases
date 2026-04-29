@@ -1,0 +1,51 @@
+name: Render PlantUML Diagrams
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docs/*.puml
+      - .github/workflows/plantuml.yml
+  pull_request:
+    paths:
+      - docs/*.puml
+      - .github/workflows/plantuml.yml
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install PlantUML and Graphviz
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz plantuml
+
+      - name: Render diagrams
+        run: plantuml -tpng docs/*.puml
+
+      - name: Commit and push rendered diagrams
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/*.png
+
+          if git diff --cached --quiet; then
+            echo "No diagram changes to commit."
+          else
+            git commit -m "docs: auto-rendered PlantUML diagrams"
+            git push
+          fi

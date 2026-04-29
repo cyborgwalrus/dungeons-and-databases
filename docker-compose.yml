@@ -37,6 +37,7 @@ services:
     container_name: dnd_adminer
     environment:
       - ADMIN_PASSWORD=admin
+    user: root
     volumes:
       - dnd_db:/app/instance
       - ./backend/adminer/plugins-enabled:/var/www/html/plugins-enabled:ro
