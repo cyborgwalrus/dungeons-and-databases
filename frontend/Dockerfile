@@ -5,11 +5,11 @@ WORKDIR /usr/share/nginx/html
 COPY . /usr/share/nginx/html
 
 COPY nginx.conf.template /etc/nginx/templates/default.conf.template
-COPY start-frontend.sh /start-frontend.sh
-
-RUN chmod +x /start-frontend.sh
 
 USER root
+COPY start-frontend.sh /app/start-frontend.sh
+RUN chmod +x /app/start-frontend.sh
+USER 101
 
 EXPOSE 8080
 

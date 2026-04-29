@@ -50,10 +50,25 @@ jobs:
           publish_dir: ./htmlcov
           allow_empty_commit: true
           force_orphan: true
-
-  # JOB 3: Deploy to Production (Runs only if Test passes)
-  deploy:
+  
+  # JOB 3: Test Production Deployment (Runs only if Test passes)
+  test-deploy:
     needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and run production containers
+        run: |
+          docker compose -f docker-compose.prod.yml up --build -d
+
+  # JOB 4: Deploy to Production (Runs only if Test passes)
+  deploy:
+    needs: test-deploy
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
