@@ -64,7 +64,7 @@ jobs:
 
       - name: Build and run production containers
         run: |
-          docker compose -f docker-compose.prod.yml up --build -d
+          docker compose -f docker-compose.prod.yml up --build -d --abort-on-container-exit
 
   # JOB 4: Deploy to Production (Runs only if Test passes)
   deploy:
