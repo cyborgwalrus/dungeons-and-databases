@@ -5,10 +5,10 @@ services:
     ipAllowList: []
     maxmemoryPolicy: allkeys-lru
 
-  - type: pserv
+  - type: web
     name: backend
     region: frankfurt
-    plan: starter
+    plan: free
     runtime: docker
     dockerContext: .
     dockerfilePath: backend/Dockerfile
@@ -41,7 +41,7 @@ services:
   - type: web
     name: frontend
     region: frankfurt
-    plan: starter
+    plan: free
     runtime: docker
     dockerContext: frontend
     dockerfilePath: frontend/Dockerfile
@@ -61,4 +61,4 @@ services:
 databases:
   - name: dnd-database
     region: frankfurt
-    plan: basic-256mb
+    plan: free
