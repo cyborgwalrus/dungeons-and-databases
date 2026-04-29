@@ -1,4 +1,4 @@
-name: Test and Publish
+name: Test Publish Deploy
 
 on:
   push:
@@ -9,19 +9,40 @@ permissions:
   contents: write
 
 jobs:
-  test-and-publish:
+  # JOB 1: Run Tests
+  test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-      - name: Run tests and generate coverage report
+
+      - name: Run tests
         run: |
-            docker compose --profile test run --rm backend-tests && \
-            docker compose --profile test run --rm --entrypoint "rm /app/htmlcov/.gitignore" backend-tests
+          docker compose --profile test run --rm backend-tests
+          docker compose --profile test run --rm --entrypoint "rm -f /app/htmlcov/.gitignore" backend-tests
+
+      # We must "upload" the coverage folder so the next job can "download" it
+      - name: Archive code coverage results
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+
+  # JOB 2: Publish Coverage (Runs only if Test passes)
+  publish-docs:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download coverage results
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: ./htmlcov
 
       - name: Upload coverage report to Pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -30,10 +51,18 @@ jobs:
           allow_empty_commit: true
           force_orphan: true
 
+  # JOB 3: Deploy to Production (Runs only if Test passes)
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Push to Production Branch
-        if: success()
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
           git push origin main:production --force
