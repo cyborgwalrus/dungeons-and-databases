@@ -14,7 +14,9 @@ Vanilla JavaScript, HTML and CSS.
 
 ### Backend
 
-RESTFul hypermedia API implemented in Python with Flask, SQLAlchemy and SQLite. OpenAPI documentation available at `/api/docs` and `/api/openapi.yaml`.
+RESTFul hypermedia API implemented in Python with Flask, SQLAlchemy and SQLite. OpenAPI documentation available at `/api/docs`, `/api/openapi.yaml` or the Api Docs button in the frontend login screen.
+
+Backend dependencies can be found in [pyproject.toml](pyproject.toml) and are managed with [uv](https://docs.astral.sh/uv/).
 
 ## Group information
 
@@ -37,7 +39,7 @@ RESTFul hypermedia API implemented in Python with Flask, SQLAlchemy and SQLite. 
 
 1. Install [Docker Compose](https://docs.docker.com/compose/install/).
 2. Run `docker compose up --build` from the repository root to start the backend API and frontend app in development mode with hot reload.
-3. Access the frontend app at `http://localhost:8000` and the backend API at `http://localhost:5000`.
+3. Access the frontend app at `http://localhost:8080` and the backend API at `http://localhost:5000`.
 
 ### Production mode using Docker
 
@@ -45,7 +47,7 @@ Production mode disables hot reload and sets `WIPE_DB_ON_RESTART=false` to persi
 
 1. Install [Docker Compose](https://docs.docker.com/compose/install/).
 2. Run `docker compose -f docker-compose.prod.yml up --build` from the repository root to start the backend API and frontend app in production mode.
-3. Access the frontend app at `http://localhost:8000` and the backend API at `http://localhost:5000`.
+3. Access the frontend app at `http://localhost:8080` and the backend API at `http://localhost:5000`.
 
 ## Code Coverage
 
@@ -55,8 +57,7 @@ Latest code coverage report of the main branch backend API is available at <http
 
 The repository includes the following Github Actions workflows:
 
-*  [coverage.yaml](.github/workflows/coverage.yml) - Runs the backend test suite with coverage reporting (latest report available at <https://cyborgwalrus.github.io/dungeons-and-databases/index.html>)
-*  [plantuml.yml](.github/workflows/plantuml.yml) - Generates and deploys the latest PlantUML diagrams from the `docs/diagrams` folder to Github Pages (latest diagrams available at <https://cyborgwalrus.github.io/dungeons-and-databases/diagrams/>)
+* [coverage.yaml](.github/workflows/coverage.yml) - Runs the backend test suite with coverage reporting and publishes the report to Github Pages.
 
 ## Quick Links
 
