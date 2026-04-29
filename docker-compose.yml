@@ -31,6 +31,12 @@ services:
       - redis
     networks:
       - dnd_network
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/docs').getcode()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   backend-tests:
     build:
