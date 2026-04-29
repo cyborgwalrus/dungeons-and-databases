@@ -1,51 +1,28 @@
+# Source: https://github.com/racklet/render-plantuml-action#usage-example
 name: Render PlantUML Diagrams
-
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - docs/*.puml
-      - .github/workflows/plantuml.yml
-  pull_request:
-    paths:
-      - docs/*.puml
-      - .github/workflows/plantuml.yml
-
-permissions:
-  contents: read
-
+on: [push]
 jobs:
-  render:
+  render_plantuml:
     runs-on: ubuntu-latest
-
+    name: Render PlantUML files
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-
-      - name: Install PlantUML and Graphviz
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y graphviz plantuml
-
-      - name: Render diagrams
-        run: plantuml -tpng docs/*.puml
-
-      - name: Commit and push rendered diagrams
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add docs/*.png
-
-          if git diff --cached --quiet; then
-            echo "No diagram changes to commit."
-          else
-            git commit -m "docs: auto-rendered PlantUML diagrams"
-            git push
-          fi
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Render PlantUML files
+      uses: ghcr.io/racklet/render-plantuml-action@v1
+      id: render
+      with: # Showcasing the default values here
+        formats: 'png'
+        sub-dirs: '.'
+        skip-dirs: '.git'
+        # files: '' # unset, specify "dest-file:src-file" mappings here
+        log-level: 'info'
+    - name: Print the rendered files
+      run: 'echo "The following files were generated: ${{ steps.render.outputs.rendered-files }}"'
+    - uses: EndBug/add-and-commit@v7
+      with:
+        # This "special" author name and email will show up as the GH Actions user/bot in the UI
+        author_name: github-actions
+        author_email: 41898282+github-actions[bot]@users.noreply.github.com
+        message: 'Automatically render PlantUML files'
+        add: "${{ steps.render.outputs.rendered-files }}"
