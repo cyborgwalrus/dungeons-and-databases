@@ -57,7 +57,10 @@ Latest code coverage report of the main branch backend API is available at <http
 
 The repository includes the following Github Actions workflows:
 
-* [coverage.yaml](.github/workflows/coverage.yml) - Runs the backend test suite with coverage reporting and publishes the report to Github Pages.
+* [cicd.yml](.github/workflows/cicd.yml)
+  * Runs the backend test suite
+  * Publishes the code coverage report to Github Pages.
+  * Pushes main branch changes to the Production branch
 
 ## Quick Links
 
