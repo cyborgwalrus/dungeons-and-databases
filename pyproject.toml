@@ -39,3 +39,5 @@ include = ["backend*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--cov=backend --cov-report=html"
