@@ -4,8 +4,13 @@ WORKDIR /usr/share/nginx/html
 
 COPY . /usr/share/nginx/html
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY start-frontend.sh /start-frontend.sh
+
+RUN chmod +x /start-frontend.sh
+
+USER root
 
 EXPOSE 8080
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["/start-frontend.sh"]

@@ -1,9 +1,19 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dnd_postgres
+    environment:
+      - POSTGRES_DB=dnd
+      - POSTGRES_USER=dnd
+      - POSTGRES_PASSWORD=dnd
+    volumes:
+      - dnd_pgdata:/var/lib/postgresql/data
+    networks:
+      - dnd_network
+
   redis:
     image: redis:7-alpine
     container_name: dnd_redis
-    ports:
-      - "6379:6379"
     networks:
       - dnd_network
 
@@ -12,33 +22,18 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: dnd_backend
-    ports:
-      - "5000:5000"
     environment:
       - SECRET_KEY=supersecretdevkey
       - ADMIN_PASSWORD=admin
       - FLASK_ENV=production
       - WIPE_DB_ON_RESTART=false
+      - DATABASE_URL=postgresql+psycopg://dnd:dnd@postgres:5432/dnd
       - CACHE_TYPE=RedisCache
       - CACHE_REDIS_URL=redis://redis:6379/0
       - REDIS_URL=redis://redis:6379/0
-    volumes:
-      - dnd_db:/app/instance
     depends_on:
+      - postgres
       - redis
-    networks:
-      - dnd_network
-
-  adminer:
-    image: adminer:4.8.1
-    container_name: dnd_adminer
-    environment:
-      - ADMIN_PASSWORD=admin
-    volumes:
-      - dnd_db:/app/instance
-      - ./adminer/plugins-enabled:/var/www/html/plugins-enabled:ro
-    depends_on:
-      - backend
     networks:
       - dnd_network
 
@@ -49,8 +44,21 @@ services:
     container_name: dnd_frontend
     ports:
       - "8080:8080"
+    environment:
+      - BACKEND_HOST=backend
+      - BACKEND_PORT=5000
     depends_on:
       - backend
+    networks:
+      - dnd_network
+
+  adminer:
+    image: adminer:4.8.1
+    container_name: dnd_adminer
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+    depends_on:
+      - postgres
     networks:
       - dnd_network
 
@@ -59,5 +67,5 @@ networks:
     driver: bridge
 
 volumes:
-  dnd_db:
+  dnd_pgdata:
     driver: local

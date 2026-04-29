@@ -2,6 +2,7 @@
 set -e
 
 THREAD_COUNT="$(nproc --all)"  # Use all available CPU cores for Gunicorn workers
+BIND_PORT="${PORT:-5000}"
 
 cd "$(dirname "$0")/.."
 
@@ -16,4 +17,4 @@ echo "[start-backend] initializing DB tables"
 uv run flask --app backend.app init-db || true
 
 echo "[start-backend] launching Gunicorn"
-exec uv run gunicorn --bind 0.0.0.0:5000 --workers "${THREAD_COUNT:-4}" backend.app:app
+exec uv run gunicorn --bind 0.0.0.0:"${BIND_PORT}" --workers "${THREAD_COUNT:-4}" backend.app:app

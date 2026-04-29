@@ -49,9 +49,13 @@ def init_config(app: Flask) -> None:
     )
     app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', '').lower() in {'1', 'true', 'yes', 'on'}
 
-    database_path = os.path.join(app.instance_path, 'game.db')
-    os.makedirs(app.instance_path, exist_ok=True)
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
+    database_uri = os.environ.get('DATABASE_URL')
+    if database_uri:
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_uri.replace('postgres://', 'postgresql://', 1)
+    else:
+        database_path = os.path.join(app.instance_path, 'game.db')
+        os.makedirs(app.instance_path, exist_ok=True)
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 

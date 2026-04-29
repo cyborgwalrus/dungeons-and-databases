@@ -1,0 +1,64 @@
+services:
+  - type: keyvalue
+    name: dnd-redis
+    region: frankfurt
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
+
+  - type: pserv
+    name: backend
+    region: frankfurt
+    plan: starter
+    runtime: docker
+    dockerContext: .
+    dockerfilePath: backend/Dockerfile
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: FLASK_ENV
+        value: production
+      - key: WIPE_DB_ON_RESTART
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dnd-database
+          property: connectionString
+      - key: CACHE_TYPE
+        value: RedisCache
+      - key: CACHE_REDIS_URL
+        fromService:
+          name: dnd-redis
+          type: keyvalue
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          name: dnd-redis
+          type: keyvalue
+          property: connectionString
+
+  - type: web
+    name: frontend
+    region: frankfurt
+    plan: starter
+    runtime: docker
+    dockerContext: frontend
+    dockerfilePath: frontend/Dockerfile
+    envVars:
+      - key: BACKEND_HOST
+        fromService:
+          name: backend
+          type: pserv
+          property: host
+      - key: BACKEND_PORT
+        fromService:
+          name: backend
+          type: pserv
+          property: port
+    healthCheckPath: /
+
+databases:
+  - name: dnd-database
+    region: frankfurt
+    plan: basic-256mb

@@ -39,14 +39,27 @@ def test_init_config_sets_runtime_configuration(monkeypatch):
     monkeypatch.setenv('SECRET_KEY', 'config-secret')
     monkeypatch.setenv('AUTH_TOKEN_MAX_AGE_SECONDS', '1234')
     monkeypatch.setenv('FLASK_DEBUG', 'true')
+    monkeypatch.setenv('DATABASE_URL', 'postgresql://example/db')
 
     app_init.init_config(app)
 
     assert app.config['SECRET_KEY'] == 'config-secret'
     assert app.config['AUTH_TOKEN_MAX_AGE_SECONDS'] == 1234
     assert app.config['DEBUG'] is True
-    assert Path(app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')).name == 'game.db'
+    assert app.config['SQLALCHEMY_DATABASE_URI'] == 'postgresql://example/db'
     assert app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] is False
+
+
+def test_init_config_falls_back_to_sqlite_when_database_url_missing(monkeypatch):
+    """init_config should keep using the local sqlite database when no DATABASE_URL exists."""
+    app = Flask(__name__, instance_path=str(Path(app_init.__file__).resolve().parent.parent / 'instance-test'))
+
+    monkeypatch.setenv('SECRET_KEY', 'config-secret')
+    monkeypatch.delenv('DATABASE_URL', raising=False)
+
+    app_init.init_config(app)
+
+    assert Path(app.config['SQLALCHEMY_DATABASE_URI'].replace('sqlite:///', '')).name == 'game.db'
 
 
 def test_init_swagger_loads_template_and_configures_spec(monkeypatch):

@@ -47,7 +47,7 @@ Production mode disables hot reload and sets `WIPE_DB_ON_RESTART=false` to persi
 
 1. Install [Docker Compose](https://docs.docker.com/compose/install/).
 2. Run `docker compose -f docker-compose.prod.yml up --build` from the repository root to start the backend API and frontend app in production mode.
-3. Access the frontend app at `http://localhost:8080` and the backend API at `http://localhost:5000`.
+3. Access the frontend app at `http://localhost:8080`.
 
 ## Code Coverage
 
@@ -58,7 +58,7 @@ Latest code coverage report of the main branch backend API is available at <http
 The repository includes the following Github Actions workflows:
 
 * [cicd.yml](.github/workflows/cicd.yml)
-  * Runs the backend test suite
+  * Runs the backend test suite (stops here if tests fail).
   * Publishes the code coverage report to Github Pages.
   * Pushes main branch changes to the Production branch
 
