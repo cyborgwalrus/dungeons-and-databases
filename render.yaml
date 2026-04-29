@@ -50,12 +50,12 @@ services:
       - key: BACKEND_HOST
         fromService:
           name: backend
-          type: pserv
+          type: web
           property: host
       - key: BACKEND_PORT
         fromService:
           name: backend
-          type: pserv
+          type: web
           property: port
     healthCheckPath: /
 
