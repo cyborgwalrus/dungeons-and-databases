@@ -16,8 +16,14 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Install uv and setup cache
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       - name: Run tests
         run: |
+          export UV_CACHE_DIR=$(uv cache dir)
           docker compose --profile test run --rm backend-tests
           docker compose --profile test run --rm --entrypoint "rm -f /app/htmlcov/.gitignore" backend-tests
 
@@ -59,11 +65,17 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Install uv and setup cache
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v2
 
       - name: Build and run production containers
         run: |
+          export UV_CACHE_DIR=$(uv cache dir)
           docker compose -f docker-compose.prod.yml up --build -d
 
   # JOB 4: Deploy to Production (Runs only if Test passes)
