@@ -2,6 +2,7 @@ services:
   - type: keyvalue
     name: dnd-redis
     region: frankfurt
+    plan: free
     ipAllowList: []
     maxmemoryPolicy: allkeys-lru
 
