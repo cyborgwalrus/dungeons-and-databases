@@ -8,6 +8,8 @@ Browser based dungeon crawler. Equip your character with your best items and del
 
 ## Architecture
 
+![alt text](docs/architecture.png)
+
 ### Frontend
 
 Vanilla JavaScript, HTML and CSS.

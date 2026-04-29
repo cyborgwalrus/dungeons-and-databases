@@ -1,0 +1,43 @@
+@startuml architecture
+title Dungeons and Databases System Architecture
+left to right direction
+skinparam shadowing false
+skinparam componentStyle rectangle
+'skinparam packageStyle rectangle
+'skinparam linetype polyline
+
+actor "User browser" as user
+
+cloud "Ngrok API gateway" as ngrok
+
+package "Locally hosted Docker containers" {
+    component "Ngrok tunnel\ncontainer" as ngrokTunnel
+    
+    package "Frontend Container" {
+        component "Nginx proxy" as nginx
+        component "HTML+JS app" as frontend
+    }
+    
+    package "Backend services" {
+        component "Backend container\nFlask API" as backend
+        component "Redis container\ncache" as redis
+        database "SQLite\ndatabase" as sqlite
+        component "Adminer container\ndatabase UI" as adminer
+    }
+}
+
+user -r-> ngrok : ngrok tunnel public URL
+ngrok --> ngrokTunnel : ngrok tunnel
+ngrokTunnel -l--> nginx : Forward requests
+nginx -> frontend : Static files
+
+nginx -u-> backend : API calls
+nginx --> adminer : /admin/adminer
+nginx --> backend : /admin/dashboard
+adminer --> sqlite : manage database
+sqlite <-u-> backend : read/write data
+redis <-u-> backend : cached data
+
+adminer -l[hidden]-> backend
+
+@enduml
