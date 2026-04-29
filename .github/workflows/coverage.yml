@@ -18,7 +18,7 @@ jobs:
       - name: Run tests and generate coverage report
         run: |
             docker compose --profile test run --rm backend-tests
-            rm htmlcov/.gitignore
+            docker compose --profile test run --rm --entrypoint "rm /app/htmlcov/.gitignore" backend-tests
 
       - name: Upload coverage report to Pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
