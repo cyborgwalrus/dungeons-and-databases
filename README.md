@@ -25,16 +25,14 @@ Backend dependencies can be found in [pyproject.toml](pyproject.toml) and are ma
 * Hla Kay Poe: [hpoe22@student.oulu.fi](mailto:hpoe22@student.oulu.fi)
 * Matias Björklund: [matias.bjorklund@student.oulu.fi](mailto:matias.bjorklund@student.oulu.fi)
 
-## Deployment
+## Deployment using Docker
 
-### Running tests locally
+### Running unit tests with code coverage
 
-1. Install [uv](https://docs.astral.sh/uv/).
-2. Run `uv sync --extra test` from the repository root to initialize the local `.venv` and install runtime and test dependencies.
-3. Run `uv run pytest` from the repository root to execute the backend test suite.
-4. Run `uv run pytest --cov` from the repository root to execute the backend test suite with coverage reporting.
+1. Install [Docker Compose](https://docs.docker.com/compose/install/).
+2. Run `docker compose --profile test run --rm backend-tests` from the repository root to run the backend API test suite in a temporary container. The generated code coverage report is available at `/htmlcov`.
 
-### Development mode with hot reload using Docker
+### Development mode with hot reload
 
 > [!CAUTION]
 > This deployment configuration is preset with `WIPE_DB_ON_RESTART=true`, which wipes the database on every restart. To configure this, change the value of `WIPE_DB_ON_RESTART` in the `docker-compose.yml` file.
@@ -43,7 +41,7 @@ Backend dependencies can be found in [pyproject.toml](pyproject.toml) and are ma
 2. Run `docker compose up --build` from the repository root to start the backend API and frontend app in development mode with hot reload.
 3. Access the frontend app at `http://localhost:8080` and the backend API at `http://localhost:5000`.
 
-### Production mode using Docker
+### Production mode
 
 Production mode disables hot reload and sets `WIPE_DB_ON_RESTART=false` to persist the database across restarts. File mounts from the host are replaced with Docker volumes.
 

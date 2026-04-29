@@ -1,0 +1,13 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir uv
+
+COPY pyproject.toml /app/pyproject.toml
+COPY backend /app/backend
+COPY tests /app/tests
+
+RUN uv sync --no-cache --extra test
+
+CMD ["uv", "run", "pytest", "--cov=backend", "--cov-report=html:/app/htmlcov"]

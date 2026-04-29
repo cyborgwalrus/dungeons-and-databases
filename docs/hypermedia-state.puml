@@ -23,8 +23,8 @@ home --> home : **Character information**\nGET /characters/{characterId}\nGET /c
 home --> home : **Equipment management**\nPOST /characters/{characterId}/equipment/{itemId}\nDELETE /characters/{characterId}/equipment/{itemId}
 
 combat ---> combat : **Attack monster**\nGET /combats/{combatId}/attack
-combat -> home : **Flee combat**\nGET /combats/{combatId}/run
-combat --> victory : **Enemy defeated**
+combat -u> home : **Flee combat**\nGET /combats/{combatId}/run
+combat -d-> victory : **Enemy defeated**
 
 victory -> combat : **Next combat**\nGET /combats/{combatId}/next_combat
 victory --> home : **Go home**\nGET /combats/{combatId}/go_home
