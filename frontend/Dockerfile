@@ -4,7 +4,8 @@ WORKDIR /usr/share/nginx/html
 
 COPY . /usr/share/nginx/html
 
-COPY nginx.conf.template /etc/nginx/templates/default.conf.template
+COPY nginx.conf.template /etc/nginx/templates/nginx.conf.template
+COPY render.conf.template /etc/nginx/templates/render.conf.template
 
 USER root
 COPY start-frontend.sh /app/start-frontend.sh
