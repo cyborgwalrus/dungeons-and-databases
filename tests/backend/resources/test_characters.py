@@ -122,6 +122,29 @@ def test_character_update_validation_and_equipment_round_trip(client, entities):
     assert len(inventory_after_unequip.get_json()) == 7
 
 
+def test_character_equipment_item_post_is_idempotent_for_equipped_item(client, entities):
+    """Allow re-equipping an item that is already equipped on the same character."""
+    user = entities.create_user(username='idempotent-equip', password='secret')
+    character = entities.create_character(user, name='Carrier', seed_loadout=False)
+    token = entities.token_for(user, character)
+
+    starter_item = entities.create_inventory_item(character, 'steel_sword')
+
+    first_response = client.post(
+        f'/api/characters/{character.id}/equipment/{starter_item.id}',
+        headers=entities.auth_headers(token),
+    )
+    assert first_response.status_code == 200
+
+    second_response = client.post(
+        f'/api/characters/{character.id}/equipment/{starter_item.id}',
+        headers=entities.auth_headers(token),
+    )
+    assert second_response.status_code == 200
+    assert second_response.get_json()['message'] == 'Item already equipped'
+    assert second_response.get_json()['item']['id'] == starter_item.id
+
+
 def test_character_equipment_actions_require_home_state(client, entities):
     """Block equip and unequip actions once the character leaves home."""
     user = entities.create_user(username='combat-lock', password='secret')

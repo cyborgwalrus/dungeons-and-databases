@@ -183,6 +183,20 @@ class CharacterEquipmentItemResource(Resource):
             return {'error': 'Equipment can only be changed in home state'}, 409
 
         if item.is_equipped:
+            equipped_owner = item.equipment.character_id if item.equipment else None
+            if equipped_owner == character.id:
+                db.session.expire(character)
+                return {
+                    'message': 'Item already equipped',
+                    'item': inject_response_links(
+                        item.to_response().model_dump(),
+                        user_id=item.user_id,
+                        character_id=character.id,
+                        character_state=character.state,
+                        equipped=True,
+                    ),
+                    'character': inject_response_links(character.to_response().model_dump()),
+                }
             return {'error': 'Item not found in inventory'}, 404
 
         error_response = equip_item(character, item)
