@@ -11,4 +11,5 @@ sed \
   -e "s/__BACKEND_PORT__/${BACKEND_PORT}/g" \
   /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
 
+echo "[start-frontend] starting with BACKEND_HOST=${BACKEND_HOST}, BACKEND_PORT=${BACKEND_PORT}, PORT=${PORT}"
 exec nginx -g 'daemon off;'

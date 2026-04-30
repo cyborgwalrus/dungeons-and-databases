@@ -17,5 +17,5 @@ fi
 echo "[start-backend] initializing DB tables"
 flask --app backend.app init-db || true
 
-echo "[start-backend] launching Gunicorn"
+echo "[start-backend] launching Gunicorn, binding to port ${BIND_PORT} with ${THREAD_COUNT} workers"
 exec gunicorn --bind 0.0.0.0:"${BIND_PORT}" --workers "${THREAD_COUNT:-4}" backend.app:app
