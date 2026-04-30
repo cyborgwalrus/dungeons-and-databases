@@ -1,15 +1,26 @@
 #!/bin/sh
 set -eu
 
+
+
+PORT="${PORT}"
+BACKEND_PORT="${BACKEND_PORT}"
+
+
+# trickery needed to make the same script and nginx work for both compose and render cloud
+#################################################################
+if ! echo "$BACKEND_HOST" | grep -q "\."; then
+  FULL_BACKEND_HOST="${BACKEND_HOST}.render.local"
+else
+  FULL_BACKEND_HOST="${BACKEND_HOST}"
+fi
+
 DNS_RESOLVER=$(awk '/nameserver/ {print $2; exit}' /etc/resolv.conf)
 
 if [ -z "$DNS_RESOLVER" ]; then
     DNS_RESOLVER="8.8.8.8"
 fi
-
-PORT="${PORT}"
-BACKEND_HOST="${BACKEND_HOST}"
-BACKEND_PORT="${BACKEND_PORT}"
+##############################################################
 
 sed \
   -e "s/__PORT__/${PORT}/g" \
