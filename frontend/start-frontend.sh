@@ -6,9 +6,6 @@ BACKEND_HOST="${BACKEND_HOST}"
 BACKEND_PORT="${BACKEND_PORT}"
 BACKEND_API_BASE="${BACKEND_API_BASE:-/api}"
 
-cat > /usr/share/nginx/html/runtime-config.js <<EOF
-window.__API_BASE__ = "${BACKEND_API_BASE}";
-EOF
 
 sed \
   -e "s/__PORT__/${PORT}/g" \
