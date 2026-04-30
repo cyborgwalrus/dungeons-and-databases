@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**.md'
+      - '.gitignore'
+      - 'docs/**'
+      - 'LICENSE'
 
 permissions:
   contents: write
@@ -76,7 +81,7 @@ jobs:
       - name: Build and run production containers
         run: |
           export UV_CACHE_DIR=$(uv cache dir)
-          docker compose -f docker-compose.prod.yml up --build -d
+          docker compose -f docker-compose.prod.yml up --build -d --wait
 
   # JOB 4: Deploy to Production (Runs only if Test passes)
   deploy:
