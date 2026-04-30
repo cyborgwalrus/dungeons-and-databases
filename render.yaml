@@ -7,7 +7,7 @@ services:
     maxmemoryPolicy: allkeys-lru
 
   - type: web
-    name: backend
+    name: dnd-backend
     region: frankfurt
     plan: free
     runtime: docker
@@ -40,7 +40,7 @@ services:
           property: connectionString
 
   - type: web
-    name: frontend
+    name: dungeons-and-databases
     region: frankfurt
     plan: free
     runtime: docker
