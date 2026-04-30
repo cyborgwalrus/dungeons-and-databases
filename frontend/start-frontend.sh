@@ -1,6 +1,7 @@
 #!/bin/sh
 set -eu
 
+RENDER="${RENDER:-false}"
 PORT="${PORT}"
 BACKEND_API_BASE="${BACKEND_API_BASE:-/api}"
 
