@@ -1,3 +1,4 @@
+import { API_BASE } from '../api.js';
 import { buildScreenShell } from '../ui.js';
 
 /**
@@ -74,13 +75,13 @@ export async function renderLogin(root, deps) {
       state.currentUser = res.data.user;
       navigateTo('/character-select');
     } else {
-      messageEl.textContent = res.data?.message || fallbackMessage;
+      messageEl.textContent = res.data?.message || res.data?.error || fallbackMessage;
     }
   }
 
   document.getElementById('signin-btn').addEventListener('click', () => submitAuth('/login/signin', 'Sign in failed'));
   document.getElementById('signup-btn').addEventListener('click', () => submitAuth('/login/signup', 'Sign up failed'));
   document.getElementById('api-docs-link').addEventListener('click', () => {
-    window.open('/api/docs', '_blank', 'noreferrer');
+    window.open(`${API_BASE}/docs`, '_blank', 'noreferrer');
   });
 }

@@ -2,7 +2,8 @@
 
 from pathlib import Path
 
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, jsonify, redirect, send_from_directory
+from flask_cors import CORS
 from flask_restful import Api
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
@@ -29,6 +30,7 @@ basedir = Path(__file__).resolve().parent
 init_config(app)
 db.init_app(app)
 init_cache(app)
+CORS(app, resources={r"/api/*": {"origins": "*"}})
 api = Api(app, prefix='/api')
 init_converters(app)
 init_swagger(app)
@@ -40,6 +42,12 @@ def handle_http_exception(error):
     response = jsonify({'error': error.description or error.name})
     response.status_code = error.code or 500
     return response
+
+
+@app.get('/')
+def index():
+    """Redirect direct backend visits to the API docs."""
+    return redirect('/api/docs', code=302)
 
 
 @app.get('/api/openapi.yaml')

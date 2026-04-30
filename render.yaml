@@ -13,6 +13,7 @@ services:
     runtime: docker
     dockerContext: .
     dockerfilePath: backend/Dockerfile
+    healthCheckPath: /api/docs
     envVars:
       - key: SECRET_KEY
         generateValue: true
@@ -47,10 +48,18 @@ services:
     dockerContext: frontend
     dockerfilePath: frontend/Dockerfile
     envVars:
+      - key: BACKEND_API_BASE
+        value: https://dnd-backend-6ymc.onrender.com/api
       - key: BACKEND_HOST
-        value: dnd-backend
+        fromService:
+          name: dnd-backend
+          type: web
+          property: host
       - key: BACKEND_PORT
-        value: 10000
+        fromService:
+          name: dnd-backend
+          type: web
+          property: port
     healthCheckPath: /
 
 databases:
