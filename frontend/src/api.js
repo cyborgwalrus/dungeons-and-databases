@@ -1,4 +1,4 @@
-export const API_BASE = '/api';
+export const API_BASE = window.__API_BASE__ || '/api';
 const AUTH_TOKEN_KEY = 'dnd.auth.token';
 
 /** Return the stored auth token, or null when none exists. */

@@ -48,16 +48,8 @@ services:
     dockerContext: frontend
     dockerfilePath: frontend/Dockerfile
     envVars:
-      - key: BACKEND_HOST
-        fromService:
-          name: dnd-backend
-          type: web
-          property: host
-      - key: BACKEND_PORT
-        fromService:
-          name: dnd-backend
-          type: web
-          property: port
+      - key: BACKEND_API_BASE
+        value: https://dnd-backend-6ymc.onrender.com/api
     healthCheckPath: /
 
 databases:

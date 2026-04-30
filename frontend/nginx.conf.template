@@ -4,68 +4,13 @@ server {
   root /usr/share/nginx/html;
   index index.html;
 
+  location = /runtime-config.js {
+    alias /tmp/runtime-config.js;
+    default_type application/javascript;
+  }
+
   resolver 127.0.0.11 8.8.8.8 valid=30s ipv6=off;
   resolver_timeout 5s;
-
-  set $backend_url http://__BACKEND_HOST__:__BACKEND_PORT__;
-
-  proxy_http_version 1.1;
-  proxy_set_header Host $host;
-  proxy_set_header X-Real-IP $remote_addr;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
-
-  location /api/ {
-    proxy_pass $backend_url;
-    proxy_connect_timeout 60s;
-    proxy_read_timeout 60s;
-    #access_log off;
-  }
-
-  location /apispec_1.json {
-    proxy_pass $backend_url;
-  }
-
-  location /flasgger_static/ {
-    proxy_pass $backend_url;
-  }
-
-  location = /admin {
-    return 302 /admin/dashboard/;
-  }
-
-  location = /admin/ {
-    return 302 /admin;
-  }
-
-  location = /admin/dashboard {
-    return 301 /admin/dashboard/;
-  }
-
-  location ^~ /admin/dashboard/ {
-    proxy_pass $backend_url;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Prefix /admin/dashboard;
-  }
-
-  location = /admin/adminer {
-    return 301 /admin/adminer/;
-  }
-
-  location ^~ /admin/adminer/ {
-    proxy_pass $backend_url;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-Prefix /admin/adminer;
-    proxy_redirect / /admin/adminer/;
-  }
 
   location / {
     try_files $uri $uri/ /index.html;
