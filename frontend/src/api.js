@@ -1,4 +1,4 @@
-export const API_BASE = 'https://dnd-backend-6ymc.onrender.com/api';
+export const API_BASE = '/api';
 const AUTH_TOKEN_KEY = 'dnd.auth.token';
 
 /** Return the stored auth token, or null when none exists. */

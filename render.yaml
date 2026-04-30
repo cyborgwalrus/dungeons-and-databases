@@ -47,6 +47,17 @@ services:
     runtime: docker
     dockerContext: frontend
     dockerfilePath: frontend/Dockerfile
+    envVars:
+      - key: BACKEND_HOST
+        fromService:
+          name: dnd-backend
+          type: web
+          property: host
+      - key: BACKEND_PORT
+        fromService:
+          name: dnd-backend
+          type: web
+          property: port
     healthCheckPath: /
 
 databases:
