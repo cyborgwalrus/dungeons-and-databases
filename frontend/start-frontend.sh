@@ -15,7 +15,7 @@ fi
 
 if [ "${RENDER:-}" = "true" ]; then
     echo "[start-frontend] Render environment detected. Using public proxy template."
-    BACKEND_URL="${BACKEND_URL:-"https://${BACKEND_HOST}.onrender.com"}"
+    BACKEND_URL="${BACKEND_URL:-"${BACKEND_HOST}.onrender.com"}"
     TEMPLATE_FILE="/etc/nginx/templates/render.conf.template"
 else
     echo "[start-frontend] Local environment detected. Using internal proxy template."
