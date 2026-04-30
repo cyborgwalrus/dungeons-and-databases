@@ -2,8 +2,7 @@
 
 from pathlib import Path
 
-from flask import Flask, jsonify, redirect, send_from_directory
-from flask_cors import CORS
+from flask import Flask, jsonify, redirect, request, send_from_directory
 from flask_restful import Api
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.exceptions import HTTPException
@@ -30,7 +29,6 @@ basedir = Path(__file__).resolve().parent
 init_config(app)
 db.init_app(app)
 init_cache(app)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
 api = Api(app, prefix='/api')
 init_converters(app)
 init_swagger(app)
@@ -41,6 +39,25 @@ def handle_http_exception(error):
     """Return JSON for HTTP errors raised during routing or handler execution."""
     response = jsonify({'error': error.description or error.name})
     response.status_code = error.code or 500
+    return response
+
+
+@app.before_request
+def handle_cors_preflight():
+    """Allow browser CORS preflight requests to complete without auth."""
+    if request.method == 'OPTIONS':
+        return ('', 204)
+
+
+@app.after_request
+def add_cors_headers(response):
+    """Attach permissive CORS headers to API responses."""
+    if request.path.startswith('/api/'):
+        origin = request.headers.get('Origin')
+        response.headers['Access-Control-Allow-Origin'] = origin or '*'
+        response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, PATCH, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Authorization, Content-Type, Accept, X-Requested-With'
+        response.headers['Vary'] = 'Origin'
     return response
 
 
