@@ -31,13 +31,14 @@ services:
       - CACHE_TYPE=RedisCache
       - CACHE_REDIS_URL=redis://redis:6379/0
       - REDIS_URL=redis://redis:6379/0
+      - PORT=10000
     depends_on:
       - postgres
       - redis
     networks:
       - dnd_network
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/api/docs').getcode()"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/api/docs').getcode()"]
       interval: 10s
       timeout: 5s
       retries: 5
