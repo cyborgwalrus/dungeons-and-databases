@@ -52,8 +52,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - BACKEND_HOST=backend
-      - BACKEND_PORT=10000
+      - BACKEND_API_BASE=http://localhost:10000/api
       - PORT=8080
     depends_on:
       - backend
