@@ -27,14 +27,27 @@ export function getItemDragData(event) {
   }
 }
 
+function normalizeActionPath(actionHref, fallbackPath) {
+  if (typeof actionHref === 'string' && actionHref.trim()) {
+    return actionHref.startsWith('/api/') ? actionHref.slice(4) : actionHref;
+  }
+  return fallbackPath;
+}
+
 /** Equip an inventory item through the API and refresh the UI. */
-export async function equipInventoryItem(opts, itemId) {
+export async function equipInventoryItem(opts, itemRef) {
   const { fetchJson } = opts;
-  if (!itemId) return;
+  if (!itemRef) return;
   const characterId = getCharacterId();
   if (!characterId) return;
 
-  await fetchJson(`/characters/${characterId}/equipment/${Number(itemId)}`, {
+  const itemId = typeof itemRef === 'object' ? itemRef.itemId ?? itemRef.id : itemRef;
+  const actionPath = normalizeActionPath(
+    typeof itemRef === 'object' ? itemRef.actionHref : null,
+    `/characters/${characterId}/equipment/${Number(itemId)}`,
+  );
+
+  await fetchJson(actionPath, {
     method: 'POST',
   });
 
@@ -42,13 +55,19 @@ export async function equipInventoryItem(opts, itemId) {
 }
 
 /** Unequip an item through the API and refresh the UI. */
-export async function unequipInventoryItem(opts, itemId) {
+export async function unequipInventoryItem(opts, itemRef) {
   const { fetchJson } = opts;
-  if (!itemId) return;
+  if (!itemRef) return;
   const characterId = getCharacterId();
   if (!characterId) return;
 
-  await fetchJson(`/characters/${characterId}/equipment/${Number(itemId)}`, {
+  const itemId = typeof itemRef === 'object' ? itemRef.itemId ?? itemRef.id : itemRef;
+  const actionPath = normalizeActionPath(
+    typeof itemRef === 'object' ? itemRef.actionHref : null,
+    `/characters/${characterId}/equipment/${Number(itemId)}`,
+  );
+
+  await fetchJson(actionPath, {
     method: 'DELETE'
   });
 
