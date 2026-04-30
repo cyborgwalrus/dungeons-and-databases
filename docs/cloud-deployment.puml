@@ -1,0 +1,56 @@
+@startuml deployment
+title Dungeons and Databases CI/CD to Render Cloud Deployment
+'left to right direction
+skinparam shadowing false
+skinparam componentStyle rectangle
+'skinparam packageStyle rectangle
+'skinparam linetype polyline
+
+together{
+actor "Developer" as dev
+actor "End user" as endUser
+actor "API client" as apiClient
+}
+
+
+cloud Github {
+	cloud "**GitHub**\nMain branch" as github
+	cloud "**GitHub**\nProduction branch" as githubProd
+
+	package "GitHub Actions pipeline" as githubActions {
+		component "**cicd.yml**\n(main pushes)" as cicd
+		component "**docs-to-prod.yml**\n(docs-only pushes)" as docsOnly
+		component "**Unit tests**" as unitTests
+		component "**Publish coverage**\nto GitHub Pages" as publishCoverage
+		component "**Integration tests**" as integrationTests
+	}
+}
+
+
+cloud "Render Cloud" as renderDeployment {
+	component "**Frontend web service**\nfrom frontend Dockerfile" as renderFrontend
+	component "**Backend web service**\nfrom backend Dockerfile" as renderBackend
+	database "**Redis service**" as renderRedis
+	database "**PostgreSQL service**" as renderDb
+}
+
+
+dev --> github : push to main
+github --> cicd : code changed
+github --> docsOnly : only docs changed
+docsOnly --> githubProd : docs changes
+
+cicd --> unitTests : run backend unit tests
+unitTests --> publishCoverage : on success
+unitTests --> integrationTests : on success
+integrationTests --> githubProd : code changes
+githubProd -r-> renderDeployment : Render auto-deploy
+
+
+endUser --> renderFrontend : browse deployed app
+apiClient --> renderBackend : API requests and Docs
+renderFrontend --> renderBackend : API requests
+renderBackend --> renderDb : read/write data
+renderBackend --> renderRedis : cache
+
+@enduml
