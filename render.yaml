@@ -49,12 +49,12 @@ services:
     envVars:
       - key: BACKEND_HOST
         fromService:
-          name: backend
+          name: dnd-backend
           type: web
           property: host
       - key: BACKEND_PORT
         fromService:
-          name: backend
+          name: dnd-backend
           type: web
           property: port
     healthCheckPath: /
