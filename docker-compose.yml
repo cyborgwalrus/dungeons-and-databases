@@ -14,7 +14,7 @@ services:
     container_name: dnd_backend
     command: /app/backend/start-backend.sh
     ports:
-      - "5000:5000"
+      - "10000:10000"
     environment:
       - SECRET_KEY=supersecretdevkey
       - ADMIN_PASSWORD=admin
