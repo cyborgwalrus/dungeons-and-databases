@@ -34,6 +34,18 @@ function normalizeActionPath(actionHref, fallbackPath) {
   return fallbackPath;
 }
 
+async function resolveFreshItemActionHref(fetchJson, itemId, actionKey, fallbackPath) {
+  if (!itemId) return fallbackPath;
+
+  const itemResponse = await fetchJson(`/items/${Number(itemId)}`);
+  if (!itemResponse.ok) {
+    return null;
+  }
+
+  const freshHref = itemResponse.data?._links?.[actionKey]?.href;
+  return normalizeActionPath(freshHref, fallbackPath);
+}
+
 /** Equip an inventory item through the API and refresh the UI. */
 export async function equipInventoryItem(opts, itemRef) {
   const { fetchJson } = opts;
@@ -42,10 +54,18 @@ export async function equipInventoryItem(opts, itemRef) {
   if (!characterId) return;
 
   const itemId = typeof itemRef === 'object' ? itemRef.itemId ?? itemRef.id : itemRef;
-  const actionPath = normalizeActionPath(
-    typeof itemRef === 'object' ? itemRef.actionHref : null,
-    `/characters/${characterId}/equipment/${Number(itemId)}`,
+  const fallbackPath = `/characters/${characterId}/equipment/${Number(itemId)}`;
+  const actionPath = await resolveFreshItemActionHref(
+    fetchJson,
+    itemId,
+    'equip',
+    normalizeActionPath(
+      typeof itemRef === 'object' ? itemRef.actionHref : null,
+      fallbackPath,
+    ),
   );
+
+  if (!actionPath) return;
 
   await fetchJson(actionPath, {
     method: 'POST',
@@ -62,10 +82,18 @@ export async function unequipInventoryItem(opts, itemRef) {
   if (!characterId) return;
 
   const itemId = typeof itemRef === 'object' ? itemRef.itemId ?? itemRef.id : itemRef;
-  const actionPath = normalizeActionPath(
-    typeof itemRef === 'object' ? itemRef.actionHref : null,
-    `/characters/${characterId}/equipment/${Number(itemId)}`,
+  const fallbackPath = `/characters/${characterId}/equipment/${Number(itemId)}`;
+  const actionPath = await resolveFreshItemActionHref(
+    fetchJson,
+    itemId,
+    'unequip',
+    normalizeActionPath(
+      typeof itemRef === 'object' ? itemRef.actionHref : null,
+      fallbackPath,
+    ),
   );
+
+  if (!actionPath) return;
 
   await fetchJson(actionPath, {
     method: 'DELETE'
