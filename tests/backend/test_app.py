@@ -70,3 +70,15 @@ def test_app_http_exception_handler_and_openapi_endpoint(app):
     openapi_response = client.get('/api/openapi.yaml')
     assert openapi_response.status_code == 200
     assert openapi_response.mimetype == 'text/yaml'
+
+
+def test_app_docs_page_renders_swagger_ui(app):
+    """The Swagger UI page should render with a valid JS config."""
+    client = app.test_client()
+    docs_response = client.get('/api/docs')
+
+    assert docs_response.status_code == 200
+    body = docs_response.get_data(as_text=True)
+    assert 'SwaggerUIBundle' in body
+    assert 'url: "/api/apispec_1.json"' in body
+    assert 'let auth_config = {};' in body

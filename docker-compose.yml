@@ -1,4 +1,14 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dnd_postgres
+    environment:
+      - POSTGRES_DB=dnd
+      - POSTGRES_USER=dnd
+      - POSTGRES_PASSWORD=dnd
+    networks:
+      - dnd_network
+
   redis:
     image: redis:7-alpine
     container_name: dnd_redis
@@ -20,15 +30,15 @@ services:
       - ADMIN_PASSWORD=admin
       - FLASK_ENV=development
       - FLASK_DEBUG=1
-      - WIPE_DB_ON_RESTART=true
+      - DATABASE_URL=postgresql+psycopg://dnd:dnd@postgres:5432/dnd
       - CACHE_TYPE=RedisCache
       - CACHE_REDIS_URL=redis://redis:6379/0
       - REDIS_URL=redis://redis:6379/0
       - PORT=10000
     volumes:
       - ./backend:/app/backend
-      - dnd_db:/app/instance
     depends_on:
+      - postgres
       - redis
     networks:
       - dnd_network
@@ -56,20 +66,6 @@ services:
     profiles:
       - test
 
-  adminer:
-    image: adminer:4.8.1
-    container_name: dnd_adminer
-    environment:
-      - ADMIN_PASSWORD=admin
-    user: root
-    volumes:
-      - dnd_db:/app/instance
-      - ./backend/adminer/plugins-enabled:/var/www/html/plugins-enabled:ro
-    depends_on:
-      - backend
-    networks:
-      - dnd_network
-
   frontend:
     build:
       context: ./frontend
@@ -88,21 +84,16 @@ services:
     networks:
       - dnd_network
 
-  ngrok:
-    image: ngrok/ngrok:alpine
-    container_name: dnd_ngrok
-    command: http frontend:8080 --domain=indivisible-hermitically-soren.ngrok-free.dev
+  adminer:
+    image: adminer:4.8.1
+    container_name: dnd_adminer
     environment:
-      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+      - ADMINER_DEFAULT_SERVER=postgres
     depends_on:
-      - frontend
+      - postgres
     networks:
       - dnd_network
 
 networks:
   dnd_network:
     driver: bridge
-
-volumes:
-  dnd_db:
-    driver: local

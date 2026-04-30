@@ -27,8 +27,7 @@ class _Database:
         if self.engine is not None:
             self.engine.dispose()
 
-        connect_args = {'check_same_thread': False} if database_uri.startswith('sqlite') else {}
-        self.engine = create_engine(database_uri, connect_args=connect_args)
+        self.engine = create_engine(database_uri)
         self.session = scoped_session(
             sessionmaker(bind=self.engine, class_=Session, expire_on_commit=False)
         )

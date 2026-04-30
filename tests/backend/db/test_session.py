@@ -57,12 +57,12 @@ def test_session_init_app_replaces_previous_bind_and_cleans_on_teardown(monkeypa
     new_engine = SimpleNamespace(dispose=_counter_callback(calls, 'new_dispose'))
     new_session = SimpleNamespace(remove=_counter_callback(calls, 'new_remove'))
 
-    captured = {'uri': None, 'connect_args': None}
+    captured = {'uri': None, 'kwargs': None}
     sessionmaker_kwargs: dict[str, object] = {}
 
-    def fake_create_engine(uri, connect_args):
+    def fake_create_engine(uri, **kwargs):
         captured['uri'] = uri
-        captured['connect_args'] = connect_args
+        captured['kwargs'] = kwargs
         return new_engine
 
     def fake_sessionmaker(**kwargs):
@@ -82,7 +82,7 @@ def test_session_init_app_replaces_previous_bind_and_cleans_on_teardown(monkeypa
     assert calls['old_remove'] == 1
     assert calls['old_dispose'] == 1
     assert captured['uri'] == 'postgresql://example/db'
-    assert captured['connect_args'] == {}
+    assert captured['kwargs'] == {}
     assert sessionmaker_kwargs['bind'] is new_engine
     assert sessionmaker_kwargs['expire_on_commit'] is False
     assert database.session is new_session
@@ -95,16 +95,17 @@ def test_session_init_app_replaces_previous_bind_and_cleans_on_teardown(monkeypa
     assert calls['new_dispose'] == 0
 
 
-def test_session_init_app_uses_sqlite_connect_args(monkeypatch):
-    """SQLite URIs should force check_same_thread=False when creating engine."""
+def test_session_init_app_passes_database_uri_directly(monkeypatch):
+    """init_app should hand the configured database URI to SQLAlchemy unchanged."""
     app = Flask(__name__)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tmp/test.db'
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://example/db'
     database = _Database()
 
-    captured = {'connect_args': None}
+    captured = {'uri': None, 'kwargs': None}
 
-    def fake_create_engine(_uri, connect_args):
-        captured['connect_args'] = connect_args
+    def fake_create_engine(uri, **kwargs):
+        captured['uri'] = uri
+        captured['kwargs'] = kwargs
         return SimpleNamespace(dispose=lambda: None)
 
     monkeypatch.setattr(session_module, 'create_engine', fake_create_engine)
@@ -117,4 +118,5 @@ def test_session_init_app_uses_sqlite_connect_args(monkeypatch):
 
     database.init_app(app)
 
-    assert captured['connect_args'] == {'check_same_thread': False}
+    assert captured['uri'] == 'postgresql://example/db'
+    assert captured['kwargs'] == {}

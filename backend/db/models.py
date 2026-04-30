@@ -239,7 +239,6 @@ class Combat(ModelBase, table=True):
     """Volatile player combat state for a dungeon run."""
 
     __tablename__: ClassVar[str] = 'combat'
-    __table_args__ = {'sqlite_autoincrement': True}
 
     id: int | None = Field(default=None, primary_key=True)
     character_id: int = Field(foreign_key='character.id', index=True, unique=True)

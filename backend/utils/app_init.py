@@ -50,12 +50,10 @@ def init_config(app: Flask) -> None:
     app.config['DEBUG'] = os.environ.get('FLASK_DEBUG', '').lower() in {'1', 'true', 'yes', 'on'}
 
     database_uri = os.environ.get('DATABASE_URL')
-    if database_uri:
-        app.config['SQLALCHEMY_DATABASE_URI'] = database_uri.replace('postgres://', 'postgresql://', 1)
-    else:
-        database_path = os.path.join(app.instance_path, 'game.db')
-        os.makedirs(app.instance_path, exist_ok=True)
-        app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{database_path}'
+    if not database_uri:
+        raise RuntimeError('DATABASE_URL must be set')
+
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_uri.replace('postgres://', 'postgresql://', 1)
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 
@@ -65,12 +63,14 @@ def init_swagger(app: Flask) -> Swagger:
         'title': 'Dungeons & Databases API',
         'uiversion': 3,
         'openapi': '3.0.3',
+        'auth': {},
     }
 
     swagger_path = Path(app.root_path) / 'openapi.yaml'
     swagger_template = yaml.safe_load(swagger_path.read_text(encoding='utf-8'))
     swagger_config = {
         'headers': [],
+        'auth': {},
         'specs': [
             {
                 'endpoint': 'apispec_1',

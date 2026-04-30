@@ -4,11 +4,16 @@ from __future__ import annotations
 
 import os
 from types import SimpleNamespace
+from pathlib import Path
 
 import pytest
 from werkzeug.security import generate_password_hash
 
 os.environ.setdefault('SECRET_KEY', 'test-secret-key')
+os.environ.setdefault(
+    'DATABASE_URL',
+    f"sqlite:///{(Path(__file__).resolve().parents[2] / 'backend' / 'instance-test' / 'test-bootstrap.db').as_posix()}",
+)
 
 from backend.app import app as flask_app
 from backend.db import seed_reference_data

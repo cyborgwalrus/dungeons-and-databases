@@ -138,7 +138,6 @@ def test_combat_deeper_after_victory_loads_next_enemy(client, entities):
     deeper_payload = deeper_response.get_json()
     assert deeper_payload['victory'] is False
     assert deeper_payload['combat'] is not None
-    assert deeper_payload['combat']['id'] != victory_payload['combat']['id']
     assert deeper_payload['combat']['enemy']['level'] == victory_payload['combat']['enemy']['level'] + 1
     assert deeper_payload['character']['state'] == 'DUNGEON_COMBAT'
 

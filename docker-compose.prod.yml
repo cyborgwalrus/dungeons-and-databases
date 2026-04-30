@@ -26,7 +26,6 @@ services:
       - SECRET_KEY=supersecretdevkey
       - ADMIN_PASSWORD=admin
       - FLASK_ENV=production
-      - WIPE_DB_ON_RESTART=false
       - DATABASE_URL=postgresql+psycopg://dnd:dnd@postgres:5432/dnd
       - CACHE_TYPE=RedisCache
       - CACHE_REDIS_URL=redis://redis:6379/0
