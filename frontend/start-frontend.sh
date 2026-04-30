@@ -15,8 +15,7 @@ fi
 
 sed \
   -e "s/__PORT__/${PORT}/g" \
-  -e "s/__BACKEND_HOST__/${
-  BACKEND_HOST}/g" \
+  -e "s/__BACKEND_HOST__/${BACKEND_HOST}/g" \
   -e "s/__BACKEND_PORT__/${BACKEND_PORT}/g" \
   -e "s/__DNS_RESOLVER__/${DNS_RESOLVER}/g" \
   /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf
