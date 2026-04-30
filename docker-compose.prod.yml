@@ -54,6 +54,7 @@ services:
     environment:
       - BACKEND_HOST=backend
       - BACKEND_PORT=10000
+      - PORT=8080
     depends_on:
       - backend
     networks:
