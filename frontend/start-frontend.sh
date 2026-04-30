@@ -2,7 +2,7 @@
 set -eu
 
 RENDER="${RENDER:-false}"
-PORT="${PORT}"
+PORT="${PORT:-8080}"
 BACKEND_API_BASE="${BACKEND_API_BASE:-/api}"
 
 if [ "${RENDER}" = "true" ]; then
