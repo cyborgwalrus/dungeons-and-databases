@@ -5,24 +5,25 @@ server {
   index index.html;
 
   proxy_http_version 1.1;
-  proxy_set_header Host $host;
+  proxy_set_header Host dnd-backend-6ymc.onrender.com;
   proxy_set_header X-Real-IP $remote_addr;
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   proxy_set_header X-Forwarded-Proto $scheme;
+  proxy_ssl_server_name on;
 
   location /api/ {
-    proxy_pass http://__BACKEND_HOST__:__BACKEND_PORT__;
+    proxy_pass https://__BACKEND_PUBLIC_URL__;
     proxy_connect_timeout 60s;
     proxy_read_timeout 60s;
     #access_log off;
   }
 
   location /apispec_1.json {
-    proxy_pass http://__BACKEND_HOST__:__BACKEND_PORT__;
+    proxy_pass https://__BACKEND_PUBLIC_URL__;
   }
 
   location /flasgger_static/ {
-    proxy_pass http://__BACKEND_HOST__:__BACKEND_PORT__;
+    proxy_pass https://__BACKEND_PUBLIC_URL__;
   }
 
   location = /admin {
@@ -38,7 +39,7 @@ server {
   }
 
   location ^~ /admin/dashboard/ {
-    proxy_pass http://__BACKEND_HOST__:__BACKEND_PORT__;
+    proxy_pass https://__BACKEND_PUBLIC_URL__;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
@@ -52,7 +53,7 @@ server {
   }
 
   location ^~ /admin/adminer/ {
-    proxy_pass http://__BACKEND_HOST__:__BACKEND_PORT__;
+    proxy_pass https://__BACKEND_PUBLIC_URL__;
     proxy_http_version 1.1;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
