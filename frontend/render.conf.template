@@ -16,7 +16,7 @@ server {
 
   location /api/ {
     
-    proxy_pass $backend_url/;
+    proxy_pass $backend_url;
     proxy_ssl_server_name on;
 
 
