@@ -10,6 +10,8 @@ COPY backend /app/backend
 
 RUN chmod +x /app/backend/start-backend.sh
 
+ENV PATH="/app/.venv/bin:$PATH"
+
 EXPOSE 10000
 
 # Default to running the startup script which handles DB init/seed and launches Gunicorn
