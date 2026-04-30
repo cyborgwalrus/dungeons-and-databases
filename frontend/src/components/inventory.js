@@ -88,7 +88,7 @@ export function renderInventoryGrid(opts) {
     },
     onDrop: async (payload) => {
       try {
-        await unequipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, payload.itemId);
+        await unequipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, payload);
       } catch (error) {
         console.error('Failed to unequip item from drag and drop', error);
       }
@@ -122,19 +122,19 @@ export function renderInventoryGrid(opts) {
         itemId: Number(card.getAttribute('data-item-id')),
         source: card.getAttribute('data-item-source') || 'inventory',
         slot_type: card.getAttribute('data-item-slot-type') || '',
-          actionHref: card.getAttribute('data-item-equip-href') || '',
+        actionHref: card.getAttribute('data-item-equip-href') || '',
       }
     });
 
     card.addEventListener('dblclick', async event => {
       event.preventDefault();
       event.stopPropagation();
-        const itemRef = {
-          itemId: Number(card.getAttribute('data-item-id')),
-          actionHref: card.getAttribute('data-item-equip-href') || '',
-        };
+      const itemRef = {
+        itemId: Number(card.getAttribute('data-item-id')),
+        actionHref: card.getAttribute('data-item-equip-href') || '',
+      };
       try {
-          await equipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemRef);
+        await equipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemRef);
       } catch (error) {
         console.error('Failed to equip item from double click', error);
       }
