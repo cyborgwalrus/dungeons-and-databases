@@ -38,7 +38,7 @@ services:
     networks:
       - dnd_network
     healthcheck:
-      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:${PORT}/api/docs').getcode()"]
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:10000/api/docs').getcode()"]
       interval: 10s
       timeout: 5s
       retries: 5
