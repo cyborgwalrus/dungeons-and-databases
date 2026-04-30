@@ -10,7 +10,7 @@ BACKEND_PORT="${BACKEND_PORT}"
 # trickery needed to make the same script and nginx work for both compose and render cloud
 #################################################################
 if ! echo "$BACKEND_HOST" | grep -q "\."; then
-  FULL_BACKEND_HOST="${BACKEND_HOST}."
+  FULL_BACKEND_HOST="${BACKEND_HOST}.onrender.com"
 else
   FULL_BACKEND_HOST="${BACKEND_HOST}"
 fi
