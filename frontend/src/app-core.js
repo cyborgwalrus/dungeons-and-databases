@@ -62,6 +62,18 @@ function buildDungeonEnemy(combat) {
   return { ...combat.enemy };
 }
 
+/** Resolve a combat action path from API links when available. */
+function resolveCombatActionPath(action) {
+  const combatLinks = state.activeCombat?._links;
+  const href = combatLinks?.[action]?.href;
+  if (href) {
+    return href.startsWith('/api/') ? href.slice(4) : href;
+  }
+
+  if (!state.activeCombat?.id) return null;
+  return `/combats/${state.activeCombat.id}/${action}`;
+}
+
 /** Render a dungeon-specific error state in the content area. */
 function renderDungeonError(message) {
   const content = document.getElementById('dungeon-content');
@@ -105,7 +117,10 @@ function syncDungeonActionControls() {
 async function handleDungeonAttack() {
   if (!state.activeCombat?.id) return;
   const action = state.player?.state === 'DUNGEON_VICTORY' ? 'next_combat' : 'attack';
-  const res = await fetchJson(`/combats/${state.activeCombat.id}/${action}`);
+  const requestPath = resolveCombatActionPath(action);
+  if (!requestPath) return;
+
+  const res = await fetchJson(requestPath);
   if (!res.ok || !res.data) {
     if (action === 'next_combat' && res.data?.error === 'No enemy types available') {
       renderDungeonError(res.data.error);
