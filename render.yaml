@@ -45,8 +45,8 @@ services:
     region: frankfurt
     plan: free
     runtime: docker
-    dockerContext: adminer
-    dockerfilePath: Dockerfile
+    dockerContext: .
+    dockerfilePath: adminer/Dockerfile
     envVars:
       - key: DATABASE_URL
         fromDatabase:
