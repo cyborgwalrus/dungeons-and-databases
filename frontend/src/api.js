@@ -28,32 +28,11 @@ export function clearAuthToken() {
   setAuthToken(null);
 }
 
-/** Resolve a request path against the configured API base. */
-function resolveApiUrl(path) {
-  if (typeof path !== 'string') {
-    return `${API_BASE}${path}`;
-  }
-
-  if (/^https?:\/\//i.test(path)) {
-    return path;
-  }
-
-  if (API_BASE.endsWith('/api') && path.startsWith('/api/')) {
-    return `${API_BASE}${path.slice(4)}`;
-  }
-
-  if (path.startsWith(API_BASE)) {
-    return path;
-  }
-
-  return `${API_BASE}${path}`;
-}
-
 /** Fetch JSON from the API while attaching auth headers when available. */
 export async function fetchJson(path, options) {
   try {
     const authToken = getAuthToken();
-    const res = await fetch(resolveApiUrl(path), {
+    const res = await fetch(`${API_BASE}${path}`, {
       ...options,
       credentials: 'omit',
       headers: {

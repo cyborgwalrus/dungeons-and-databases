@@ -34,13 +34,11 @@ export async function renderHome(root, deps) {
     const userId = state.currentUser?.id;
     if (!characterId) return;
 
-    const [characterResponse, inventoryResponse] = await Promise.all([
+    const [characterResponse, inventoryResponse, equipmentResponse] = await Promise.all([
       fetchJson(`/characters/${characterId}`),
       userId ? fetchJson(`/users/${userId}/inventory`) : Promise.resolve({ ok: false, data: [] }),
+      fetchJson(`/characters/${characterId}/equipment`),
     ]);
-
-    const equipmentHref = characterResponse?.data?._links?.equipment?.href || `/characters/${characterId}/equipment`;
-    const equipmentResponse = await fetchJson(equipmentHref);
 
     if (characterResponse.ok && characterResponse.data) {
       syncPlayerSnapshot(state, characterResponse.data);

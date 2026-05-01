@@ -41,6 +41,20 @@ services:
           property: connectionString
 
   - type: web
+    name: dnd-adminer
+    region: frankfurt
+    plan: free
+    runtime: docker
+    dockerContext: adminer
+    dockerfilePath: Dockerfile
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dnd-database
+          property: connectionString
+    healthCheckPath: /
+
+  - type: web
     name: dungeons-and-databases
     region: frankfurt
     plan: free
