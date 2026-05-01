@@ -72,6 +72,7 @@ export function renderEquipPanel(opts) {
         dragData: {
           itemId: Number(equippedCard.getAttribute('data-item-id')),
           source: equippedCard.getAttribute('data-item-source') || 'equipped',
+          unequipHref: equippedCard.getAttribute('data-item-unequip-href') || '',
         }
       });
 
@@ -80,7 +81,10 @@ export function renderEquipPanel(opts) {
         event.stopPropagation();
         const itemId = equippedCard.getAttribute('data-item-id');
         try {
-          await unequipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
+          await unequipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, {
+            itemId,
+            unequipHref: equippedCard.getAttribute('data-item-unequip-href') || '',
+          });
         } catch (error) {
           console.error('Failed to unequip item from double click', error);
         }

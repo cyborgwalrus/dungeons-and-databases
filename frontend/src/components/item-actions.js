@@ -2,6 +2,17 @@ import { getCharacterId } from '../app-state.js';
 
 export const ITEM_DRAG_MIME = 'application/x-dd-item';
 
+function resolveItemActionPath(itemRef, action, characterId) {
+  const itemId = typeof itemRef === 'object' ? itemRef?.itemId ?? itemRef?.id : itemRef;
+  const href = typeof itemRef === 'object'
+    ? (action === 'equip' ? itemRef.equipHref : itemRef.unequipHref)
+    : null;
+
+  if (href) return href;
+  if (!characterId || !itemId) return null;
+  return `/characters/${characterId}/equipment/${Number(itemId)}`;
+}
+
 /** Re-render inventory state after an inventory mutation completes. */
 async function refreshCharacterAfterInventoryChange(opts) {
   const { loadStateAndRenderPartial, syncPlayerHealthToFull } = opts;
@@ -34,7 +45,10 @@ export async function equipInventoryItem(opts, itemId) {
   const characterId = getCharacterId();
   if (!characterId) return;
 
-  await fetchJson(`/characters/${characterId}/equipment/${Number(itemId)}`, {
+  const requestPath = resolveItemActionPath(itemId, 'equip', characterId);
+  if (!requestPath) return;
+
+  await fetchJson(requestPath, {
     method: 'POST',
   });
 
@@ -48,7 +62,10 @@ export async function unequipInventoryItem(opts, itemId) {
   const characterId = getCharacterId();
   if (!characterId) return;
 
-  await fetchJson(`/characters/${characterId}/equipment/${Number(itemId)}`, {
+  const requestPath = resolveItemActionPath(itemId, 'unequip', characterId);
+  if (!requestPath) return;
+
+  await fetchJson(requestPath, {
     method: 'DELETE'
   });
 

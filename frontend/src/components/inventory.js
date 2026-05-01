@@ -122,6 +122,7 @@ export function renderInventoryGrid(opts) {
         itemId: Number(card.getAttribute('data-item-id')),
         source: card.getAttribute('data-item-source') || 'inventory',
         slot_type: card.getAttribute('data-item-slot-type') || '',
+        equipHref: card.getAttribute('data-item-equip-href') || '',
       }
     });
 
@@ -130,7 +131,10 @@ export function renderInventoryGrid(opts) {
       event.stopPropagation();
       const itemId = card.getAttribute('data-item-id');
       try {
-        await equipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, itemId);
+        await equipInventoryItem({ fetchJson, loadStateAndRenderPartial, syncPlayerHealthToFull }, {
+          itemId,
+          equipHref: card.getAttribute('data-item-equip-href') || '',
+        });
       } catch (error) {
         console.error('Failed to equip item from double click', error);
       }
