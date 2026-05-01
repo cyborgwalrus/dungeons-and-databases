@@ -9,7 +9,7 @@ backend/
 ├── .dockerignore           # Backend-specific ignore rules for container builds
 ├── __init__.py             # Marks backend as a Python package
 ├── app.py                  # Flask application factory, extension setup, and route registration
-├── config.cfg              # Configuration for Flask monitoring dashboard
+├── dashboard_config.cfg              # Configuration for Flask monitoring dashboard
 ├── Dockerfile              # Backend container image definition
 ├── openapi.yaml            # OpenAPI document served at /api/openapi.yaml and used by Swagger UI
 ├── README.md               # Backend API notes and endpoint guide

@@ -5,7 +5,7 @@ RENDER="${RENDER:-false}"
 PORT="${PORT:-8080}"
 BACKEND_API_BASE="${BACKEND_API_BASE:-/api}"
 BACKEND_HOST="${BACKEND_HOST:-backend}"
-BACKEND_PORT="${BACKEND_PORT:-10000}"
+BACKEND_PORT="${BACKEND_PORT:-5000}"
 
 if [ "${RENDER}" = "true" ]; then
   BACKEND_API_BASE="https://${BACKEND_HOST}.onrender.com/api"

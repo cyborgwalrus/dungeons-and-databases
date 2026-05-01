@@ -1,9 +1,13 @@
 # Dungeons & Databases
 
 > [!IMPORTANT]
-> All of the code in this repository has been created using Github Copilot and GPT-5.4 mini agents, available for free to students with a monthly request allowance (generous enough to fit the whole project into). Prompt history available in [prompt_history/copilot_chat_prompts.csv](prompt_history/copilot_chat_prompts.csv).
+> All of the code in this repository has been created using Github Copilot and GPT-5.4 mini agents (and then reviewed and fixed by humans), available for free to students with a monthly request allowance (generous enough to fit the whole project into). Prompt history available in [prompt_history/copilot_chat_prompts.csv](prompt_history/copilot_chat_prompts.csv).
 
 Browser based dungeon crawler. Equip your character with your best items and delve into the depths of the dungeon. The deeper you go, the better the loot, but beware; The monsters get tougher and only winners get to keep their loot.
+
+Equip powerful items       |  Fight monsters for XP and loot
+:-------------------------:|:-------------------------:
+ ![alt text](docs/home-screen.png) |  ![alt text](docs/combat-screen.png)
 
 ## Architecture
 
@@ -44,7 +48,7 @@ Disables hot reload and places the database in a persistent volume.
 
 ## Deployment on Render cloud
 
-Production branch is automatically deployed to a free tier [Render cloud](https://render.com/) instance, with frontend available at <https://dungeons-and-databases.onrender.com>. The deployment configuration can be found in the [docs/deployment.puml](docs/deployment.puml) file.
+Production branch is automatically deployed to a free tier [Render cloud](https://render.com/) instance, with frontend available at <https://dungeons-and-databases.onrender.com>. The deployment configuration can be found in [render.yaml](render.yaml).
 
 ## Code Coverage
 
@@ -54,10 +58,17 @@ Latest code coverage report of the main branch backend API is available at <http
 
 The repository includes the following Github Actions workflows:
 
-* [cicd.yml](.github/workflows/cicd.yml)
-  * Runs the backend test suite (stops here if tests fail).
-  * Publishes the code coverage report to Github Pages.
-  * Pushes main branch changes to the Production branch
+### [cicd.yml](.github/workflows/cicd.yml)
+
+1. Runs the backend test suite (stops here if tests fail).
+2. Publishes the code coverage report to Github Pages.
+3. Runs integration test for the Production Docker deployment. (stops here if tests fail).
+4. Pushes the main branch changes to the Production branch
+
+### [docs-to-prod.yml](.github/workflows/docs-to-prod.yml)
+
+1. Looks for changes in the `docs/` directory or markdown files.
+2. If any, pushes the main branch changes to the Production branch.
 
 ## Quick Links
 

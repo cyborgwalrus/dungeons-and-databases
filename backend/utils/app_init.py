@@ -90,9 +90,10 @@ def init_dashboard(app: Flask) -> None:
     """Initialize the monitoring dashboard integration."""
     import flask_monitoringdashboard as dashboard  # pylint: disable=import-outside-toplevel
 
-    dashboard.config.init_from(file=str(Path(app.root_path).with_name('config.cfg')))
+    dashboard.config.init_from(file=str(Path(app.root_path).with_name('dashboard_config.cfg')))
     dashboard.config.password = os.environ.get('ADMIN_PASSWORD', dashboard.config.password)
     dashboard.bind(app)
+
 
 
 def init_converters(app: Flask) -> None:

@@ -1,10 +1,11 @@
-@startuml deployment
+@startuml cloud-deployment
 title Dungeons and Databases CI/CD to Render Cloud Deployment
 'left to right direction
-skinparam shadowing false
 skinparam componentStyle rectangle
 'skinparam packageStyle rectangle
 'skinparam linetype polyline
+skinparam DefaultFontSize 20
+skinparam TitleFontSize 20
 
 together{
 actor "Developer" as dev

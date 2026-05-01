@@ -5,14 +5,13 @@ skinparam shadowing false
 skinparam componentStyle rectangle
 'skinparam packageStyle rectangle
 'skinparam linetype polyline
+skinparam DefaultFontSize 20
+skinparam TitleFontSize 25
 
 actor "User browser" as user
 
-cloud "Ngrok API gateway" as ngrok
-
 package "Locally hosted Docker containers" {
-    component "Ngrok tunnel\ncontainer" as ngrokTunnel
-    
+
     package "Frontend Container" {
         component "Nginx proxy" as nginx
         component "HTML+JS app" as frontend
@@ -26,9 +25,8 @@ package "Locally hosted Docker containers" {
     }
 }
 
-user -r-> ngrok : ngrok tunnel public URL
-ngrok --> ngrokTunnel : ngrok tunnel
-ngrokTunnel -l--> nginx : Forward requests
+user --> nginx : browse app
+
 nginx -> frontend : Static files
 
 nginx -u-> backend : API calls

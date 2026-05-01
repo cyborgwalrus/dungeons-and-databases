@@ -113,6 +113,6 @@ def test_init_dashboard_configures_and_binds_dashboard(monkeypatch):
 
     app_init.init_dashboard(app)
 
-    assert init_from_calls == [{'file': str(Path(app.root_path).with_name('config.cfg'))}]
+    assert init_from_calls == [{'file': str(Path(app.root_path).with_name('dashboard_config.cfg'))}]
     assert dashboard_module.config.password == 'override-password'
     assert bind_calls == [app]

@@ -3,7 +3,7 @@ set -e
 
 #THREAD_COUNT="$(nproc --all)"  # Use all available CPU cores for Gunicorn workers
 THREAD_COUNT=4  # Use a fixed number of workers for better performance on Render's free tier
-BIND_PORT="${PORT:-10000}"
+BIND_PORT="${PORT:-5000}"
 
 cd "$(dirname "$0")/.."
 

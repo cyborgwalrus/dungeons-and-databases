@@ -6,7 +6,7 @@ node_modules
 .venv
 .pytest_cache
 .vscode
-.coverage
+.coverage*
 settings.json
 *.egg-info
 pylint-report.txt
