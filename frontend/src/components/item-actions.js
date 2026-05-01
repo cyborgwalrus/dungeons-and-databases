@@ -2,13 +2,30 @@ import { getCharacterId } from '../app-state.js';
 
 export const ITEM_DRAG_MIME = 'application/x-dd-item';
 
+function normalizeApiPath(path) {
+  if (!path) return null;
+
+  let normalizedPath = path;
+  try {
+    if (/^https?:\/\//i.test(normalizedPath)) {
+      normalizedPath = new URL(normalizedPath).pathname;
+    }
+  } catch {
+    return null;
+  }
+
+  return normalizedPath.startsWith('/api/')
+    ? normalizedPath.slice(4)
+    : normalizedPath;
+}
+
 function resolveItemActionPath(itemRef, action, characterId) {
   const itemId = typeof itemRef === 'object' ? itemRef?.itemId ?? itemRef?.id : itemRef;
   const href = typeof itemRef === 'object'
     ? (action === 'equip' ? itemRef.equipHref : itemRef.unequipHref)
     : null;
 
-  if (href) return href;
+  if (href) return normalizeApiPath(href);
   if (!characterId || !itemId) return null;
   return `/characters/${characterId}/equipment/${Number(itemId)}`;
 }
