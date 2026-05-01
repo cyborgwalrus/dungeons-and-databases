@@ -191,6 +191,7 @@ class CharacterEquipmentItemResource(Resource):
 
         db.session.commit()
         db.session.expire(character)
+        db.session.expire(item)
         invalidate_user_characters_cache(character.user_id)
         invalidate_user_inventory_cache(character.user_id)
         return {
@@ -225,6 +226,7 @@ class CharacterEquipmentItemResource(Resource):
 
         db.session.commit()
         db.session.expire(character)
+        db.session.expire(item)
         invalidate_user_characters_cache(character.user_id)
         invalidate_user_inventory_cache(character.user_id)
         return {
