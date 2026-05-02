@@ -46,7 +46,7 @@ services:
     plan: free
     runtime: docker
     dockerContext: .
-    dockerfilePath: adminer/Dockerfile
+    dockerfilePath: /backend/adminer/Dockerfile
     envVars:
       - key: DATABASE_URL
         fromDatabase:
