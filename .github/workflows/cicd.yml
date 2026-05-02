@@ -9,6 +9,7 @@ on:
       - '.gitignore'
       - 'docs/**'
       - 'LICENSE'
+      - 'prompt_history/**'
 
 permissions:
   contents: write

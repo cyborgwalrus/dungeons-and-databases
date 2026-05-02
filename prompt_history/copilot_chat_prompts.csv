@@ -953,20 +953,6 @@ keyerror ""success"""
 2026-04-23T09:51:55+00:00,Matias,chat2.json,copilot/gpt-5.4-mini,route the api docs to the frontend
 2026-04-23T09:51:55+00:00,Matias,chat2.json,copilot/gpt-5.4-mini,the api is responding with 404 instead of 401 when an user without token tries to get from the api
 2026-04-23T09:51:55+00:00,Matias,chat2.json,copilot/gpt-5.4-mini,"this part is wrong, the db reset is tied to a different env"
-2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/gpt-5.4-mini,go home button is still using the run action
-2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/gpt-5.4-mini,"new combat flow:
-- add ""go home"" action to combat api
-- when player defeats an enemy:
-   - change ""run away"" button to ""go home""
-   - change ""attack"" button to ""go deeper""
-   - keep the stat card of the defeated enemy visible
-- if the player attacks, change ""go home"" back to ""run away"" and ""go deeper"" to ""attack"", and load next enemy"
-2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/gpt-5.4-mini,"pressing go home does nothing, api responds with ""invalid combat action"""
-2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/gpt-5.4-mini,remove dependancy to sqlalchemy import and replace with sqlmodel equivelents
-2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/gpt-5.4-mini,"sqlalchemy.exc.InvalidRequestError: When initializing mapper Mapper[User(user)], expression ""relationship(""list['Character']"")"" seems to be using a generic class as the argument to relationship(); please state the generic argument using an annotation, e.g. ""characters: Mapped[list['Character']] = relationship()"""
-2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/auto,"try again. here is how relationships are used in sqlmodel:
-https://sqlmodel.tiangolo.com/tutorial/relationship-attributes/define-relationships-attributes/"
-2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/auto,try again. you did not change the code
 2026-04-23T10:24:00+00:00,chat,chat.json,copilot/auto,add short test to increase the coverage
 2026-04-23T10:24:00+00:00,chat,chat.json,copilot/gpt-5.4-mini,add this to background image
 2026-04-23T10:24:00+00:00,chat,chat.json,copilot/gpt-5.4-mini,"after equipping -> 100 / 109
@@ -990,3 +976,140 @@ equipInventoryItem	@	item-actions.js:37
 2026-04-23T10:24:00+00:00,chat,chat.json,copilot/gpt-5.4-mini,line up the login page to the center.
 2026-04-23T10:24:00+00:00,chat,chat.json,copilot/gpt-5.4-mini,strecth that box to match the left side
 2026-04-23T10:24:00+00:00,chat,chat.json,copilot/gpt-5.4-mini,"undo the changes and center the inner box, where username and passwords are"
+2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/gpt-5.4-mini,go home button is still using the run action
+2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/gpt-5.4-mini,"new combat flow:
+- add ""go home"" action to combat api
+- when player defeats an enemy:
+   - change ""run away"" button to ""go home""
+   - change ""attack"" button to ""go deeper""
+   - keep the stat card of the defeated enemy visible
+- if the player attacks, change ""go home"" back to ""run away"" and ""go deeper"" to ""attack"", and load next enemy"
+2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/gpt-5.4-mini,"pressing go home does nothing, api responds with ""invalid combat action"""
+2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/gpt-5.4-mini,remove dependancy to sqlalchemy import and replace with sqlmodel equivelents
+2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/gpt-5.4-mini,"sqlalchemy.exc.InvalidRequestError: When initializing mapper Mapper[User(user)], expression ""relationship(""list['Character']"")"" seems to be using a generic class as the argument to relationship(); please state the generic argument using an annotation, e.g. ""characters: Mapped[list['Character']] = relationship()"""
+2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/auto,"try again. here is how relationships are used in sqlmodel:
+https://sqlmodel.tiangolo.com/tutorial/relationship-attributes/define-relationships-attributes/"
+2026-04-23T12:05:44+00:00,Matias,chat.json,copilot/auto,try again. you did not change the code
+2026-04-23T15:30:38+00:00,Matias,chat15.json,copilot/claude-haiku-4.5,add flask-monitoring
+2026-04-23T15:30:38+00:00,Matias,chat15.json,copilot/gpt-5.4-mini,generate dashboard configuration for monitoring all the api endpoints
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,Start implementation
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,add missing tests
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,backend is nearing its final version. Cleanup and reorganize tests to match new backend structure.
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,changes caused importerrors
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,continue
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,"def test_route_helpers_user_and_character_guards(client, entities, monkeypatch):
+        """"""Validate user and character ownership helpers.""""""
+        assert client is not None
+        owner_character_data = _create_owner_and_intruder(entities)
+        owner_character = owner_character_data[2]
+        other_character = owner_character_data[3]
+    
+        monkeypatch.setattr(route_helpers, 'get_current_user', lambda: None)
+        missing_user, missing_user_error = route_helpers.require_current_user()
+        assert missing_user is None
+        assert missing_user_error == ({'error': 'Unauthorized'}, 401)
+    
+        monkeypatch.setattr(route_helpers, 'get_character', lambda character_id=None: None)
+        missing_character, missing_character_error = route_helpers.require_current_character()
+        assert missing_character is None
+        assert missing_character_error == (
+            {'error': 'No active character selected'},
+            400,
+        )
+    
+        monkeypatch.setattr(route_helpers, 'get_character', lambda character_id=None: owner_character)
+        selected_character, selected_character_error = route_helpers.require_current_character()
+        assert selected_character == owner_character
+        assert selected_character_error is None
+    
+        owner_character_lookup, owner_character_error = route_helpers.require_character_owner(
+            owner_character.id,
+        )
+>       assert owner_character_lookup == owner_character
+E       AssertionError: assert None == Character(user_id=1, name='Carrier', level=1, health=100, damage=10, id=1, experience=0)
+
+tests\backend\utils\test_route_helpers.py:61: AssertionError"
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,implement
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,investigate backend pylance errors
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,investigate ways to increase test coverage
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,look for dependancies and helper functions that could be removed
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,start implementation
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,"tests\backend\conftest.py:13: in <module>
+    from backend.app import app as flask_app
+backend\app.py:13: in <module>
+    from backend.resources.characters import register_character_resources
+backend\resources\characters.py:14: in <module>
+    from backend.utils.route_helpers import (
+E   ImportError: cannot import name 'require_item' from 'backend.utils.route_helpers'"
+2026-04-24T07:40:13+00:00,Matias,chat16.json,copilot/gpt-5.4-mini,why is this missing coverage?
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,"- character is missing hyperlink for transitioning from home to dungeon_combat by posting to the combat collection resource
+- equipping and unequipping items should be available only in the home state"
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,"- dont add hypermedia to cache helpers
+- rename links to _links
+- include _links in schema validation"
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,Add hypermedia links for unequipping an equipped item and equipping an inventory item
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,"Fix bugs:
+- ""sell all"" button does nothing. 
+- After back-to-back combats, only the last loot item dropped makes it into the inventory, the rest dissapear"
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,Start implementation
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,add 'ngrok-skip-browser-warning': 'true' header to all api calls
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,add supported http methods to the hyperlinks
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,add the links into the item payload
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,backend readme project structure is outdated
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,fix new bug: Character is still in the combat state while in the home screen if the user exits the combat screen by manually loading the home screen url
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,"handle the forced dungeon to home transition as a run action, not home action"
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,move equipping items from CharacterEquipmentResource to   POST CharacterEquipmentItemResource
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,"plan minimal implementation of hypermedia into the api:
+- use flask url_for
+- add resource-spesific link creation as class methods into models.py
+- create ultils/hypermedia.py where you define hypermedia injectors that will be used to inject the hypermedia links in the last return statement of flask_restful Resources in backend/resources/*"
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,the frontend is firing the GET me request twice every time
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,the player is still receiving their combat loot if they exploit their way into the home screen. The loot should be placed in the inventory only with the go_home action
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,trying to equip items fails with 405 The method is not allowed for the requested URL.
+2026-04-28T08:27:11+00:00,Matias,chat17json.json,copilot/gpt-5.4-mini,"update openapi.yaml, update readmes, update database-schema.puml. Create a planuml hypermedia state diagram for api"
+2026-04-29T08:32:26+00:00,Matias,chat18.json,copilot/gpt-5.4-mini,"Run peaceiris/actions-gh-pages@v3
+[INFO] Usage https://github.com/peaceiris/actions-gh-pages#readme
+Dump inputs
+Setup auth token
+Prepare publishing assets
+Setup Git config
+Create a commit
+Push the commit or tag
+  /usr/bin/git push origin gh-pages
+  error: src refspec gh-pages does not match any
+  error: failed to push some refs to 'https://github.com/cyborgwalrus/dungeons-and-databases.git'
+  Error: Action failed with ""The process '/usr/bin/git' failed with exit code 1"""
+2026-04-29T08:32:26+00:00,Matias,chat18.json,copilot/gpt-5.4-mini,add github action that renders the plantuml diagrams in /docs
+2026-04-29T08:32:26+00:00,Matias,chat18.json,copilot/gpt-5.4-mini,create a github action that runs the tests and deploys the coverage html to pages using peaceiris/actions-gh-pages@v3
+2026-04-29T12:55:25+00:00,Matias,chat19.json,copilot/gpt-5.4-mini,update project structure section to match current project layout and add missing description comments to files
+2026-04-29T21:28:35+00:00,Matias,chat20.json,copilot/gpt-5.4-mini,Create a render.yaml deployment for the production compose deployment
+2026-04-29T21:28:35+00:00,Matias,chat20.json,copilot/gpt-5.4-mini,"before continuing, change the current deployments from localhost to container hostnames, keeping frontend as the only entrypoint into the service"
+2026-04-29T21:28:35+00:00,Matias,chat20.json,copilot/gpt-5.4-mini,continue
+2026-04-29T21:28:35+00:00,Matias,chat20.json,copilot/gpt-5.4-mini,keep the adminer in prod compose and make it usable with postgres
+2026-04-29T21:28:35+00:00,Matias,chat20.json,copilot/gpt-5.4-mini,"yes, replace sqlite with render based database"
+2026-04-29T21:28:35+00:00,Matias,chat20.json,copilot/gpt-5.4-mini,you didnt put the adminer back in
+2026-04-29T21:28:35+00:00,Matias,chat20.json,copilot/gpt-5.4-mini,you were supose to mirror the render setup in the prod compose
+2026-04-30T18:38:34+00:00,Matias,chat21.json,copilot/gpt-5.4-mini,"- remove sqlite compatibility from the backend
+- for both docker deployments, /api/docs loads but has no content"
+2026-04-30T18:38:34+00:00,Matias,chat21.json,copilot/gpt-5.4-mini,"2026/04/30 18:50:40 [emerg] 1#1: host not found in upstream ""backend"" in /etc/nginx/conf.d/default.conf:16
+nginx: [emerg] host not found in upstream ""backend"" in /etc/nginx/conf.d/default.conf:16
+
+your changes broke render production, just like i said."
+2026-04-30T18:38:34+00:00,Matias,chat21.json,copilot/gpt-5.4-mini,add env variables to the api proxy templte
+2026-04-30T18:38:34+00:00,Matias,chat21.json,copilot/gpt-5.4-mini,continue
+2026-04-30T18:38:34+00:00,Matias,chat21.json,copilot/gpt-5.4-mini,cors failed
+2026-04-30T18:38:34+00:00,Matias,chat21.json,copilot/gpt-5.4-mini,fix test
+2026-04-30T18:38:34+00:00,Matias,chat21.json,copilot/gpt-5.4-mini,move the local only routing to a seperate template file and load it in the script
+2026-04-30T18:38:34+00:00,Matias,chat21.json,copilot/gpt-5.4-mini,"remake docker-compose using docker-compose.prod. They should be the same, except docker-compose should have WIPE_DP_ON_RESTART set to true and support hot reloading"
+2026-04-30T18:38:34+00:00,Matias,chat21.json,copilot/gpt-5.4-mini,"the full stack works in render, but locally api calls throw 405 not allowed"
+2026-04-30T18:38:34+00:00,Matias,chat21.json,copilot/gpt-5.4-mini,your changes will break render production
+2026-05-02T09:01:35+00:00,Matias,chat14.json,copilot/gpt-5.4-mini,"The script from “http://localhost:8080/dashboard/static/js/prism.js” was loaded even though its MIME type (“text/html”) is not a valid JavaScript MIME type. dashboard
+The script from “http://localhost:8080/dashboard/static/js/app.js” was loaded even though its MIME type (“text/html”) is not a valid JavaScript MIME type. dashboard
+The stylesheet http://localhost:8080/dashboard/static/css/main.css was not loaded because its MIME type, “text/html”, is not “text/css”. dashboard
+The stylesheet http://localhost:8080/dashboard/static/css/prism.css was not loaded because its MIME type, “text/html”, is not “text/css”. dashboard
+Uncaught SyntaxError: expected expression, got '<' prism.js:1:1
+Uncaught SyntaxError: expected expression, got '<'"
+2026-05-02T09:01:35+00:00,Matias,chat14.json,copilot/gpt-5.4-mini,add locations so that the flask dashboard is available at localhost:8080/admin/dashboard and adminer at localhost:8080/admin/dashboard
+2026-05-02T09:01:35+00:00,Matias,chat14.json,copilot/gpt-5.4-mini,"http://localhost:8080/admin/dashboard/	""The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.""
+
+http://localhost:5000/dashboard works"
