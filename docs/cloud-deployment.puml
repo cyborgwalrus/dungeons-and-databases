@@ -11,6 +11,7 @@ together{
 actor "Developer" as dev
 actor "End user" as endUser
 actor "API client" as apiClient
+actor "Database Admin" as admin
 }
 
 
@@ -31,6 +32,7 @@ cloud Github {
 cloud "Render Cloud" as renderDeployment {
 	component "**Frontend web service**\nfrom frontend Dockerfile" as renderFrontend
 	component "**Backend web service**\nfrom backend Dockerfile" as renderBackend
+	component "**Adminer web service**\nfrom adminer Dockerfile" as renderAdminer
 	database "**Redis service**" as renderRedis
 	database "**PostgreSQL service**" as renderDb
 }
@@ -48,10 +50,13 @@ integrationTests --> githubProd : code changes
 githubProd -r-> renderDeployment : Render auto-deploy
 
 
-endUser --> renderFrontend : browse deployed app
-apiClient --> renderBackend : API requests and Docs
+endUser --> renderFrontend
+apiClient --> renderBackend
 renderFrontend --> renderBackend : API requests
 renderBackend --> renderDb : read/write data
 renderBackend --> renderRedis : cache
+
+admin --> renderAdminer
+renderAdminer --> renderDb : db management
 
 @enduml
