@@ -49,7 +49,10 @@ services:
     dockerfilePath: frontend/Dockerfile
     envVars:
       - key: BACKEND_API_BASE
-        value: https://dnd-backend-ysls.onrender.com
+        fromService:
+          name: dnd-backend
+          type: web
+          property: host
     healthCheckPath: /
 
 databases:
